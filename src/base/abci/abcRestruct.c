@@ -114,7 +114,7 @@ int Abc_NtkRestructure( Abc_Ntk_t * pNtk, int nCutMax, bool fUpdateLevel, bool f
 
     // compute the reverse levels if level update is requested
     if ( fUpdateLevel )
-        Abc_NtkStartReverseLevels( pNtk );
+        Abc_NtkStartReverseLevels( pNtk, 0 );
 
     // start the restructuring manager
     pManRst = Abc_NtkManRstStart( nCutMax, fUpdateLevel, fUseZeros, fVerbose );
@@ -324,7 +324,7 @@ Dec_Graph_t * Abc_NodeRestructureCut( Abc_ManRst_t * p, Abc_Obj_t * pRoot, Cut_C
     p->nCutsConsidered++;
 
     // get the required time for the node
-    Required = p->fUpdateLevel? Abc_NodeReadRequiredLevel(pRoot) : ABC_INFINITY;
+    Required = p->fUpdateLevel? Abc_ObjRequiredLevel(pRoot) : ABC_INFINITY;
 
     // collect the leaves of the cut
     Vec_PtrClear( p->vLeaves );
@@ -391,7 +391,7 @@ p->timeDsd += clock() - clk;
         pLeaf->vFanouts.nSize++;
     // label MFFC with current traversal ID
     Abc_NtkIncrementTravId( pRoot->pNtk );
-    nNodesSaved = Abc_NodeMffcLabel( pRoot );
+    nNodesSaved = Abc_NodeMffcLabelAig( pRoot );
     // unmark the fanin boundary and set the fanins as leaves in the form
     Vec_PtrForEachEntry( p->vLeaves, pLeaf, i )
         pLeaf->vFanouts.nSize--;

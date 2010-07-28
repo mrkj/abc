@@ -74,7 +74,7 @@ int Hop_ManCheck( Hop_Man_t * p )
             printf( "Hop_ManCheck: The AIG has internal node \"%p\" with a NULL fanin.\n", pObj );
             return 0;
         }
-        if ( Hop_ObjFanin0(pObj) >= Hop_ObjFanin1(pObj) )
+        if ( Hop_ObjFanin0(pObj)->Id >= Hop_ObjFanin1(pObj)->Id )
         {
             printf( "Hop_ManCheck: The AIG has node \"%p\" with a wrong ordering of fanins.\n", pObj );
             return 0;

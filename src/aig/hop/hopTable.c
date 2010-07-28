@@ -28,8 +28,8 @@
 static unsigned long Hop_Hash( Hop_Obj_t * pObj, int TableSize ) 
 {
     unsigned long Key = Hop_ObjIsExor(pObj) * 1699;
-    Key ^= (long)Hop_ObjFanin0(pObj) * 7937;
-    Key ^= (long)Hop_ObjFanin1(pObj) * 2971;
+    Key ^= Hop_ObjFanin0(pObj)->Id * 7937;
+    Key ^= Hop_ObjFanin1(pObj)->Id * 2971;
     Key ^= Hop_ObjFaninC0(pObj) * 911;
     Key ^= Hop_ObjFaninC1(pObj) * 353;
     return Key % TableSize;
@@ -38,13 +38,14 @@ static unsigned long Hop_Hash( Hop_Obj_t * pObj, int TableSize )
 // returns the place where this node is stored (or should be stored)
 static Hop_Obj_t ** Hop_TableFind( Hop_Man_t * p, Hop_Obj_t * pObj )
 {
-    int i;
+    Hop_Obj_t ** ppEntry;
     assert( Hop_ObjChild0(pObj) && Hop_ObjChild1(pObj) );
-    assert( Hop_ObjChild0(pObj) <  Hop_ObjChild1(pObj) );
-    for ( i = Hop_Hash(pObj, p->nTableSize); p->pTable[i]; i = (i+1) % p->nTableSize )
-        if ( p->pTable[i] == pObj )
-            break;
-    return p->pTable + i;
+    assert( Hop_ObjFanin0(pObj)->Id < Hop_ObjFanin1(pObj)->Id );
+    for ( ppEntry = p->pTable + Hop_Hash(pObj, p->nTableSize); *ppEntry; ppEntry = &(*ppEntry)->pNext )
+        if ( *ppEntry == pObj )
+            return ppEntry;
+    assert( *ppEntry == NULL );
+    return ppEntry;
 }
 
 static void         Hop_TableResize( Hop_Man_t * p );
@@ -56,7 +57,7 @@ static unsigned int Cudd_PrimeAig( unsigned int  p );
  
 /**Function*************************************************************
 
-  Synopsis    [Checks if node with the given attributes is in the hash table.]
+  Synopsis    [Checks if a node with the given attributes is in the hash table.]
 
   Description []
                
@@ -67,18 +68,18 @@ static unsigned int Cudd_PrimeAig( unsigned int  p );
 ***********************************************************************/
 Hop_Obj_t * Hop_TableLookup( Hop_Man_t * p, Hop_Obj_t * pGhost )
 {
-    int i;
+    Hop_Obj_t * pEntry;
     assert( !Hop_IsComplement(pGhost) );
     assert( Hop_ObjChild0(pGhost) && Hop_ObjChild1(pGhost) );
-    assert( Hop_ObjChild0(pGhost) <  Hop_ObjChild1(pGhost) );
+    assert( Hop_ObjFanin0(pGhost)->Id < Hop_ObjFanin1(pGhost)->Id );
     if ( p->fRefCount && (!Hop_ObjRefs(Hop_ObjFanin0(pGhost)) || !Hop_ObjRefs(Hop_ObjFanin1(pGhost))) )
         return NULL;
-    for ( i = Hop_Hash(pGhost, p->nTableSize); p->pTable[i]; i = (i+1) % p->nTableSize )
+    for ( pEntry = p->pTable[Hop_Hash(pGhost, p->nTableSize)]; pEntry; pEntry = pEntry->pNext )
     {
-        if ( Hop_ObjChild0(p->pTable[i]) == Hop_ObjChild0(pGhost) && 
-             Hop_ObjChild1(p->pTable[i]) == Hop_ObjChild1(pGhost) && 
-             Hop_ObjType(p->pTable[i]) == Hop_ObjType(pGhost) )
-            return p->pTable[i];
+        if ( Hop_ObjChild0(pEntry) == Hop_ObjChild0(pGhost) && 
+             Hop_ObjChild1(pEntry) == Hop_ObjChild1(pGhost) && 
+             Hop_ObjType(pEntry) == Hop_ObjType(pGhost) )
+            return pEntry;
     }
     return NULL;
 }
@@ -99,7 +100,7 @@ void Hop_TableInsert( Hop_Man_t * p, Hop_Obj_t * pObj )
     Hop_Obj_t ** ppPlace;
     assert( !Hop_IsComplement(pObj) );
     assert( Hop_TableLookup(p, pObj) == NULL );
-    if ( p->nTableSize < 2 * Hop_ManNodeNum(p) )
+    if ( (pObj->Id & 0xFF) == 0 && 2 * p->nTableSize < Hop_ManNodeNum(p) )
         Hop_TableResize( p );
     ppPlace = Hop_TableFind( p, pObj );
     assert( *ppPlace == NULL );
@@ -119,20 +120,13 @@ void Hop_TableInsert( Hop_Man_t * p, Hop_Obj_t * pObj )
 ***********************************************************************/
 void Hop_TableDelete( Hop_Man_t * p, Hop_Obj_t * pObj )
 {
-    Hop_Obj_t * pEntry, ** ppPlace;
-    int i;
+    Hop_Obj_t ** ppPlace;
     assert( !Hop_IsComplement(pObj) );
     ppPlace = Hop_TableFind( p, pObj );
     assert( *ppPlace == pObj ); // node should be in the table
-    *ppPlace = NULL;
-    // rehash the adjacent entries
-    i = ppPlace - p->pTable;
-    for ( i = (i+1) % p->nTableSize; p->pTable[i]; i = (i+1) % p->nTableSize )
-    {
-        pEntry = p->pTable[i];
-        p->pTable[i] = 0;
-        Hop_TableInsert( p, pEntry );
-    }
+    // remove the node
+    *ppPlace = pObj->pNext;
+    pObj->pNext = NULL;
 }
 
 /**Function*************************************************************
@@ -148,9 +142,11 @@ void Hop_TableDelete( Hop_Man_t * p, Hop_Obj_t * pObj )
 ***********************************************************************/
 int Hop_TableCountEntries( Hop_Man_t * p )
 {
+    Hop_Obj_t * pEntry;
     int i, Counter = 0;
     for ( i = 0; i < p->nTableSize; i++ )
-        Counter += (p->pTable[i] != NULL);
+        for ( pEntry = p->pTable[i]; pEntry; pEntry = pEntry->pNext )
+            Counter++;
     return Counter;
 }
 
@@ -167,30 +163,32 @@ int Hop_TableCountEntries( Hop_Man_t * p )
 ***********************************************************************/
 void Hop_TableResize( Hop_Man_t * p )
 {
+    Hop_Obj_t * pEntry, * pNext;
     Hop_Obj_t ** pTableOld, ** ppPlace;
-    int nTableSizeOld, Counter, nEntries, e, clk;
+    int nTableSizeOld, Counter, nEntries, i, clk;
 clk = clock();
     // save the old table
     pTableOld = p->pTable;
     nTableSizeOld = p->nTableSize;
     // get the new table
-    p->nTableSize = Cudd_PrimeAig( 5 * Hop_ManNodeNum(p) ); 
+    p->nTableSize = Cudd_PrimeAig( 2 * Hop_ManNodeNum(p) ); 
     p->pTable = ALLOC( Hop_Obj_t *, p->nTableSize );
     memset( p->pTable, 0, sizeof(Hop_Obj_t *) * p->nTableSize );
     // rehash the entries from the old table
     Counter = 0;
-    for ( e = 0; e < nTableSizeOld; e++ )
+    for ( i = 0; i < nTableSizeOld; i++ )
+    for ( pEntry = pTableOld[i], pNext = pEntry? pEntry->pNext : NULL; pEntry; pEntry = pNext, pNext = pEntry? pEntry->pNext : NULL )
     {
-        if ( pTableOld[e] == 0 )
-            continue;
+        // get the place where this entry goes in the table 
+        ppPlace = Hop_TableFind( p, pEntry );
+        assert( *ppPlace == NULL ); // should not be there
+        // add the entry to the list
+        *ppPlace = pEntry;
+        pEntry->pNext = NULL;
         Counter++;
-        // get the place where this entry goes in the table table
-        ppPlace = Hop_TableFind( p, pTableOld[e] );
-        assert( *ppPlace == NULL ); // should not be in the table
-        *ppPlace = pTableOld[e];
     }
     nEntries = Hop_ManNodeNum(p);
-//    assert( Counter == nEntries );
+    assert( Counter == nEntries );
 //    printf( "Increasing the structural table size from %6d to %6d. ", nTableSizeOld, p->nTableSize );
 //    PRT( "Time", clock() - clk );
     // replace the table and the parameters
@@ -210,16 +208,15 @@ clk = clock();
 ******************************************************************************/
 void Hop_TableProfile( Hop_Man_t * p )
 {
-    int i, Counter = 0;
+    Hop_Obj_t * pEntry;
+    int i, Counter;
     for ( i = 0; i < p->nTableSize; i++ )
     {
-        if ( p->pTable[i] )
+        Counter = 0;
+        for ( pEntry = p->pTable[i]; pEntry; pEntry = pEntry->pNext )
             Counter++;
-        else if ( Counter )
-        {
+        if ( Counter ) 
             printf( "%d ", Counter );
-            Counter = 0;
-        }
     }
 }
 
@@ -237,7 +234,6 @@ void Hop_TableProfile( Hop_Man_t * p )
 unsigned int Cudd_PrimeAig( unsigned int  p)
 {
     int i,pn;
-
     p--;
     do {
         p++;

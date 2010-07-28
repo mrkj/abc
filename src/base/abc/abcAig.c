@@ -59,6 +59,8 @@ struct Abc_Aig_t_
     Vec_Ptr_t *       vStackReplaceNew;  // the nodes to be used for replacement
     Vec_Vec_t *       vLevels;           // the nodes to be updated
     Vec_Vec_t *       vLevelsR;          // the nodes to be updated
+    Vec_Ptr_t *       vAddedCells;       // the added nodes
+    Vec_Ptr_t *       vUpdatedNets;      // the nodes whose fanouts have changed
 
     int               nStrash0;
     int               nStrash1;
@@ -139,6 +141,7 @@ Abc_Aig_t * Abc_AigAlloc( Abc_Ntk_t * pNtkAig )
     assert( pNtkAig->vObjs->nSize == 0 );
     pMan->pConst1 = Abc_NtkCreateObj( pNtkAig, ABC_OBJ_NODE );
     pMan->pConst1->Type = ABC_OBJ_CONST1;
+    pMan->pConst1->fPhase = 1;
     pNtkAig->nObjCounts[ABC_OBJ_NODE]--;
     // save the current network
     pMan->pNtkAig = pNtkAig;
@@ -161,6 +164,10 @@ void Abc_AigFree( Abc_Aig_t * pMan )
     assert( Vec_PtrSize( pMan->vStackReplaceOld ) == 0 );
     assert( Vec_PtrSize( pMan->vStackReplaceNew ) == 0 );
     // free the table
+    if ( pMan->vAddedCells )
+        Vec_PtrFree( pMan->vAddedCells );
+    if ( pMan->vUpdatedNets )
+        Vec_PtrFree( pMan->vUpdatedNets );
     Vec_VecFree( pMan->vLevels );
     Vec_VecFree( pMan->vLevelsR );
     Vec_PtrFree( pMan->vStackReplaceOld );
@@ -255,6 +262,16 @@ bool Abc_AigCheck( Abc_Aig_t * pMan )
         printf( "Abc_AigCheck: The number of nodes in the structural hashing table is wrong.\n" );
         return 0;
     }
+    // if the node is a choice node, nodes in its class should not have fanouts
+    Abc_NtkForEachNode( pMan->pNtkAig, pObj, i )
+        if ( Abc_AigNodeIsChoice(pObj) )
+            for ( pAnd = pObj->pData; pAnd; pAnd = pAnd->pData )
+                if ( Abc_ObjFanoutNum(pAnd) > 0 )
+                {
+                    printf( "Abc_AigCheck: Representative %s", Abc_ObjName(pAnd) );
+                    printf( " of choice node %s has %d fanouts.\n", Abc_ObjName(pObj), Abc_ObjFanoutNum(pAnd) );
+                    return 0;
+                }
     return 1;
 }
 
@@ -321,6 +338,12 @@ Abc_Obj_t * Abc_AigAndCreate( Abc_Aig_t * pMan, Abc_Obj_t * p0, Abc_Obj_t * p1 )
 //    if ( pAnd->pNtk->pManCut )
 //        Abc_NodeGetCuts( pAnd->pNtk->pManCut, pAnd );
     pAnd->pCopy = NULL;
+    // add the node to the list of updated nodes
+    if ( pMan->vAddedCells )
+        Vec_PtrPush( pMan->vAddedCells, pAnd );
+    // create HAIG
+    if ( pAnd->pNtk->pHaig )
+        pAnd->pEquiv = Hop_And( pAnd->pNtk->pHaig, Abc_ObjChild0Equiv(pAnd), Abc_ObjChild1Equiv(pAnd) );
     return pAnd;
 }
 
@@ -358,6 +381,12 @@ Abc_Obj_t * Abc_AigAndCreateFrom( Abc_Aig_t * pMan, Abc_Obj_t * p0, Abc_Obj_t * 
 //    if ( pAnd->pNtk->pManCut )
 //        Abc_NodeGetCuts( pAnd->pNtk->pManCut, pAnd );
     pAnd->pCopy = NULL;
+    // add the node to the list of updated nodes
+//    if ( pMan->vAddedCells )
+//        Vec_PtrPush( pMan->vAddedCells, pAnd );
+    // create HAIG
+    if ( pAnd->pNtk->pHaig )
+        pAnd->pEquiv = Hop_And( pAnd->pNtk->pHaig, Abc_ObjChild0Equiv(pAnd), Abc_ObjChild1Equiv(pAnd) );
     return pAnd;
 }
 
@@ -376,6 +405,8 @@ Abc_Obj_t * Abc_AigAndLookup( Abc_Aig_t * pMan, Abc_Obj_t * p0, Abc_Obj_t * p1 )
 {
     Abc_Obj_t * pAnd, * pConst1;
     unsigned Key;
+    assert( Abc_ObjRegular(p0)->pNtk->pManFunc == pMan );
+    assert( Abc_ObjRegular(p1)->pNtk->pManFunc == pMan );
     // check for trivial cases
     pConst1 = Abc_AigConst1(pMan->pNtkAig);
     if ( p0 == p1 )
@@ -669,7 +700,7 @@ Abc_Obj_t * Abc_AigConst1( Abc_Ntk_t * pNtk )
 Abc_Obj_t * Abc_AigAnd( Abc_Aig_t * pMan, Abc_Obj_t * p0, Abc_Obj_t * p1 )
 {
     Abc_Obj_t * pAnd;
-    if ( pAnd = Abc_AigAndLookup( pMan, p0, p1 ) )
+    if ( (pAnd = Abc_AigAndLookup( pMan, p0, p1 )) )
         return pAnd;
     return Abc_AigAndCreate( pMan, p0, p1 );
 }
@@ -799,6 +830,9 @@ void Abc_AigReplace( Abc_Aig_t * pMan, Abc_Obj_t * pOld, Abc_Obj_t * pNew, bool 
     Vec_PtrPush( pMan->vStackReplaceOld, pOld );
     Vec_PtrPush( pMan->vStackReplaceNew, pNew );
     assert( !Abc_ObjIsComplement(pOld) );
+    // create HAIG
+    if ( pOld->pNtk->pHaig )
+        Hop_ObjCreateChoice( pOld->pEquiv, Abc_ObjRegular(pNew)->pEquiv );
     // process the replacements
     while ( Vec_PtrSize(pMan->vStackReplaceOld) )
     {
@@ -852,7 +886,7 @@ void Abc_AigReplace_int( Abc_Aig_t * pMan, Abc_Obj_t * pOld, Abc_Obj_t * pNew, i
         pFanin2 = Abc_ObjChild( pFanout, iFanin ^ 1 );
         assert( Abc_ObjRegular(pFanin2) != pFanout );
         // check if the node with these fanins exists
-        if ( pFanoutNew = Abc_AigAndLookup( pMan, pFanin1, pFanin2 ) )
+        if ( (pFanoutNew = Abc_AigAndLookup( pMan, pFanin1, pFanin2 )) )
         { // such node exists (it may be a constant)
             // schedule replacement of the old fanout by the new fanout
             Vec_PtrPush( pMan->vStackReplaceOld, pFanout );
@@ -889,7 +923,7 @@ void Abc_AigReplace_int( Abc_Aig_t * pMan, Abc_Obj_t * pOld, Abc_Obj_t * pNew, i
             {
                 assert( pFanout->fMarkB == 0 );
                 pFanout->fMarkB = 1;
-                Vec_VecPush( pMan->vLevelsR, Abc_NodeReadReverseLevel(pFanout), pFanout );
+                Vec_VecPush( pMan->vLevelsR, Abc_ObjReverseLevel(pFanout), pFanout );
             }
         }
 
@@ -947,6 +981,13 @@ void Abc_AigDeleteNode( Abc_Aig_t * pMan, Abc_Obj_t * pNode )
     // remember the node's fanins
     pNode0 = Abc_ObjFanin0( pNode );
     pNode1 = Abc_ObjFanin1( pNode );
+
+    // add the node to the list of updated nodes
+    if ( pMan->vUpdatedNets )
+    {
+        Vec_PtrPushUnique( pMan->vUpdatedNets, pNode0 );
+        Vec_PtrPushUnique( pMan->vUpdatedNets, pNode1 );
+    }
 
     // remove the node from the table
     Abc_AigAndDelete( pMan, pNode );
@@ -1053,7 +1094,7 @@ void Abc_AigUpdateLevelR_int( Abc_Aig_t * pMan )
             if ( pNode == NULL )
                 continue;
             assert( Abc_ObjIsNode(pNode) );
-            assert( Abc_NodeReadReverseLevel(pNode) == i );
+            assert( Abc_ObjReverseLevel(pNode) == i );
             // clean the mark
             assert( pNode->fMarkB == 1 );
             pNode->fMarkB = 0;
@@ -1065,17 +1106,17 @@ void Abc_AigUpdateLevelR_int( Abc_Aig_t * pMan )
                 // get the new reverse level of this fanin
                 LevelNew = 0;
                 Abc_ObjForEachFanout( pFanin, pFanout, j )
-                    if ( LevelNew < Abc_NodeReadReverseLevel(pFanout) )
-                        LevelNew = Abc_NodeReadReverseLevel(pFanout);
+                    if ( LevelNew < Abc_ObjReverseLevel(pFanout) )
+                        LevelNew = Abc_ObjReverseLevel(pFanout);
                 LevelNew += 1;
                 assert( LevelNew > i );
-                if ( Abc_NodeReadReverseLevel(pFanin) == LevelNew ) // no change
+                if ( Abc_ObjReverseLevel(pFanin) == LevelNew ) // no change
                     continue;
                 // if the fanin is present in the data structure, pull it out
                 if ( pFanin->fMarkB )
                     Abc_AigRemoveFromLevelStructureR( pMan->vLevelsR, pFanin );
                 // update the reverse level
-                Abc_NodeSetReverseLevel( pFanin, LevelNew );
+                Abc_ObjSetReverseLevel( pFanin, LevelNew );
                 // add the fanin to the data structure to update its fanins
                 assert( pFanin->fMarkB == 0 );
                 pFanin->fMarkB = 1;
@@ -1132,7 +1173,7 @@ void Abc_AigRemoveFromLevelStructureR( Vec_Vec_t * vStruct, Abc_Obj_t * pNode )
     Abc_Obj_t * pTemp;
     int m;
     assert( pNode->fMarkB );
-    vVecTemp = Vec_VecEntry( vStruct, Abc_NodeReadReverseLevel(pNode) );
+    vVecTemp = Vec_VecEntry( vStruct, Abc_ObjReverseLevel(pNode) );
     Vec_PtrForEachEntry( vVecTemp, pTemp, m )
     {
         if ( pTemp != pNode )
@@ -1306,8 +1347,8 @@ void Abc_AigCheckFaninOrder( Abc_Aig_t * pMan )
         {
             if ( Abc_ObjRegular(Abc_ObjChild0(pEnt))->Id > Abc_ObjRegular(Abc_ObjChild1(pEnt))->Id )
             {
-                int i0 = Abc_ObjRegular(Abc_ObjChild0(pEnt))->Id;
-                int i1 = Abc_ObjRegular(Abc_ObjChild1(pEnt))->Id;
+//                int i0 = Abc_ObjRegular(Abc_ObjChild0(pEnt))->Id;
+//                int i1 = Abc_ObjRegular(Abc_ObjChild1(pEnt))->Id;
                 printf( "Node %d has incorrect ordering of fanins.\n", pEnt->Id );
             }
         }
@@ -1340,6 +1381,92 @@ void Abc_AigSetNodePhases( Abc_Ntk_t * pNtk )
         pObj->fPhase = (Abc_ObjFanin0(pObj)->fPhase ^ Abc_ObjFaninC0(pObj));
     Abc_NtkForEachLatchInput( pNtk, pObj, i )
         pObj->fPhase = (Abc_ObjFanin0(pObj)->fPhase ^ Abc_ObjFaninC0(pObj));
+}
+
+
+
+/**Function*************************************************************
+
+  Synopsis    [Start the update list.]
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+Vec_Ptr_t * Abc_AigUpdateStart( Abc_Aig_t * pMan, Vec_Ptr_t ** pvUpdatedNets )
+{
+    assert( pMan->vAddedCells == NULL );
+    pMan->vAddedCells  = Vec_PtrAlloc( 1000 );
+    pMan->vUpdatedNets = Vec_PtrAlloc( 1000 );
+    *pvUpdatedNets = pMan->vUpdatedNets;
+    return pMan->vAddedCells;
+}
+
+/**Function*************************************************************
+
+  Synopsis    [Start the update list.]
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+void Abc_AigUpdateStop( Abc_Aig_t * pMan )
+{
+    assert( pMan->vAddedCells != NULL );
+    Vec_PtrFree( pMan->vAddedCells );
+    Vec_PtrFree( pMan->vUpdatedNets );
+    pMan->vAddedCells = NULL;
+    pMan->vUpdatedNets = NULL;
+}
+
+/**Function*************************************************************
+
+  Synopsis    [Start the update list.]
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+void Abc_AigUpdateReset( Abc_Aig_t * pMan )
+{
+    assert( pMan->vAddedCells != NULL );
+    Vec_PtrClear( pMan->vAddedCells );
+    Vec_PtrClear( pMan->vUpdatedNets );
+}
+
+/**Function*************************************************************
+
+  Synopsis    [Start the update list.]
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+int Abc_AigCountNext( Abc_Aig_t * pMan )
+{
+    Abc_Obj_t * pAnd;
+    int i, Counter = 0, CounterTotal = 0;
+    // count how many nodes have pNext set
+    for ( i = 0; i < pMan->nBins; i++ )
+        Abc_AigBinForEachEntry( pMan->pBins[i], pAnd )
+        {
+            Counter += (pAnd->pNext != NULL);
+            CounterTotal++;
+        }
+    printf( "Counter = %d.  Nodes = %d.  Ave = %6.2f\n", Counter, CounterTotal, 1.0 * CounterTotal/pMan->nBins );
+    return Counter;
 }
 
 ////////////////////////////////////////////////////////////////////////

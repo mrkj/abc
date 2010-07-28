@@ -25,7 +25,7 @@
 ///                        DECLARATIONS                              ///
 ////////////////////////////////////////////////////////////////////////
 
-static unsigned Io_ReadAigerDecode( char ** ppPos );
+unsigned Io_ReadAigerDecode( char ** ppPos );
 
 ////////////////////////////////////////////////////////////////////////
 ///                     FUNCTION DEFINITIONS                         ///
@@ -96,7 +96,7 @@ Abc_Ntk_t * Io_ReadAiger( char * pFileName, int fCheck )
 
     // prepare the array of nodes
     vNodes = Vec_PtrAlloc( 1 + nInputs + nLatches + nAnds );
-    Vec_PtrPush( vNodes, Abc_AigConst1(pNtkNew) );
+    Vec_PtrPush( vNodes, Abc_ObjNot( Abc_AigConst1(pNtkNew) ) );
 
     // create the PIs
     for ( i = 0; i < nInputs; i++ )
@@ -121,7 +121,8 @@ Abc_Ntk_t * Io_ReadAiger( char * pFileName, int fCheck )
         Abc_ObjAddFanin( pNode1, pObj );
         Vec_PtrPush( vNodes, pNode1 );
         // assign names to latch and its input
-        Abc_ObjAssignName( pObj, Abc_ObjNameDummy("_L", i, nDigits), NULL );
+//        Abc_ObjAssignName( pObj, Abc_ObjNameDummy("_L", i, nDigits), NULL );
+//        printf( "Creating latch %s with input %d and output %d.\n", Abc_ObjName(pObj), pNode0->Id, pNode1->Id );
     } 
     
     // remember the beginning of latch/PO literals
@@ -140,7 +141,7 @@ Abc_Ntk_t * Io_ReadAiger( char * pFileName, int fCheck )
         uLit = ((i + 1 + nInputs + nLatches) << 1);
         uLit1 = uLit  - Io_ReadAigerDecode( &pCur );
         uLit0 = uLit1 - Io_ReadAigerDecode( &pCur );
-        assert( uLit1 > uLit0 );
+//        assert( uLit1 > uLit0 );
         pNode0 = Abc_ObjNotCond( Vec_PtrEntry(vNodes, uLit0 >> 1), uLit0 & 1 );
         pNode1 = Abc_ObjNotCond( Vec_PtrEntry(vNodes, uLit1 >> 1), uLit1 & 1 );
         assert( Vec_PtrSize(vNodes) == i + 1 + nInputs + nLatches );
@@ -156,79 +157,115 @@ Abc_Ntk_t * Io_ReadAiger( char * pFileName, int fCheck )
     Abc_NtkForEachLatchInput( pNtkNew, pObj, i )
     {
         uLit0 = atoi( pCur );  while ( *pCur++ != '\n' );
-        pNode0 = Abc_ObjNotCond( Vec_PtrEntry(vNodes, uLit0 >> 1), (uLit0 & 1) ^ (uLit0 < 2) );
+        pNode0 = Abc_ObjNotCond( Vec_PtrEntry(vNodes, uLit0 >> 1), (uLit0 & 1) );//^ (uLit0 < 2) );
         Abc_ObjAddFanin( pObj, pNode0 );
+
+//        printf( "Adding input %d to latch input %d.\n", pNode0->Id, pObj->Id );
+
     }
     // read the PO driver literals
     Abc_NtkForEachPo( pNtkNew, pObj, i )
     {
         uLit0 = atoi( pCur );  while ( *pCur++ != '\n' );
-        pNode0 = Abc_ObjNotCond( Vec_PtrEntry(vNodes, uLit0 >> 1), (uLit0 & 1) ^ (uLit0 < 2) );
+        pNode0 = Abc_ObjNotCond( Vec_PtrEntry(vNodes, uLit0 >> 1), (uLit0 & 1) );//^ (uLit0 < 2) );
         Abc_ObjAddFanin( pObj, pNode0 );
     }
-
+ 
     // read the names if present
     pCur = pSymbols;
-    while ( pCur < pContents + nFileSize && *pCur != 'c' )
+    if ( *pCur != 'c' )
     {
-        // get the terminal type
-        pType = pCur;
-        if ( *pCur == 'i' )
-            vTerms = pNtkNew->vPis;
-        else if ( *pCur == 'l' )
-            vTerms = pNtkNew->vBoxes;
-        else if ( *pCur == 'o' )
-            vTerms = pNtkNew->vPos;
-        else
+        int Counter = 0;
+        while ( pCur < pContents + nFileSize && *pCur != 'c' )
         {
-            fprintf( stdout, "Wrong terminal type.\n" );
-            return NULL;
-        }
-        // get the terminal number
-        iTerm = atoi( ++pCur );  while ( *pCur++ != ' ' );
-        // get the node
-        if ( iTerm >= Vec_PtrSize(vTerms) )
+            // get the terminal type
+            pType = pCur;
+            if ( *pCur == 'i' )
+                vTerms = pNtkNew->vPis;
+            else if ( *pCur == 'l' )
+                vTerms = pNtkNew->vBoxes;
+            else if ( *pCur == 'o' )
+                vTerms = pNtkNew->vPos;
+            else
+            {
+                fprintf( stdout, "Wrong terminal type.\n" );
+                return NULL;
+            }
+            // get the terminal number
+            iTerm = atoi( ++pCur );  while ( *pCur++ != ' ' );
+            // get the node
+            if ( iTerm >= Vec_PtrSize(vTerms) )
+            {
+                fprintf( stdout, "The number of terminal is out of bound.\n" );
+                return NULL;
+            }
+            pObj = Vec_PtrEntry( vTerms, iTerm );
+            if ( *pType == 'l' )
+                pObj = Abc_ObjFanout0(pObj);
+            // assign the name
+            pName = pCur;          while ( *pCur++ != '\n' );
+            // assign this name 
+            *(pCur-1) = 0;
+            Abc_ObjAssignName( pObj, pName, NULL );
+            if ( *pType == 'l' )
+            {
+                Abc_ObjAssignName( Abc_ObjFanin0(pObj), Abc_ObjName(pObj), "L" );
+                Abc_ObjAssignName( Abc_ObjFanin0(Abc_ObjFanin0(pObj)), Abc_ObjName(pObj), "_in" );
+            }
+            // mark the node as named
+            pObj->pCopy = (Abc_Obj_t *)Abc_ObjName(pObj);
+        } 
+
+        // assign the remaining names
+        Abc_NtkForEachPi( pNtkNew, pObj, i )
         {
-            fprintf( stdout, "The number of terminal is out of bound.\n" );
-            return NULL;
+            if ( pObj->pCopy ) continue;
+            Abc_ObjAssignName( pObj, Abc_ObjName(pObj), NULL );
+            Counter++;
         }
-        pObj = Vec_PtrEntry( vTerms, iTerm );
-        if ( *pType == 'l' )
-            pObj = Abc_ObjFanout0(pObj);
-        // assign the name
-        pName = pCur;          while ( *pCur++ != '\n' );
-        // assign this name
-        *(pCur-1) = 0;
-        Abc_ObjAssignName( pObj, pName, NULL );
-        if ( *pType == 'l' )
-            Abc_ObjAssignName( Abc_ObjFanin0(Abc_ObjFanin0(pObj)), Abc_ObjName(pObj), "L" );
-        // mark the node as named
-        pObj->pCopy = (Abc_Obj_t *)Abc_ObjName(pObj);
+        Abc_NtkForEachLatchOutput( pNtkNew, pObj, i )
+        {
+            if ( pObj->pCopy ) continue;
+            Abc_ObjAssignName( pObj, Abc_ObjName(pObj), NULL );
+            Abc_ObjAssignName( Abc_ObjFanin0(pObj), Abc_ObjName(pObj), "L" );
+            Abc_ObjAssignName( Abc_ObjFanin0(Abc_ObjFanin0(pObj)), Abc_ObjName(pObj), "_in" );
+            Counter++;
+        }
+        Abc_NtkForEachPo( pNtkNew, pObj, i )
+        {
+            if ( pObj->pCopy ) continue;
+            Abc_ObjAssignName( pObj, Abc_ObjName(pObj), NULL );
+            Counter++;
+        }
+        if ( Counter )
+            printf( "Io_ReadAiger(): Added %d default names for nameless I/O/register objects.\n", Counter );
     }
+    else
+    {
+//        printf( "Io_ReadAiger(): I/O/register names are not given. Generating short names.\n" );
+        Abc_NtkShortNames( pNtkNew );
+    }
+
+    // read the name of the model if given
+    if ( *pCur == 'c' )
+    {
+        if ( !strncmp( pCur + 2, ".model", 6 ) )
+        {
+            char * pTemp;
+            for ( pTemp = pCur + 9; *pTemp && *pTemp != '\n'; pTemp++ );
+            *pTemp = 0;
+            free( pNtkNew->pName );
+            pNtkNew->pName = Extra_UtilStrsav( pCur + 9 );
+        }
+    }
+
+
     // skipping the comments
     free( pContents );
     Vec_PtrFree( vNodes );
 
-    // assign the remaining names
-    Abc_NtkForEachPi( pNtkNew, pObj, i )
-    {
-        if ( pObj->pCopy ) continue;
-        Abc_ObjAssignName( pObj, Abc_ObjName(pObj), NULL );
-    }
-    Abc_NtkForEachLatchOutput( pNtkNew, pObj, i )
-    {
-        if ( pObj->pCopy ) continue;
-        Abc_ObjAssignName( pObj, Abc_ObjName(pObj), NULL );
-        Abc_ObjAssignName( Abc_ObjFanin0(Abc_ObjFanin0(pObj)), Abc_ObjName(pObj), NULL );
-    }
-    Abc_NtkForEachPo( pNtkNew, pObj, i )
-    {
-        if ( pObj->pCopy ) continue;
-        Abc_ObjAssignName( pObj, Abc_ObjName(pObj), NULL );
-    }
-
     // remove the extra nodes
-//    Abc_AigCleanup( pNtkNew->pManFunc );
+    Abc_AigCleanup( pNtkNew->pManFunc );
 
     // check the result
     if ( fCheck && !Abc_NtkCheckRead( pNtkNew ) )

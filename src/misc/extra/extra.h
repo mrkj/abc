@@ -110,6 +110,11 @@ typedef unsigned long long uint64;
 
 #ifndef PRT
 #define PRT(a,t)  printf("%s = ", (a)); printf("%6.2f sec\n", (float)(t)/(float)(CLOCKS_PER_SEC))
+#define PRTn(a,t)  printf("%s = ", (a)); printf("%6.2f sec  ", (float)(t)/(float)(CLOCKS_PER_SEC))
+#endif
+
+#ifndef PRTP
+#define PRTP(a,t,T)  printf("%s = ", (a)); printf("%6.2f sec (%6.2f %%)\n", (float)(t)/(float)(CLOCKS_PER_SEC), (T)? 100.0*(t)/(T) : 0.0)
 #endif
 
 /*===========================================================================*/
@@ -143,6 +148,19 @@ extern DdNode *      extraBddSpaceFromMatrixNeg( DdManager * dd, DdNode * zA );
 extern DdNode *     Extra_bddSpaceReduce( DdManager * dd, DdNode * bFunc, DdNode * bCanonVars );
 extern DdNode **    Extra_bddSpaceExorGates( DdManager * dd, DdNode * bFuncRed, DdNode * zEquations );
 
+/*=== extraBddCas.c =============================================================*/
+
+/* performs the binary encoding of the set of function using the given vars */
+extern DdNode *     Extra_bddEncodingBinary( DdManager * dd, DdNode ** pbFuncs, int nFuncs, DdNode ** pbVars, int nVars );
+/* solves the column encoding problem using a sophisticated method */
+extern DdNode *     Extra_bddEncodingNonStrict( DdManager * dd, DdNode ** pbColumns, int nColumns, DdNode * bVarsCol, DdNode ** pCVars, int nMulti, int * pSimple );
+/* collects the nodes under the cut and, for each node, computes the sum of paths leading to it from the root */
+extern st_table *   Extra_bddNodePathsUnderCut( DdManager * dd, DdNode * bFunc, int CutLevel );
+/* collects the nodes under the cut starting from the given set of ADD nodes */
+extern int          Extra_bddNodePathsUnderCutArray( DdManager * dd, DdNode ** paNodes, DdNode ** pbCubes, int nNodes, DdNode ** paNodesRes, DdNode ** pbCubesRes, int CutLevel );
+/* find the profile of a DD (the number of edges crossing each level) */
+extern int          Extra_ProfileWidth( DdManager * dd, DdNode * F, int * Profile, int CutLevel );
+
 /*=== extraBddMisc.c ========================================================*/
 
 extern DdNode *     Extra_TransferPermute( DdManager * ddSource, DdManager * ddDestination, DdNode * f, int * Permute );
@@ -169,6 +187,8 @@ extern int          Extra_bddIsVar( DdNode * bFunc );
 extern DdNode *     Extra_bddCreateAnd( DdManager * dd, int nVars );
 extern DdNode *     Extra_bddCreateOr( DdManager * dd, int nVars );
 extern DdNode *     Extra_bddCreateExor( DdManager * dd, int nVars );
+extern DdNode *     Extra_zddPrimes( DdManager * dd, DdNode * F );
+extern void         Extra_bddPermuteArray( DdManager * dd, DdNode ** bNodesIn, DdNode ** bNodesOut, int nNodes, int *permut );
 
 /*=== extraBddKmap.c ================================================================*/
 
@@ -302,6 +322,7 @@ extern unsigned     Extra_ReadBinary( char * Buffer );
 extern void         Extra_PrintBinary( FILE * pFile, unsigned Sign[], int nBits );
 extern int          Extra_ReadHexadecimal( unsigned Sign[], char * pString, int nVars );
 extern void         Extra_PrintHexadecimal( FILE * pFile, unsigned Sign[], int nVars );
+extern void         Extra_PrintHexadecimalString( char * pString, unsigned Sign[], int nVars );
 extern void         Extra_PrintHex( FILE * pFile, unsigned uTruth, int nVars );
 extern void         Extra_PrintSymbols( FILE * pFile, char Char, int nTimes, int fPrintNewLine );
 
@@ -325,19 +346,21 @@ typedef struct Extra_MmStep_t_     Extra_MmStep_t;
 
 // fixed-size-block memory manager
 extern Extra_MmFixed_t *  Extra_MmFixedStart( int nEntrySize );
-extern void        Extra_MmFixedStop( Extra_MmFixed_t * p, int fVerbose );
+extern void        Extra_MmFixedStop( Extra_MmFixed_t * p );
 extern char *      Extra_MmFixedEntryFetch( Extra_MmFixed_t * p );
 extern void        Extra_MmFixedEntryRecycle( Extra_MmFixed_t * p, char * pEntry );
 extern void        Extra_MmFixedRestart( Extra_MmFixed_t * p );
 extern int         Extra_MmFixedReadMemUsage( Extra_MmFixed_t * p );
+extern int         Extra_MmFixedReadMaxEntriesUsed( Extra_MmFixed_t * p );
 // flexible-size-block memory manager
 extern Extra_MmFlex_t * Extra_MmFlexStart();
-extern void        Extra_MmFlexStop( Extra_MmFlex_t * p, int fVerbose );
+extern void        Extra_MmFlexStop( Extra_MmFlex_t * p );
+extern void        Extra_MmFlexPrint( Extra_MmFlex_t * p );
 extern char *      Extra_MmFlexEntryFetch( Extra_MmFlex_t * p, int nBytes );
 extern int         Extra_MmFlexReadMemUsage( Extra_MmFlex_t * p );
 // hierarchical memory manager
 extern Extra_MmStep_t * Extra_MmStepStart( int nSteps );
-extern void        Extra_MmStepStop( Extra_MmStep_t * p, int fVerbose );
+extern void        Extra_MmStepStop( Extra_MmStep_t * p );
 extern char *      Extra_MmStepEntryFetch( Extra_MmStep_t * p, int nBytes );
 extern void        Extra_MmStepEntryRecycle( Extra_MmStep_t * p, char * pEntry, int nBytes );
 extern int         Extra_MmStepReadMemUsage( Extra_MmStep_t * p );
@@ -382,6 +405,8 @@ extern void **     Extra_ArrayAlloc( int nCols, int nRows, int Size );
 extern unsigned short ** Extra_TruthPerm43();
 extern unsigned ** Extra_TruthPerm53();
 extern unsigned ** Extra_TruthPerm54();
+/* bubble sort for small number of entries */
+extern void        Extra_BubbleSort( int Order[], int Costs[], int nSize, int fIncreasing );
 /* for independence from CUDD */
 extern unsigned int Cudd_PrimeCopy( unsigned int  p );
 
@@ -507,23 +532,48 @@ static inline void Extra_TruthNand( unsigned * pOut, unsigned * pIn0, unsigned *
     for ( w = Extra_TruthWordNum(nVars)-1; w >= 0; w-- )
         pOut[w] = ~(pIn0[w] & pIn1[w]);
 }
+static inline void Extra_TruthAndPhase( unsigned * pOut, unsigned * pIn0, unsigned * pIn1, int nVars, int fCompl0, int fCompl1 )
+{
+    int w;
+    if ( fCompl0 && fCompl1 )
+    {
+        for ( w = Extra_TruthWordNum(nVars)-1; w >= 0; w-- )
+            pOut[w] = ~(pIn0[w] | pIn1[w]);
+    }
+    else if ( fCompl0 && !fCompl1 )
+    {
+        for ( w = Extra_TruthWordNum(nVars)-1; w >= 0; w-- )
+            pOut[w] = ~pIn0[w] & pIn1[w];
+    }
+    else if ( !fCompl0 && fCompl1 )
+    {
+        for ( w = Extra_TruthWordNum(nVars)-1; w >= 0; w-- )
+            pOut[w] = pIn0[w] & ~pIn1[w];
+    }
+    else // if ( !fCompl0 && !fCompl1 )
+    {
+        for ( w = Extra_TruthWordNum(nVars)-1; w >= 0; w-- )
+            pOut[w] = pIn0[w] & pIn1[w];
+    }
+}
 
-extern void     Extra_TruthSwapAdjacentVars( unsigned * pOut, unsigned * pIn, int nVars, int Start );
-extern void     Extra_TruthStretch( unsigned * pOut, unsigned * pIn, int nVars, int nVarsAll, unsigned Phase );
-extern void     Extra_TruthShrink( unsigned * pOut, unsigned * pIn, int nVars, int nVarsAll, unsigned Phase );
-extern int      Extra_TruthVarInSupport( unsigned * pTruth, int nVars, int iVar );
-extern int      Extra_TruthSupportSize( unsigned * pTruth, int nVars );
-extern int      Extra_TruthSupport( unsigned * pTruth, int nVars );
-extern void     Extra_TruthCofactor0( unsigned * pTruth, int nVars, int iVar );
-extern void     Extra_TruthCofactor1( unsigned * pTruth, int nVars, int iVar );
-extern void     Extra_TruthExist( unsigned * pTruth, int nVars, int iVar );
-extern void     Extra_TruthForall( unsigned * pTruth, int nVars, int iVar );
-extern void     Extra_TruthMux( unsigned * pOut, unsigned * pCof0, unsigned * pCof1, int nVars, int iVar );
-extern void     Extra_TruthChangePhase( unsigned * pTruth, int nVars, int iVar );
-extern int      Extra_TruthMinCofSuppOverlap( unsigned * pTruth, int nVars, int * pVarMin );
-extern void     Extra_TruthCountOnesInCofs( unsigned * pTruth, int nVars, short * pStore );
-extern unsigned Extra_TruthHash( unsigned * pIn, int nWords );
-extern unsigned Extra_TruthSemiCanonicize( unsigned * pInOut, unsigned * pAux, int nVars, char * pCanonPerm, short * pStore );
+extern unsigned ** Extra_TruthElementary( int nVars );
+extern void        Extra_TruthSwapAdjacentVars( unsigned * pOut, unsigned * pIn, int nVars, int Start );
+extern void        Extra_TruthStretch( unsigned * pOut, unsigned * pIn, int nVars, int nVarsAll, unsigned Phase );
+extern void        Extra_TruthShrink( unsigned * pOut, unsigned * pIn, int nVars, int nVarsAll, unsigned Phase );
+extern int         Extra_TruthVarInSupport( unsigned * pTruth, int nVars, int iVar );
+extern int         Extra_TruthSupportSize( unsigned * pTruth, int nVars );
+extern int         Extra_TruthSupport( unsigned * pTruth, int nVars );
+extern void        Extra_TruthCofactor0( unsigned * pTruth, int nVars, int iVar );
+extern void        Extra_TruthCofactor1( unsigned * pTruth, int nVars, int iVar );
+extern void        Extra_TruthExist( unsigned * pTruth, int nVars, int iVar );
+extern void        Extra_TruthForall( unsigned * pTruth, int nVars, int iVar );
+extern void        Extra_TruthMux( unsigned * pOut, unsigned * pCof0, unsigned * pCof1, int nVars, int iVar );
+extern void        Extra_TruthChangePhase( unsigned * pTruth, int nVars, int iVar );
+extern int         Extra_TruthMinCofSuppOverlap( unsigned * pTruth, int nVars, int * pVarMin );
+extern void        Extra_TruthCountOnesInCofs( unsigned * pTruth, int nVars, short * pStore );
+extern unsigned    Extra_TruthHash( unsigned * pIn, int nWords );
+extern unsigned    Extra_TruthSemiCanonicize( unsigned * pInOut, unsigned * pAux, int nVars, char * pCanonPerm, short * pStore );
 
 /*=== extraUtilUtil.c ================================================================*/
 

@@ -43,6 +43,8 @@ struct Abc_ManRef_t_
     int              nNodesConsidered;
     int              nNodesRefactored;
     int              nNodesGained;
+    int              nNodesBeg;
+    int              nNodesEnd;
     // runtime statistics
     int              timeCut;
     int              timeBdd;
@@ -100,9 +102,10 @@ int Abc_NtkRefactor( Abc_Ntk_t * pNtk, int nNodeSizeMax, int nConeSizeMax, bool 
     pManRef->vLeaves   = Abc_NtkManCutReadCutLarge( pManCut );
     // compute the reverse levels if level update is requested
     if ( fUpdateLevel )
-        Abc_NtkStartReverseLevels( pNtk );
+        Abc_NtkStartReverseLevels( pNtk, 0 );
 
     // resynthesize each node once
+    pManRef->nNodesBeg = Abc_NtkNodeNum(pNtk);
     nNodes = Abc_NtkObjNumMax(pNtk);
     pProgress = Extra_ProgressBarStart( stdout, nNodes );
     Abc_NtkForEachNode( pNtk, pNode, i )
@@ -142,6 +145,7 @@ pManRef->timeNtk += clock() - clk;
     }
     Extra_ProgressBarStop( pProgress );
 pManRef->timeTotal = clock() - clkStart;
+    pManRef->nNodesEnd = Abc_NtkNodeNum(pNtk);
 
     // print statistics of the manager
     if ( fVerbose )
@@ -187,7 +191,7 @@ Dec_Graph_t * Abc_NodeRefactor( Abc_ManRef_t * p, Abc_Obj_t * pNode, Vec_Ptr_t *
     char * pSop;
     int Required;
 
-    Required = fUpdateLevel? Abc_NodeReadRequiredLevel(pNode) : ABC_INFINITY;
+    Required = fUpdateLevel? Abc_ObjRequiredLevel(pNode) : ABC_INFINITY;
 
     p->nNodesConsidered++;
 
@@ -233,7 +237,7 @@ p->timeDcs += clock() - clk;
 
     // get the SOP of the cut
 clk = clock();
-    pSop = Abc_ConvertBddToSop( NULL, p->dd, bNodeFunc, bNodeFunc, vFanins->nSize, p->vCube, -1 );
+    pSop = Abc_ConvertBddToSop( NULL, p->dd, bNodeFunc, bNodeFunc, vFanins->nSize, 0, p->vCube, -1 );
 p->timeSop += clock() - clk;
 
     // get the factored form
@@ -248,7 +252,7 @@ p->timeFact += clock() - clk;
         pFanin->vFanouts.nSize++;
     // label MFFC with current traversal ID
     Abc_NtkIncrementTravId( pNode->pNtk );
-    nNodesSaved = Abc_NodeMffcLabel( pNode );
+    nNodesSaved = Abc_NodeMffcLabelAig( pNode );
     // unmark the fanin boundary and set the fanins as leaves in the form
     Vec_PtrForEachEntry( vFanins, pFanin, i )
     {
@@ -355,7 +359,7 @@ void Abc_NtkManRefPrintStats( Abc_ManRef_t * p )
     printf( "Refactoring statistics:\n" );
     printf( "Nodes considered  = %8d.\n", p->nNodesConsidered );
     printf( "Nodes refactored  = %8d.\n", p->nNodesRefactored );
-    printf( "Calculated gain   = %8d.\n", p->nNodesGained     );
+    printf( "Gain              = %8d. (%6.2f %%).\n", p->nNodesBeg-p->nNodesEnd, 100.0*(p->nNodesBeg-p->nNodesEnd)/p->nNodesBeg );
     PRT( "Cuts       ", p->timeCut );
     PRT( "Resynthesis", p->timeRes );
     PRT( "    BDD    ", p->timeBdd );

@@ -52,8 +52,8 @@ int Abc_NtkSopToBdd( Abc_Ntk_t * pNtk )
     Abc_Obj_t * pNode;
     DdManager * dd;
     int nFaninsMax, i;
-
-    assert( Abc_NtkIsSopLogic(pNtk) ); 
+ 
+    assert( Abc_NtkHasSop(pNtk) ); 
 
     // start the functionality manager
     nFaninsMax = Abc_NtkGetFaninMax( pNtk );
@@ -75,7 +75,7 @@ int Abc_NtkSopToBdd( Abc_Ntk_t * pNtk )
         Cudd_Ref( pNode->pData );
     }
 
-    Extra_MmFlexStop( pNtk->pManFunc, 0 );
+    Extra_MmFlexStop( pNtk->pManFunc );
     pNtk->pManFunc = dd;
 
     // update the network type
@@ -159,7 +159,7 @@ void Abc_NtkLogicMakeDirectSops( Abc_Ntk_t * pNtk )
     Abc_Obj_t * pNode;
     int nFaninsMax, fFound, i;
 
-    assert( Abc_NtkIsSopLogic(pNtk) );
+    assert( Abc_NtkHasSop(pNtk) );
 
     // check if there are nodes with complemented SOPs
     fFound = 0;
@@ -184,7 +184,7 @@ void Abc_NtkLogicMakeDirectSops( Abc_Ntk_t * pNtk )
         if ( Abc_SopIsComplement(pNode->pData) )
         {
             bFunc = Abc_ConvertSopToBdd( dd, pNode->pData );  Cudd_Ref( bFunc );
-            pNode->pData = Abc_ConvertBddToSop( pNtk->pManFunc, dd, bFunc, bFunc, Abc_ObjFaninNum(pNode), vCube, 1 );
+            pNode->pData = Abc_ConvertBddToSop( pNtk->pManFunc, dd, bFunc, bFunc, Abc_ObjFaninNum(pNode), 0, vCube, 1 );
             Cudd_RecursiveDeref( dd, bFunc );
             assert( !Abc_SopIsComplement(pNode->pData) );
         }
@@ -221,7 +221,8 @@ int Abc_NtkBddToSop( Abc_Ntk_t * pNtk, int fDirect )
     else
         fMode = -1;
 
-    assert( Abc_NtkIsBddLogic(pNtk) ); 
+    assert( Abc_NtkHasBdd(pNtk) );
+    if ( dd->size > 0 )
     Cudd_zddVarsFromBddVars( dd, 2 );
     // create the new manager
     pManNew = Extra_MmFlexStart();
@@ -232,10 +233,10 @@ int Abc_NtkBddToSop( Abc_Ntk_t * pNtk, int fDirect )
     {
         assert( pNode->pData );
         bFunc = pNode->pData;
-        pNode->pNext = (Abc_Obj_t *)Abc_ConvertBddToSop( pManNew, dd, bFunc, bFunc, Abc_ObjFaninNum(pNode), vCube, fMode );
+        pNode->pNext = (Abc_Obj_t *)Abc_ConvertBddToSop( pManNew, dd, bFunc, bFunc, Abc_ObjFaninNum(pNode), 0, vCube, fMode );
         if ( pNode->pNext == NULL )
         {
-            Extra_MmFlexStop( pManNew, 0 );
+            Extra_MmFlexStop( pManNew );
             Abc_NtkCleanNext( pNtk );
 //            printf( "Converting from BDDs to SOPs has failed.\n" );
             Vec_StrFree( vCube );
@@ -272,7 +273,7 @@ int Abc_NtkBddToSop( Abc_Ntk_t * pNtk, int fDirect )
   SeeAlso     []
 
 ***********************************************************************/
-char * Abc_ConvertBddToSop( Extra_MmFlex_t * pMan, DdManager * dd, DdNode * bFuncOn, DdNode * bFuncOnDc, int nFanins, Vec_Str_t * vCube, int fMode )
+char * Abc_ConvertBddToSop( Extra_MmFlex_t * pMan, DdManager * dd, DdNode * bFuncOn, DdNode * bFuncOnDc, int nFanins, int fAllPrimes, Vec_Str_t * vCube, int fMode )
 {
     int fVerify = 0;
     char * pSop;
@@ -300,6 +301,7 @@ char * Abc_ConvertBddToSop( Extra_MmFlex_t * pMan, DdManager * dd, DdNode * bFun
 
     if ( fMode == -1 )
     { // try both phases
+        assert( fAllPrimes == 0 );
 
         // get the ZDD of the negative polarity
         bCover = Cudd_zddIsop( dd, Cudd_Not(bFuncOnDc), Cudd_Not(bFuncOn), &zCover0 );
@@ -334,20 +336,36 @@ char * Abc_ConvertBddToSop( Extra_MmFlex_t * pMan, DdManager * dd, DdNode * bFun
     else if ( fMode == 0 )
     {
         // get the ZDD of the negative polarity
-        bCover = Cudd_zddIsop( dd, Cudd_Not(bFuncOnDc), Cudd_Not(bFuncOn), &zCover );
-        Cudd_Ref( zCover );
-        Cudd_Ref( bCover );
-        Cudd_RecursiveDeref( dd, bCover );
+        if ( fAllPrimes )
+        {
+            zCover = Extra_zddPrimes( dd, Cudd_Not(bFuncOnDc) ); 
+            Cudd_Ref( zCover );
+        }
+        else
+        {
+            bCover = Cudd_zddIsop( dd, Cudd_Not(bFuncOnDc), Cudd_Not(bFuncOn), &zCover );
+            Cudd_Ref( zCover );
+            Cudd_Ref( bCover );
+            Cudd_RecursiveDeref( dd, bCover );
+        }
         nCubes = Abc_CountZddCubes( dd, zCover );
         fPhase = 0;
     }
     else if ( fMode == 1 )
     {
         // get the ZDD of the positive polarity
-        bCover = Cudd_zddIsop( dd, bFuncOn, bFuncOnDc, &zCover );
-        Cudd_Ref( zCover );
-        Cudd_Ref( bCover );
-        Cudd_RecursiveDeref( dd, bCover );
+        if ( fAllPrimes )
+        {
+            zCover = Extra_zddPrimes( dd, bFuncOnDc ); 
+            Cudd_Ref( zCover );
+        }
+        else
+        {
+            bCover = Cudd_zddIsop( dd, bFuncOn, bFuncOnDc, &zCover );
+            Cudd_Ref( zCover );
+            Cudd_Ref( bCover );
+            Cudd_RecursiveDeref( dd, bCover );
+        }
         nCubes = Abc_CountZddCubes( dd, zCover );
         fPhase = 1;
     }
@@ -461,11 +479,11 @@ int Abc_ConvertZddToSop( DdManager * dd, DdNode * zCover, char * pSop, int nFani
   SeeAlso     []
 
 ***********************************************************************/
-void Abc_NodeBddToCnf( Abc_Obj_t * pNode, Extra_MmFlex_t * pMmMan, Vec_Str_t * vCube, char ** ppSop0, char ** ppSop1 )
+void Abc_NodeBddToCnf( Abc_Obj_t * pNode, Extra_MmFlex_t * pMmMan, Vec_Str_t * vCube, int fAllPrimes, char ** ppSop0, char ** ppSop1 )
 {
-    assert( Abc_NtkIsBddLogic(pNode->pNtk) ); 
-    *ppSop0 = Abc_ConvertBddToSop( pMmMan, pNode->pNtk->pManFunc, pNode->pData, pNode->pData, Abc_ObjFaninNum(pNode), vCube, 0 );
-    *ppSop1 = Abc_ConvertBddToSop( pMmMan, pNode->pNtk->pManFunc, pNode->pData, pNode->pData, Abc_ObjFaninNum(pNode), vCube, 1 );
+    assert( Abc_NtkHasBdd(pNode->pNtk) ); 
+    *ppSop0 = Abc_ConvertBddToSop( pMmMan, pNode->pNtk->pManFunc, pNode->pData, pNode->pData, Abc_ObjFaninNum(pNode), fAllPrimes, vCube, 0 );
+    *ppSop1 = Abc_ConvertBddToSop( pMmMan, pNode->pNtk->pManFunc, pNode->pData, pNode->pData, Abc_ObjFaninNum(pNode), fAllPrimes, vCube, 1 );
 }
 
 
@@ -536,7 +554,7 @@ int Abc_NtkSopToAig( Abc_Ntk_t * pNtk )
     Hop_Man_t * pMan;
     int i;
 
-    assert( Abc_NtkIsSopLogic(pNtk) || Abc_NtkIsSopNetlist(pNtk) ); 
+    assert( Abc_NtkHasSop(pNtk) ); 
 
     // start the functionality manager
     pMan = Hop_ManStart();
@@ -552,7 +570,7 @@ int Abc_NtkSopToAig( Abc_Ntk_t * pNtk )
             return 0;
         }
     }
-    Extra_MmFlexStop( pNtk->pManFunc, 0 );
+    Extra_MmFlexStop( pNtk->pManFunc );
     pNtk->pManFunc = pMan;
 
     // update the network type
@@ -646,7 +664,7 @@ int Abc_NtkAigToBdd( Abc_Ntk_t * pNtk )
     DdManager * dd;
     int nFaninsMax, i;
 
-    assert( Abc_NtkIsAigLogic(pNtk) ); 
+    assert( Abc_NtkHasAig(pNtk) ); 
 
     // start the functionality manager
     nFaninsMax = Abc_NtkGetFaninMax( pNtk );
@@ -765,6 +783,222 @@ DdNode * Abc_ConvertAigToBdd( DdManager * dd, Hop_Obj_t * pRoot )
     return bFunc;
 }
 
+
+
+/**Function*************************************************************
+
+  Synopsis    [Construct BDDs and mark AIG nodes.]
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+int Abc_ConvertAigToTruth_rec1( Hop_Obj_t * pObj )
+{
+    int Counter = 0;
+    assert( !Hop_IsComplement(pObj) );
+    if ( !Hop_ObjIsNode(pObj) || Hop_ObjIsMarkA(pObj) )
+        return 0;
+    Counter += Abc_ConvertAigToTruth_rec1( Hop_ObjFanin0(pObj) ); 
+    Counter += Abc_ConvertAigToTruth_rec1( Hop_ObjFanin1(pObj) );
+    assert( !Hop_ObjIsMarkA(pObj) ); // loop detection
+    Hop_ObjSetMarkA( pObj );
+    return Counter + 1;
+}
+
+/**Function*************************************************************
+
+  Synopsis    [Computes truth table of the cut.]
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+unsigned * Abc_ConvertAigToTruth_rec2( Hop_Obj_t * pObj, Vec_Int_t * vTruth, int nWords )
+{
+    unsigned * pTruth, * pTruth0, * pTruth1;
+    int i;
+    assert( !Hop_IsComplement(pObj) );
+    if ( !Hop_ObjIsNode(pObj) || !Hop_ObjIsMarkA(pObj) )
+        return pObj->pData;
+    // compute the truth tables of the fanins
+    pTruth0 = Abc_ConvertAigToTruth_rec2( Hop_ObjFanin0(pObj), vTruth, nWords );
+    pTruth1 = Abc_ConvertAigToTruth_rec2( Hop_ObjFanin1(pObj), vTruth, nWords );
+    // creat the truth table of the node
+    pTruth  = Vec_IntFetch( vTruth, nWords );
+    if ( Hop_ObjIsExor(pObj) )
+        for ( i = 0; i < nWords; i++ )
+            pTruth[i] = pTruth0[i] ^ pTruth1[i];
+    else if ( !Hop_ObjFaninC0(pObj) && !Hop_ObjFaninC1(pObj) )
+        for ( i = 0; i < nWords; i++ )
+            pTruth[i] = pTruth0[i] & pTruth1[i];
+    else if ( !Hop_ObjFaninC0(pObj) && Hop_ObjFaninC1(pObj) )
+        for ( i = 0; i < nWords; i++ )
+            pTruth[i] = pTruth0[i] & ~pTruth1[i];
+    else if ( Hop_ObjFaninC0(pObj) && !Hop_ObjFaninC1(pObj) )
+        for ( i = 0; i < nWords; i++ )
+            pTruth[i] = ~pTruth0[i] & pTruth1[i];
+    else // if ( Hop_ObjFaninC0(pObj) && Hop_ObjFaninC1(pObj) )
+        for ( i = 0; i < nWords; i++ )
+            pTruth[i] = ~pTruth0[i] & ~pTruth1[i];
+    assert( Hop_ObjIsMarkA(pObj) ); // loop detection
+    Hop_ObjClearMarkA( pObj );
+    pObj->pData = pTruth;
+    return pTruth;
+}
+
+/**Function*************************************************************
+
+  Synopsis    [Computes truth table of the node.]
+
+  Description [Assumes that the structural support is no more than 8 inputs.
+  Uses array vTruth to store temporary truth tables. The returned pointer should 
+  be used immediately.]
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+unsigned * Abc_ConvertAigToTruth( Hop_Man_t * p, Hop_Obj_t * pRoot, int nVars, Vec_Int_t * vTruth, int fMsbFirst )
+{
+    static unsigned uTruths[8][8] = { // elementary truth tables
+        { 0xAAAAAAAA,0xAAAAAAAA,0xAAAAAAAA,0xAAAAAAAA,0xAAAAAAAA,0xAAAAAAAA,0xAAAAAAAA,0xAAAAAAAA },
+        { 0xCCCCCCCC,0xCCCCCCCC,0xCCCCCCCC,0xCCCCCCCC,0xCCCCCCCC,0xCCCCCCCC,0xCCCCCCCC,0xCCCCCCCC },
+        { 0xF0F0F0F0,0xF0F0F0F0,0xF0F0F0F0,0xF0F0F0F0,0xF0F0F0F0,0xF0F0F0F0,0xF0F0F0F0,0xF0F0F0F0 },
+        { 0xFF00FF00,0xFF00FF00,0xFF00FF00,0xFF00FF00,0xFF00FF00,0xFF00FF00,0xFF00FF00,0xFF00FF00 },
+        { 0xFFFF0000,0xFFFF0000,0xFFFF0000,0xFFFF0000,0xFFFF0000,0xFFFF0000,0xFFFF0000,0xFFFF0000 }, 
+        { 0x00000000,0xFFFFFFFF,0x00000000,0xFFFFFFFF,0x00000000,0xFFFFFFFF,0x00000000,0xFFFFFFFF }, 
+        { 0x00000000,0x00000000,0xFFFFFFFF,0xFFFFFFFF,0x00000000,0x00000000,0xFFFFFFFF,0xFFFFFFFF }, 
+        { 0x00000000,0x00000000,0x00000000,0x00000000,0xFFFFFFFF,0xFFFFFFFF,0xFFFFFFFF,0xFFFFFFFF } 
+    };
+    Hop_Obj_t * pObj;
+    unsigned * pTruth, * pTruth2;
+    int i, nWords, nNodes;
+    Vec_Ptr_t * vTtElems;
+
+    // if the number of variables is more than 8, allocate truth tables
+    if ( nVars > 8 )
+        vTtElems = Vec_PtrAllocTruthTables( nVars );
+    else
+        vTtElems = NULL;
+
+    // clear the data fields and set marks
+    nNodes = Abc_ConvertAigToTruth_rec1( pRoot );
+    // prepare memory
+    nWords = Hop_TruthWordNum( nVars );
+    Vec_IntClear( vTruth );
+    Vec_IntGrow( vTruth, nWords * (nNodes+1) );
+    pTruth = Vec_IntFetch( vTruth, nWords );
+    // check the case of a constant
+    if ( Hop_ObjIsConst1( Hop_Regular(pRoot) ) )
+    {
+        assert( nNodes == 0 );
+        if ( Hop_IsComplement(pRoot) )
+            Extra_TruthClear( pTruth, nVars );
+        else
+            Extra_TruthFill( pTruth, nVars );
+        return pTruth;
+    }
+    // set elementary truth tables at the leaves
+    assert( nVars <= Hop_ManPiNum(p) );
+//    assert( Hop_ManPiNum(p) <= 8 ); 
+    if ( fMsbFirst )
+    {
+        Hop_ManForEachPi( p, pObj, i )
+        {
+            if ( vTtElems )
+                pObj->pData = Vec_PtrEntry(vTtElems, nVars-1-i);
+            else               
+                pObj->pData = (void *)uTruths[nVars-1-i];
+        }
+    }
+    else
+    {
+        Hop_ManForEachPi( p, pObj, i )
+        {
+            if ( vTtElems )
+                pObj->pData = Vec_PtrEntry(vTtElems, i);
+            else               
+                pObj->pData = (void *)uTruths[i];
+        }
+    }
+    // clear the marks and compute the truth table
+    pTruth2 = Abc_ConvertAigToTruth_rec2( pRoot, vTruth, nWords );
+    // copy the result
+    Extra_TruthCopy( pTruth, pTruth2, nVars );
+    if ( vTtElems )
+        Vec_PtrFree( vTtElems );
+    return pTruth;
+}
+
+
+/**Function*************************************************************
+
+  Synopsis    [Construct BDDs and mark AIG nodes.]
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+void Abc_ConvertAigToAig_rec( Abc_Ntk_t * pNtkAig, Hop_Obj_t * pObj )
+{
+    assert( !Hop_IsComplement(pObj) );
+    if ( !Hop_ObjIsNode(pObj) || Hop_ObjIsMarkA(pObj) )
+        return;
+    Abc_ConvertAigToAig_rec( pNtkAig, Hop_ObjFanin0(pObj) ); 
+    Abc_ConvertAigToAig_rec( pNtkAig, Hop_ObjFanin1(pObj) );
+    pObj->pData = Abc_AigAnd( pNtkAig->pManFunc, (Abc_Obj_t *)Hop_ObjChild0Copy(pObj), (Abc_Obj_t *)Hop_ObjChild1Copy(pObj) ); 
+    assert( !Hop_ObjIsMarkA(pObj) ); // loop detection
+    Hop_ObjSetMarkA( pObj );
+}
+
+/**Function*************************************************************
+
+  Synopsis    [Converts the network from AIG to BDD representation.]
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+Abc_Obj_t * Abc_ConvertAigToAig( Abc_Ntk_t * pNtkAig, Abc_Obj_t * pObjOld )
+{
+    Hop_Man_t * pHopMan;
+    Hop_Obj_t * pRoot;
+    Abc_Obj_t * pFanin;
+    int i;
+    // get the local AIG
+    pHopMan = pObjOld->pNtk->pManFunc;
+    pRoot = pObjOld->pData;
+    // check the case of a constant
+    if ( Hop_ObjIsConst1( Hop_Regular(pRoot) ) )
+        return Abc_ObjNotCond( Abc_AigConst1(pNtkAig), Hop_IsComplement(pRoot) );
+    // assign the fanin nodes
+    Abc_ObjForEachFanin( pObjOld, pFanin, i )
+    {
+        assert( pFanin->pCopy != NULL );
+        Hop_ManPi(pHopMan, i)->pData = pFanin->pCopy;
+    }
+    // construct the AIG
+    Abc_ConvertAigToAig_rec( pNtkAig, Hop_Regular(pRoot) );
+    Hop_ConeUnmark_rec( Hop_Regular(pRoot) );
+    // return the result
+    return Abc_ObjNotCond( Hop_Regular(pRoot)->pData, Hop_IsComplement(pRoot) );  
+}
+
+
 /**Function*************************************************************
 
   Synopsis    [Unmaps the network.]
@@ -783,7 +1017,7 @@ int Abc_NtkMapToSop( Abc_Ntk_t * pNtk )
     char * pSop;
     int i;
 
-    assert( Abc_NtkIsMappedLogic(pNtk) );
+    assert( Abc_NtkHasMapping(pNtk) );
     // update the functionality manager
     assert( pNtk->pManFunc == Abc_FrameReadLibGen() );
     pNtk->pManFunc = Extra_MmFlexStart();
@@ -800,6 +1034,22 @@ int Abc_NtkMapToSop( Abc_Ntk_t * pNtk )
 
 /**Function*************************************************************
 
+  Synopsis    [Converts SOP functions into BLIF-MV functions.]
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+int Abc_NtkSopToBlifMv( Abc_Ntk_t * pNtk )
+{
+    return 1;
+}
+
+/**Function*************************************************************
+
   Synopsis    [Convers logic network to the SOP form.]
 
   Description []
@@ -809,10 +1059,10 @@ int Abc_NtkMapToSop( Abc_Ntk_t * pNtk )
   SeeAlso     []
 
 ***********************************************************************/
-int Abc_NtkLogicToSop( Abc_Ntk_t * pNtk, int fDirect )
+int Abc_NtkToSop( Abc_Ntk_t * pNtk, int fDirect )
 {
-    assert( Abc_NtkIsLogic(pNtk) );
-    if ( Abc_NtkIsSopLogic(pNtk) )
+    assert( !Abc_NtkIsStrash(pNtk) );
+    if ( Abc_NtkHasSop(pNtk) )
     {
         if ( !fDirect )
             return 1;
@@ -820,11 +1070,11 @@ int Abc_NtkLogicToSop( Abc_Ntk_t * pNtk, int fDirect )
             return 0;
         return Abc_NtkBddToSop(pNtk, fDirect);
     }
-    if ( Abc_NtkIsMappedLogic(pNtk) )
+    if ( Abc_NtkHasMapping(pNtk) )
         return Abc_NtkMapToSop(pNtk);
-    if ( Abc_NtkIsBddLogic(pNtk) )
+    if ( Abc_NtkHasBdd(pNtk) )
         return Abc_NtkBddToSop(pNtk, fDirect);
-    if ( Abc_NtkIsAigLogic(pNtk) )
+    if ( Abc_NtkHasAig(pNtk) )
     {
         if ( !Abc_NtkAigToBdd(pNtk) )
             return 0;
@@ -845,19 +1095,19 @@ int Abc_NtkLogicToSop( Abc_Ntk_t * pNtk, int fDirect )
   SeeAlso     []
 
 ***********************************************************************/
-int Abc_NtkLogicToBdd( Abc_Ntk_t * pNtk )
+int Abc_NtkToBdd( Abc_Ntk_t * pNtk )
 {
-    assert( Abc_NtkIsLogic(pNtk) );
-    if ( Abc_NtkIsBddLogic(pNtk) )
+    assert( !Abc_NtkIsStrash(pNtk) );
+    if ( Abc_NtkHasBdd(pNtk) )
         return 1;
-    if ( Abc_NtkIsMappedLogic(pNtk) )
+    if ( Abc_NtkHasMapping(pNtk) )
     {
         Abc_NtkMapToSop(pNtk);
         return Abc_NtkSopToBdd(pNtk);
     }
-    if ( Abc_NtkIsSopLogic(pNtk) )
+    if ( Abc_NtkHasSop(pNtk) )
         return Abc_NtkSopToBdd(pNtk);
-    if ( Abc_NtkIsAigLogic(pNtk) )
+    if ( Abc_NtkHasAig(pNtk) )
         return Abc_NtkAigToBdd(pNtk);
     assert( 0 );
     return 0;
@@ -874,23 +1124,23 @@ int Abc_NtkLogicToBdd( Abc_Ntk_t * pNtk )
   SeeAlso     []
 
 ***********************************************************************/
-int Abc_NtkLogicToAig( Abc_Ntk_t * pNtk )
+int Abc_NtkToAig( Abc_Ntk_t * pNtk )
 {
-    assert( Abc_NtkIsLogic(pNtk) );
-    if ( Abc_NtkIsAigLogic(pNtk) )
+    assert( !Abc_NtkIsStrash(pNtk) );
+    if ( Abc_NtkHasAig(pNtk) )
         return 1;
-    if ( Abc_NtkIsMappedLogic(pNtk) )
+    if ( Abc_NtkHasMapping(pNtk) )
     {
         Abc_NtkMapToSop(pNtk);
         return Abc_NtkSopToAig(pNtk);
     }
-    if ( Abc_NtkIsBddLogic(pNtk) )
+    if ( Abc_NtkHasBdd(pNtk) )
     {
         if ( !Abc_NtkBddToSop(pNtk,0) )
             return 0;
         return Abc_NtkSopToAig(pNtk);
     }
-    if ( Abc_NtkIsSopLogic(pNtk) )
+    if ( Abc_NtkHasSop(pNtk) )
         return Abc_NtkSopToAig(pNtk);
     assert( 0 );
     return 0;

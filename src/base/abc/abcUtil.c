@@ -68,7 +68,7 @@ void Abc_NtkIncrementTravId( Abc_Ntk_t * pNtk )
 {
     Abc_Obj_t * pObj;
     int i;
-    if ( pNtk->nTravIds == (1<<30)-1 )
+    if ( pNtk->nTravIds >= (1<<30)-1 )
     {
         pNtk->nTravIds = 0;
         Abc_NtkForEachObj( pNtk, pObj, i )
@@ -144,6 +144,33 @@ int Abc_NtkGetCubeNum( Abc_Ntk_t * pNtk )
         nCubes += Abc_SopGetCubeNum( pNode->pData );
     }
     return nCubes;
+}
+
+/**Function*************************************************************
+
+  Synopsis    [Reads the number of cubes of the node.]
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+int Abc_NtkGetCubePairNum( Abc_Ntk_t * pNtk )
+{
+    Abc_Obj_t * pNode;
+    int i, nCubes, nCubePairs = 0;
+    assert( Abc_NtkHasSop(pNtk) );
+    Abc_NtkForEachNode( pNtk, pNode, i )
+    {
+        if ( Abc_NodeIsConst(pNode) )
+            continue;
+        assert( pNode->pData );
+        nCubes = Abc_SopGetCubeNum( pNode->pData );
+        nCubePairs += nCubes * (nCubes - 1) / 2;
+    }
+    return nCubePairs;
 }
 
 /**Function*************************************************************
@@ -246,6 +273,7 @@ int Abc_NtkGetAigNodeNum( Abc_Ntk_t * pNtk )
         assert( pNode->pData );
         if ( Abc_ObjFaninNum(pNode) < 2 )
             continue;
+//printf( "%d ", Hop_DagSize( pNode->pData ) );
         nNodes += pNode->pData? Hop_DagSize( pNode->pData ) : 0;
     }
     return nNodes;
@@ -410,6 +438,26 @@ int Abc_NtkGetFaninMax( Abc_Ntk_t * pNtk )
 
 /**Function*************************************************************
 
+  Synopsis    [Reads the total number of all fanins.]
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+int Abc_NtkGetTotalFanins( Abc_Ntk_t * pNtk )
+{
+    Abc_Obj_t * pNode;
+    int i, nFanins = 0;
+    Abc_NtkForEachNode( pNtk, pNode, i )
+        nFanins += Abc_ObjFaninNum(pNode);
+    return nFanins;
+}
+
+/**Function*************************************************************
+
   Synopsis    [Cleans the copy field of all objects.]
 
   Description []
@@ -425,6 +473,44 @@ void Abc_NtkCleanCopy( Abc_Ntk_t * pNtk )
     int i;
     Abc_NtkForEachObj( pNtk, pObj, i )
         pObj->pCopy = NULL;
+}
+
+/**Function*************************************************************
+
+  Synopsis    [Cleans the copy field of all objects.]
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+void Abc_NtkCleanData( Abc_Ntk_t * pNtk )
+{
+    Abc_Obj_t * pObj;
+    int i;
+    Abc_NtkForEachObj( pNtk, pObj, i )
+        pObj->pData = NULL;
+}
+
+/**Function*************************************************************
+
+  Synopsis    [Cleans the copy field of all objects.]
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+void Abc_NtkCleanEquiv( Abc_Ntk_t * pNtk )
+{
+    Abc_Obj_t * pObj;
+    int i;
+    Abc_NtkForEachObj( pNtk, pObj, i )
+        pObj->pEquiv = NULL;
 }
 
 /**Function*************************************************************
@@ -1255,6 +1341,7 @@ void Abc_NtkReassignIds( Abc_Ntk_t * pNtk )
     Abc_Obj_t * pNode, * pTemp, * pConst1;
     int i, k;
     assert( Abc_NtkIsStrash(pNtk) );
+//printf( "Total = %d. Current = %d.\n", Abc_NtkObjNumMax(pNtk), Abc_NtkObjNum(pNtk) );
     // start the array of objects with new IDs
     vObjsNew = Vec_PtrAlloc( pNtk->nObjs );
     // put constant node first
@@ -1322,6 +1409,8 @@ void Abc_NtkReassignIds( Abc_Ntk_t * pNtk )
 
     // rehash the AIG
     Abc_AigRehash( pNtk->pManFunc );
+
+    // update the name manager!!!
 }
 
 /**Function*************************************************************
@@ -1410,7 +1499,262 @@ void Abc_NtkTransferCopy( Abc_Ntk_t * pNtk )
     int i;
     Abc_NtkForEachObj( pNtk, pObj, i )
         if ( !Abc_ObjIsNet(pObj) )
-            pObj->pCopy = pObj->pCopy? Abc_ObjEquiv(pObj->pCopy) : NULL;
+            pObj->pCopy = pObj->pCopy? Abc_ObjCopyCond(pObj->pCopy) : NULL;
+}
+
+
+/**Function*************************************************************
+
+  Synopsis    [Increaments the cut counter.]
+
+  Description [Returns 1 if it becomes equal to the ref counter.]
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+static inline int Abc_ObjCrossCutInc( Abc_Obj_t * pObj )
+{
+//    pObj->pCopy = (void *)(((int)pObj->pCopy)++);
+    int Value = (int)pObj->pCopy;
+    pObj->pCopy = (void *)(Value + 1);
+    return (int)pObj->pCopy == Abc_ObjFanoutNum(pObj);
+}
+
+/**Function*************************************************************
+
+  Synopsis    [Computes cross-cut of the circuit.]
+
+  Description [Returns 1 if it is the last visit to the node.]
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+int Abc_NtkCrossCut_rec( Abc_Obj_t * pObj, int * pnCutSize, int * pnCutSizeMax )
+{
+    Abc_Obj_t * pFanin;
+    int i, nDecrem = 0;
+    int fReverse = 0;
+    if ( Abc_ObjIsCi(pObj) )
+        return 0;
+    // if visited, increment visit counter 
+    if ( Abc_NodeIsTravIdCurrent( pObj ) )
+        return Abc_ObjCrossCutInc( pObj );
+    Abc_NodeSetTravIdCurrent( pObj );
+    // visit the fanins
+    if ( !Abc_ObjIsCi(pObj) )
+    {
+        if ( fReverse )
+        {
+            Abc_ObjForEachFanin( pObj, pFanin, i )
+            {
+                pFanin = Abc_ObjFanin( pObj, Abc_ObjFaninNum(pObj) - 1 - i );
+                nDecrem += Abc_NtkCrossCut_rec( pFanin, pnCutSize, pnCutSizeMax );
+            }
+        }
+        else
+        {
+            Abc_ObjForEachFanin( pObj, pFanin, i )
+                nDecrem += Abc_NtkCrossCut_rec( pFanin, pnCutSize, pnCutSizeMax );
+        }
+    }
+    // count the node
+    (*pnCutSize)++;
+    if ( *pnCutSizeMax < *pnCutSize )
+        *pnCutSizeMax = *pnCutSize;
+    (*pnCutSize) -= nDecrem;
+    return Abc_ObjCrossCutInc( pObj );
+}
+
+/**Function*************************************************************
+
+  Synopsis    [Computes cross-cut of the circuit.]
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+int Abc_NtkCrossCut( Abc_Ntk_t * pNtk )
+{
+    Abc_Obj_t * pObj;
+    int nCutSize = 0, nCutSizeMax = 0;
+    int i;
+    Abc_NtkCleanCopy( pNtk );
+    Abc_NtkIncrementTravId( pNtk );
+    Abc_NtkForEachCo( pNtk, pObj, i )
+    {
+        Abc_NtkCrossCut_rec( pObj, &nCutSize, &nCutSizeMax );
+        nCutSize--;
+    }
+    assert( nCutSize == 0 );
+    printf( "Max cross cut size = %6d.  Ratio = %6.2f %%\n", nCutSizeMax, 100.0 * nCutSizeMax/Abc_NtkObjNum(pNtk) );
+    return nCutSizeMax;
+}
+
+
+/**Function*************************************************************
+
+  Synopsis    [Prints all 3-var functions.]
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+void Abc_NtkPrint256()
+{
+    FILE * pFile;
+    unsigned i;
+    pFile = fopen( "4varfs.txt", "w" );
+    for ( i = 1; i < (1<<16)-1; i++ )
+    {
+        fprintf( pFile, "read_truth " );
+        Extra_PrintBinary( pFile, &i, 16 );
+        fprintf( pFile, "; clp; st; w 1.blif; map; cec 1.blif\n" );
+    }
+    fclose( pFile );
+}
+
+
+static     int * pSupps;
+
+/**Function*************************************************************
+
+  Synopsis    [Compares the supergates by their level.]
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+int Abc_NtkCompareConesCompare( int * pNum1, int * pNum2 )
+{
+    if ( pSupps[*pNum1] > pSupps[*pNum2] )
+        return -1;
+    if ( pSupps[*pNum1] < pSupps[*pNum2] )
+        return 1;
+    return 0;
+}
+
+/**Function*************************************************************
+
+  Synopsis    [Analyze choice node support.]
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+void Abc_NtkCompareCones( Abc_Ntk_t * pNtk )
+{
+    Vec_Ptr_t * vSupp, * vNodes, * vReverse;
+    Abc_Obj_t * pObj, * pTemp;
+    int Iter, i, k, Counter, CounterCos, CounterCosNew;
+    int * pPerms;
+
+    // sort COs by support size
+    pPerms = ALLOC( int, Abc_NtkCoNum(pNtk) );
+    pSupps = ALLOC( int, Abc_NtkCoNum(pNtk) );
+    Abc_NtkForEachCo( pNtk, pObj, i )
+    {
+        pPerms[i] = i;
+        vSupp = Abc_NtkNodeSupport( pNtk, &pObj, 1 );
+        pSupps[i] = Vec_PtrSize(vSupp);
+        Vec_PtrFree( vSupp );
+    }
+    qsort( (void *)pPerms, Abc_NtkCoNum(pNtk), sizeof(int), (int (*)(const void *, const void *)) Abc_NtkCompareConesCompare );
+
+    // consider COs in this order
+    Iter = 0;
+    Abc_NtkForEachCo( pNtk, pObj, i )
+    {
+        pObj = Abc_NtkCo( pNtk, pPerms[i] );
+        if ( pObj->fMarkA )
+            continue;
+        Iter++;
+
+        vSupp = Abc_NtkNodeSupport( pNtk, &pObj, 1 );
+        vNodes = Abc_NtkDfsNodes( pNtk, &pObj, 1 );
+        vReverse = Abc_NtkDfsReverseNodesContained( pNtk, (Abc_Obj_t **)Vec_PtrArray(vSupp), Vec_PtrSize(vSupp) );
+        // count the number of nodes in the reverse cone
+        Counter = 0;
+        for ( k = 1; k < Vec_PtrSize(vReverse) - 1; k++ )
+            for ( pTemp = Vec_PtrEntry(vReverse, k); pTemp; pTemp = pTemp->pCopy )
+                Counter++;
+        CounterCos = CounterCosNew = 0;
+        for ( pTemp = Vec_PtrEntryLast(vReverse); pTemp; pTemp = pTemp->pCopy )
+        {
+            assert( Abc_ObjIsCo(pTemp) );
+            CounterCos++;
+            if ( pTemp->fMarkA == 0 )
+                CounterCosNew++;
+            pTemp->fMarkA = 1;
+        }
+        // print statistics
+        printf( "%4d CO %5d :  Supp = %5d.  Lev = %3d.  Cone = %5d.  Rev = %5d.  COs = %3d (%3d).\n",
+            Iter, pPerms[i], Vec_PtrSize(vSupp), Abc_ObjLevel(Abc_ObjFanin0(pObj)), Vec_PtrSize(vNodes), Counter, CounterCos, CounterCosNew );
+
+        // free arrays
+        Vec_PtrFree( vSupp );
+        Vec_PtrFree( vNodes );
+        Vec_PtrFree( vReverse );
+
+        if ( Vec_PtrSize(vSupp) < 10 )
+            break;
+    }
+    Abc_NtkForEachCo( pNtk, pObj, i )
+        pObj->fMarkA = 0;
+
+    free( pPerms );
+    free( pSupps );
+}
+
+/**Function*************************************************************
+
+  Synopsis    [Analyze choice node support.]
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+void Abc_NtkCompareSupports( Abc_Ntk_t * pNtk )
+{
+    Vec_Ptr_t * vSupp;
+    Abc_Obj_t * pObj, * pTemp;
+    int i, nNodesOld;
+    assert( Abc_NtkIsStrash(pNtk) );
+    Abc_AigForEachAnd( pNtk, pObj, i )
+    {
+        if ( !Abc_AigNodeIsChoice(pObj) )
+            continue;
+
+        vSupp = Abc_NtkNodeSupport( pNtk, &pObj, 1 );
+        nNodesOld = Vec_PtrSize(vSupp);
+        Vec_PtrFree( vSupp );
+
+        for ( pTemp = pObj->pData; pTemp; pTemp = pTemp->pData )
+        {
+            vSupp = Abc_NtkNodeSupport( pNtk, &pTemp, 1 );
+            if ( nNodesOld != Vec_PtrSize(vSupp) )
+                printf( "Choice orig = %3d  Choice new = %3d\n", nNodesOld, Vec_PtrSize(vSupp) );
+            Vec_PtrFree( vSupp );
+        }
+    }
 }
 
 ////////////////////////////////////////////////////////////////////////

@@ -49,16 +49,20 @@ static Vec_Ptr_t * Abc_NodeBalanceConeExor( Abc_Obj_t * pNode );
 ***********************************************************************/
 Abc_Ntk_t * Abc_NtkBalance( Abc_Ntk_t * pNtk, bool fDuplicate, bool fSelective, bool fUpdateLevel )
 {
+    extern void Abc_NtkHaigTranfer( Abc_Ntk_t * pNtkOld, Abc_Ntk_t * pNtkNew );
     Abc_Ntk_t * pNtkAig;
     assert( Abc_NtkIsStrash(pNtk) );
     // compute the required times
     if ( fSelective )
     {
-        Abc_NtkStartReverseLevels( pNtk );
+        Abc_NtkStartReverseLevels( pNtk, 0 );
         Abc_NtkMarkCriticalNodes( pNtk );
     }
     // perform balancing
     pNtkAig = Abc_NtkStartFrom( pNtk, ABC_NTK_STRASH, ABC_FUNC_AIG );
+    // transfer HAIG
+    Abc_NtkHaigTranfer( pNtk, pNtkAig );
+    // perform balancing
     Abc_NtkBalancePerform( pNtk, pNtkAig, fDuplicate, fSelective, fUpdateLevel );
     Abc_NtkFinalize( pNtk, pNtkAig );
     // undo the required times
@@ -267,6 +271,9 @@ Abc_Obj_t * Abc_NodeBalance_rec( Abc_Ntk_t * pNtkNew, Abc_Obj_t * pNodeOld, Vec_
 //    if ( Abc_ObjRegular(pNodeOld->pCopy) == Abc_AigConst1(pNtkNew) )
 //        printf( "Constant node\n" );
 //    assert( pNodeOld->Level >= Abc_ObjRegular(pNodeOld->pCopy)->Level );
+    // update HAIG
+    if ( Abc_ObjRegular(pNodeOld->pCopy)->pNtk->pHaig )
+        Hop_ObjCreateChoice( pNodeOld->pEquiv, Abc_ObjRegular(pNodeOld->pCopy)->pEquiv );
     return pNodeOld->pCopy;
 }
 
@@ -593,7 +600,7 @@ void Abc_NtkMarkCriticalNodes( Abc_Ntk_t * pNtk )
     Abc_Obj_t * pNode;
     int i, Counter = 0;
     Abc_NtkForEachNode( pNtk, pNode, i )
-        if ( Abc_NodeReadRequiredLevel(pNode) - pNode->Level <= 1 )
+        if ( Abc_ObjRequiredLevel(pNode) - pNode->Level <= 1 )
             pNode->fMarkA = 1, Counter++;
     printf( "The number of nodes on the critical paths = %6d  (%5.2f %%)\n", Counter, 100.0 * Counter / Abc_NtkNodeNum(pNtk) );
 }

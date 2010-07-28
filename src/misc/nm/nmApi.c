@@ -72,7 +72,7 @@ Nm_Man_t * Nm_ManCreate( int nSize )
 ***********************************************************************/
 void Nm_ManFree( Nm_Man_t * p )
 {
-    Extra_MmFlexStop( p->pMem, 0 );
+    Extra_MmFlexStop( p->pMem );
     FREE( p->pBinsI2N );
     FREE( p->pBinsN2I );
     FREE( p );
@@ -218,6 +218,29 @@ int Nm_ManFindIdByName( Nm_Man_t * p, char * pName, int Type )
     if ( pEntry = Nm_ManTableLookupName(p, pName, Type) )
         return pEntry->ObjId;
     return -1;
+}
+
+/**Function*************************************************************
+
+  Synopsis    [Returns ID of the object if its name is known.]
+
+  Description [This procedure may return two IDs because POs and latches 
+  may have the same name (the only allowed case of name duplication).]
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+int Nm_ManFindIdByNameTwoTypes( Nm_Man_t * p, char * pName, int Type1, int Type2 )
+{
+    int iNodeId;
+    iNodeId = Nm_ManFindIdByName( p, pName, Type1 );
+    if ( iNodeId == -1 )
+        iNodeId = Nm_ManFindIdByName( p, pName, Type2 );
+    if ( iNodeId == -1 )
+        return -1;
+    return iNodeId;
 }
 
 /**Function*************************************************************

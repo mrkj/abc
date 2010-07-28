@@ -24,9 +24,9 @@
 ///                        DECLARATIONS                              ///
 ////////////////////////////////////////////////////////////////////////
 
-#define VER_BUFFER_SIZE        1048576    // 1M   - size of the data chunk stored in memory
-#define VER_OFFSET_SIZE           4096    // 4K   - load new data when less than this is left
-#define VER_WORD_SIZE             4096    // 4K   - the largest token that can be returned
+#define VER_BUFFER_SIZE        1048576    // 1M  - size of the data chunk stored in memory
+#define VER_OFFSET_SIZE          65536    // 64K - load new data when less than this is left
+#define VER_WORD_SIZE            65536    // 64K - the largest token that can be returned
 
 #define VER_MINIMUM(a,b)       (((a) < (b))? (a) : (b))
 
@@ -279,6 +279,9 @@ char Ver_StreamPopChar( Ver_Stream_t * p )
         p->fStop = 1;
         return -1;
     }
+    // count the lines
+    if ( *p->pBufferCur == '\n' )
+        p->nLineCounter++;
     return *p->pBufferCur++;
 }
 
@@ -304,9 +307,6 @@ void Ver_StreamSkipChars( Ver_Stream_t * p, char * pCharsToSkip )
     // skip the symbols
     for ( pChar = p->pBufferCur; pChar < p->pBufferEnd; pChar++ )
     {
-        // count the lines
-        if ( *pChar == '\n' )
-            p->nLineCounter++;
         // skip symbols as long as they are in the list
         for ( pTemp = pCharsToSkip; *pTemp; pTemp++ )
             if ( *pChar == *pTemp )
@@ -316,6 +316,9 @@ void Ver_StreamSkipChars( Ver_Stream_t * p, char * pCharsToSkip )
             p->pBufferCur = pChar;
             return;
         }
+        // count the lines
+        if ( *pChar == '\n' )
+            p->nLineCounter++;
     }
     // the file is finished or the last part continued 
     // through VER_OFFSET_SIZE chars till the end of the buffer
@@ -349,15 +352,17 @@ void Ver_StreamSkipToChars( Ver_Stream_t * p, char * pCharsToStop )
     // skip the symbols
     for ( pChar = p->pBufferCur; pChar < p->pBufferEnd; pChar++ )
     {
-        // count the lines
-        if ( *pChar == '\n' )
-            p->nLineCounter++;
         // skip symbols as long as they are NOT in the list
         for ( pTemp = pCharsToStop; *pTemp; pTemp++ )
             if ( *pChar == *pTemp )
                 break;
         if ( *pTemp == 0 ) // pChar is not found in the list
+        {
+            // count the lines
+            if ( *pChar == '\n' )
+                p->nLineCounter++;
             continue;
+        }
         // the symbol is found - move position and return
         p->pBufferCur = pChar;
         return;
@@ -397,9 +402,6 @@ char * Ver_StreamGetWord( Ver_Stream_t * p, char * pCharsToStop )
     p->nChars = 0;
     for ( pChar = p->pBufferCur; pChar < p->pBufferEnd; pChar++ )
     {
-        // count the lines
-        if ( *pChar == '\n' )
-            p->nLineCounter++;
         // skip symbols as long as they are NOT in the list
         for ( pTemp = pCharsToStop; *pTemp; pTemp++ )
             if ( *pChar == *pTemp )
@@ -408,7 +410,13 @@ char * Ver_StreamGetWord( Ver_Stream_t * p, char * pCharsToStop )
         {
             p->pChars[p->nChars++] = *pChar;
             if ( p->nChars == VER_WORD_SIZE )
+            {
+                printf( "Ver_StreamGetWord(): The buffer size is exceeded.\n" );
                 return NULL;
+            }
+            // count the lines
+            if ( *pChar == '\n' )
+                p->nLineCounter++;
             continue;
         }
         // the symbol is found - move the position, set the word end, return the word

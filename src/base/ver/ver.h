@@ -45,17 +45,19 @@ typedef struct Ver_Stream_t_    Ver_Stream_t;
 
 struct Ver_Man_t_
 {
+    // internal parameters
+    int             fMapped;       // mapped verilog
+    int             fUseMemMan;    // allocate memory manager in the networks
+    int             fCheck;        // checks network for currectness
     // input file stream
     char *          pFileName;
     Ver_Stream_t *  pReader;
+    int             fNameLast;
     ProgressBar *   pProgress;
-    // current network and library
-    Abc_Ntk_t *     pNtkCur;       // the network under construction
-    Abc_Lib_t *     pDesign;       // the current design 
-    // parameters
-    int             fUseMemMan;    // allocate memory manager in the networks
-    int             fCheck;        // checks network for currectness
-    // error recovery
+    // current design
+    Abc_Lib_t *     pDesign;
+    st_table *      tName2Suffix;
+    // error handling
     FILE *          Output;
     int             fTopLevel;
     int             fError;
@@ -64,7 +66,9 @@ struct Ver_Man_t_
     Vec_Ptr_t *     vNames;  
     Vec_Ptr_t *     vStackFn;
     Vec_Int_t *     vStackOp;
+    Vec_Int_t *     vPerm;
 };
+
 
 ////////////////////////////////////////////////////////////////////////
 ///                      MACRO DEFINITIONS                           ///

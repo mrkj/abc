@@ -30,6 +30,45 @@
 
 /**Function*************************************************************
 
+  Synopsis    []
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+static inline void Vec_IntPushMem( Extra_MmStep_t * pMemMan, Vec_Int_t * p, int Entry )
+{
+    if ( p->nSize == p->nCap )
+    {
+        int * pArray;
+        int i;
+
+        if ( p->nSize == 0 )
+            p->nCap = 1;
+        if ( pMemMan )
+            pArray = (int *)Extra_MmStepEntryFetch( pMemMan, p->nCap * 8 );
+        else
+            pArray = ALLOC( int, p->nCap * 2 );
+        if ( p->pArray )
+        {
+            for ( i = 0; i < p->nSize; i++ )
+                pArray[i] = p->pArray[i];
+            if ( pMemMan )
+                Extra_MmStepEntryRecycle( pMemMan, (char *)p->pArray, p->nCap * 4 );
+            else
+                free( p->pArray );
+        }
+        p->nCap *= 2;
+        p->pArray = pArray;
+    }
+    p->pArray[p->nSize++] = Entry;
+}
+
+/**Function*************************************************************
+
   Synopsis    [Creates fanout/fanin relationship between the nodes.]
 
   Description []
@@ -53,6 +92,8 @@ void Abc_ObjAddFanin( Abc_Obj_t * pObj, Abc_Obj_t * pFanin )
     {
         int x = 0; 
     }
+//    printf( "Adding fanin of %s ", Abc_ObjName(pObj) );
+//    printf( "to be %s\n", Abc_ObjName(pFanin) );
 }
 
 
@@ -263,7 +304,7 @@ void Abc_ObjReplace( Abc_Obj_t * pNodeOld, Abc_Obj_t * pNodeNew )
     // transfer the fanouts to the old node
     Abc_ObjTransferFanout( pNodeOld, pNodeNew );
     // remove the old node
-    Abc_NtkDeleteObj( pNodeOld );
+    Abc_NtkDeleteObj_rec( pNodeOld, 1 );
 }
 
 /**Function*************************************************************

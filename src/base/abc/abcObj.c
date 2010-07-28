@@ -140,11 +140,10 @@ Abc_Obj_t * Abc_NtkCreateObj( Abc_Ntk_t * pNtk, Abc_ObjType_t Type )
             break;
         case ABC_OBJ_NET:  
         case ABC_OBJ_NODE: 
-        case ABC_OBJ_GATE: 
             break;
         case ABC_OBJ_LATCH:     
             pObj->pData = (void *)ABC_INIT_NONE;
-        case ABC_OBJ_TRI:     
+        case ABC_OBJ_WHITEBOX:     
         case ABC_OBJ_BLACKBOX:     
             if ( pNtk->vBoxes ) Vec_PtrPush( pNtk->vBoxes, pObj );
             break;
@@ -220,7 +219,6 @@ void Abc_NtkDeleteObj( Abc_Obj_t * pObj )
             Vec_PtrRemove( pNtk->vCos, pObj );
             break;
         case ABC_OBJ_NET:  
-        case ABC_OBJ_GATE:  
             break;
         case ABC_OBJ_NODE: 
             if ( Abc_NtkHasBdd(pNtk) )
@@ -228,7 +226,7 @@ void Abc_NtkDeleteObj( Abc_Obj_t * pObj )
             pObj->pData = NULL;
             break;
         case ABC_OBJ_LATCH:     
-        case ABC_OBJ_TRI:     
+        case ABC_OBJ_WHITEBOX:     
         case ABC_OBJ_BLACKBOX:     
             if ( pNtk->vBoxes ) Vec_PtrRemove( pNtk->vBoxes, pObj );
             break;
@@ -324,10 +322,24 @@ Abc_Obj_t * Abc_NtkDupObj( Abc_Ntk_t * pNtkNew, Abc_Obj_t * pObj, int fCopyName 
     if ( fCopyName )
     {
         if ( Abc_ObjIsCi(pObj) )
-            Abc_ObjAssignName( pObjNew, Abc_ObjName(Abc_ObjFanout0Ntk(pObj)), NULL );
+        {
+            if ( !Abc_NtkIsNetlist(pNtkNew) )
+                Abc_ObjAssignName( pObjNew, Abc_ObjName(Abc_ObjFanout0Ntk(pObj)), NULL );
+        }
         else if ( Abc_ObjIsCo(pObj) )
-            Abc_ObjAssignName( pObjNew, Abc_ObjName(Abc_ObjFanin0Ntk(pObj)), NULL );
-        else if ( Abc_ObjIsBox(pObj) )
+        {
+            if ( !Abc_NtkIsNetlist(pNtkNew) )
+            {
+                if ( Abc_ObjIsPo(pObj) )
+                    Abc_ObjAssignName( pObjNew, Abc_ObjName(Abc_ObjFanin0Ntk(pObj)), NULL );
+                else
+                {
+                    assert( Abc_ObjIsLatch(Abc_ObjFanout0(pObj)) );
+                    Abc_ObjAssignName( pObjNew, Abc_ObjName(pObj), NULL );
+                }
+            }
+        }
+        else if ( Abc_ObjIsBox(pObj) || Abc_ObjIsNet(pObj) )
             Abc_ObjAssignName( pObjNew, Abc_ObjName(pObj), NULL );
     }
     // copy functionality/names
@@ -337,7 +349,7 @@ Abc_Obj_t * Abc_NtkDupObj( Abc_Ntk_t * pNtkNew, Abc_Obj_t * pObj, int fCopyName 
         {
             if ( Abc_NtkIsStrash(pNtkNew) ) 
             {}
-            else if ( Abc_NtkHasSop(pNtkNew) )
+            else if ( Abc_NtkHasSop(pNtkNew) || Abc_NtkHasBlifMv(pNtkNew) )
                 pObjNew->pData = Abc_SopRegister( pNtkNew->pManFunc, pObj->pData );
             else if ( Abc_NtkHasBdd(pNtkNew) )
                 pObjNew->pData = Cudd_bddTransfer(pObj->pNtk->pManFunc, pNtkNew->pManFunc, pObj->pData), Cudd_Ref(pObjNew->pData);
@@ -350,11 +362,12 @@ Abc_Obj_t * Abc_NtkDupObj( Abc_Ntk_t * pNtkNew, Abc_Obj_t * pObj, int fCopyName 
     }
     else if ( Abc_ObjIsNet(pObj) ) // copy the name
     {
-        assert( 0 );
-//        pObjNew->pData = Nm_ManStoreIdName( pNtkNew->pManName, pObjNew->Id, pObj->pData, NULL );
     }
     else if ( Abc_ObjIsLatch(pObj) ) // copy the reset value
         pObjNew->pData = pObj->pData;
+    // transfer HAIG
+//    pObjNew->pEquiv = pObj->pEquiv;
+    // remember the new node in the old node
     pObj->pCopy = pObjNew;
     return pObjNew;
 }
@@ -434,9 +447,9 @@ Abc_Obj_t * Abc_NtkFindNode( Abc_Ntk_t * pNtk, char * pName )
     if ( Num >= 0 )
         return Abc_NtkObj( pNtk, Num );
     // find the internal node
-    if ( pName[0] != '[' || pName[strlen(pName)-1] != ']' )
+    if ( pName[0] != 'n' )
     {
-        printf( "Name \"%s\" is not found among CIs/COs (internal names often look as \"[integer]\").\n", pName );
+        printf( "Name \"%s\" is not found among CO or node names (internal names often look as \"n<num>\").\n", pName );
         return NULL;
     }
     Num = atoi( pName + 1 );
@@ -548,8 +561,9 @@ Abc_Obj_t * Abc_NtkFindOrCreateNet( Abc_Ntk_t * pNtk, char * pName )
     assert( Abc_NtkIsNetlist(pNtk) );
     if ( pName && (pNet = Abc_NtkFindNet( pNtk, pName )) )
         return pNet;
+//printf( "Creating net %s.\n", pName );
     // create a new net
-    pNet = Abc_NtkCreateObj( pNtk, ABC_OBJ_NET );
+    pNet = Abc_NtkCreateNet( pNtk );
     if ( pName )
         Nm_ManStoreIdName( pNtk->pManName, pNet->Id, pNet->Type, pName, NULL );
     return pNet;
@@ -571,7 +585,7 @@ Abc_Obj_t * Abc_NtkCreateNodeConst0( Abc_Ntk_t * pNtk )
     Abc_Obj_t * pNode;
     assert( Abc_NtkIsLogic(pNtk) || Abc_NtkIsNetlist(pNtk) );
     pNode = Abc_NtkCreateNode( pNtk );   
-    if ( Abc_NtkHasSop(pNtk) )
+    if ( Abc_NtkHasSop(pNtk) || Abc_NtkHasBlifMv(pNtk) )
         pNode->pData = Abc_SopRegister( pNtk->pManFunc, " 0\n" );
     else if ( Abc_NtkHasBdd(pNtk) )
         pNode->pData = Cudd_ReadLogicZero(pNtk->pManFunc), Cudd_Ref( pNode->pData );
@@ -600,7 +614,7 @@ Abc_Obj_t * Abc_NtkCreateNodeConst1( Abc_Ntk_t * pNtk )
     Abc_Obj_t * pNode;
     assert( Abc_NtkIsLogic(pNtk) || Abc_NtkIsNetlist(pNtk) );
     pNode = Abc_NtkCreateNode( pNtk );   
-    if ( Abc_NtkHasSop(pNtk) )
+    if ( Abc_NtkHasSop(pNtk) || Abc_NtkHasBlifMv(pNtk) )
         pNode->pData = Abc_SopRegister( pNtk->pManFunc, " 1\n" );
     else if ( Abc_NtkHasBdd(pNtk) )
         pNode->pData = Cudd_ReadOne(pNtk->pManFunc), Cudd_Ref( pNode->pData );

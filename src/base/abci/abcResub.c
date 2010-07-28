@@ -46,6 +46,8 @@ struct Abc_ManRes_t_
     int                nWords;     // the number of unsigneds for siminfo
     Vec_Ptr_t        * vSims;      // simulation info
     unsigned         * pInfo;      // pointer to simulation info
+    // observability don't-cares
+    unsigned *         pCareSet;
     // internal divisor storage
     Vec_Ptr_t        * vDivs1UP;   // the single-node unate divisors
     Vec_Ptr_t        * vDivs1UN;   // the single-node unate divisors
@@ -58,6 +60,7 @@ struct Abc_ManRes_t_
     Vec_Ptr_t        * vTemp;      // temporary array of nodes
     // runtime statistics
     int                timeCut;
+    int                timeTruth;
     int                timeRes;
     int                timeDiv;
     int                timeMffc;
@@ -83,6 +86,8 @@ struct Abc_ManRes_t_
     int                nTotalDivs;
     int                nTotalLeaves;
     int                nTotalGain;
+    int                nNodesBeg;
+    int                nNodesEnd;
 };
 
 // external procedures
@@ -109,6 +114,14 @@ static Dec_Graph_t * Abc_ManResubDivs3( Abc_ManRes_t * p, int Required );
 static Vec_Ptr_t *   Abc_CutFactorLarge( Abc_Obj_t * pNode, int nLeavesMax );
 static int           Abc_CutVolumeCheck( Abc_Obj_t * pNode, Vec_Ptr_t * vLeaves );
 
+// don't-care manager
+extern void * Abc_NtkDontCareAlloc( int nVarsMax, int nLevels, int fVerbose, int fVeryVerbose );
+extern void Abc_NtkDontCareClear( void * p );
+extern void Abc_NtkDontCareFree( void * p );
+extern int Abc_NtkDontCareCompute( void * p, Abc_Obj_t * pNode, Vec_Ptr_t * vLeaves, unsigned * puTruth );
+
+extern int s_ResubTime;
+
 ////////////////////////////////////////////////////////////////////////
 ///                     FUNCTION DEFINITIONS                         ///
 ////////////////////////////////////////////////////////////////////////
@@ -124,11 +137,12 @@ static int           Abc_CutVolumeCheck( Abc_Obj_t * pNode, Vec_Ptr_t * vLeaves 
   SeeAlso     []
 
 ***********************************************************************/
-int Abc_NtkResubstitute( Abc_Ntk_t * pNtk, int nCutMax, int nStepsMax, bool fUpdateLevel, bool fVerbose )
+int Abc_NtkResubstitute( Abc_Ntk_t * pNtk, int nCutMax, int nStepsMax, int nLevelsOdc, bool fUpdateLevel, bool fVerbose, bool fVeryVerbose )
 {
     ProgressBar * pProgress;
     Abc_ManRes_t * pManRes;
     Abc_ManCut_t * pManCut;
+    void * pManOdc = NULL;
     Dec_Graph_t * pFForm;
     Vec_Ptr_t * vLeaves;
     Abc_Obj_t * pNode;
@@ -142,16 +156,19 @@ int Abc_NtkResubstitute( Abc_Ntk_t * pNtk, int nCutMax, int nStepsMax, bool fUpd
     // start the managers
     pManCut = Abc_NtkManCutStart( nCutMax, 100000, 100000, 100000 );
     pManRes = Abc_ManResubStart( nCutMax, ABC_RS_DIV1_MAX );
+    if ( nLevelsOdc > 0 )
+    pManOdc = Abc_NtkDontCareAlloc( nCutMax, nLevelsOdc, fVerbose, fVeryVerbose );
 
     // compute the reverse levels if level update is requested
     if ( fUpdateLevel )
-        Abc_NtkStartReverseLevels( pNtk );
+        Abc_NtkStartReverseLevels( pNtk, 0 );
 
     if ( Abc_NtkLatchNum(pNtk) )
         Abc_NtkForEachLatch(pNtk, pNode, i)
             pNode->pNext = pNode->pData;
 
     // resynthesize each node once
+    pManRes->nNodesBeg = Abc_NtkNodeNum(pNtk);
     nNodes = Abc_NtkObjNumMax(pNtk);
     pProgress = Extra_ProgressBarStart( stdout, nNodes );
     Abc_NtkForEachNode( pNtk, pNode, i )
@@ -181,6 +198,14 @@ pManRes->timeCut += clock() - clk;
         if ( vLeaves == NULL )
             continue;
 */
+        // get the don't-cares
+        if ( pManOdc )
+        {
+clk = clock();
+            Abc_NtkDontCareClear( pManOdc );
+            Abc_NtkDontCareCompute( pManOdc, pNode, vLeaves, pManRes->pCareSet );
+pManRes->timeTruth += clock() - clk;
+        }
 
         // evaluate this cut
 clk = clock();
@@ -208,6 +233,7 @@ pManRes->timeNtk += clock() - clk;
     }
     Extra_ProgressBarStop( pProgress );
 pManRes->timeTotal = clock() - clkStart;
+    pManRes->nNodesEnd = Abc_NtkNodeNum(pNtk);
 
     // print statistics
     if ( fVerbose )
@@ -216,6 +242,7 @@ pManRes->timeTotal = clock() - clkStart;
     // delete the managers
     Abc_ManResubStop( pManRes );
     Abc_NtkManCutStop( pManCut );
+    if ( pManOdc ) Abc_NtkDontCareFree( pManOdc );
 
     // clean the data field
     Abc_NtkForEachObj( pNtk, pNode, i )
@@ -239,6 +266,7 @@ pManRes->timeTotal = clock() - clkStart;
         printf( "Abc_NtkRefactor: The network check has failed.\n" );
         return 0;
     }
+s_ResubTime = clock() - clkStart;
     return 1;
 }
 
@@ -270,11 +298,14 @@ Abc_ManRes_t * Abc_ManResubStart( int nLeavesMax, int nDivsMax )
     // allocate simulation info
     p->nBits      = (1 << p->nLeavesMax);
     p->nWords     = (p->nBits <= 32)? 1 : (p->nBits / 32);
-    p->pInfo      = ALLOC( unsigned, p->nWords * p->nDivsMax );
+    p->pInfo      = ALLOC( unsigned, p->nWords * (p->nDivsMax + 1) );
     memset( p->pInfo, 0, sizeof(unsigned) * p->nWords * p->nLeavesMax );
     p->vSims      = Vec_PtrAlloc( p->nDivsMax );
     for ( i = 0; i < p->nDivsMax; i++ )
         Vec_PtrPush( p->vSims, p->pInfo + i * p->nWords );
+    // assign the care set
+    p->pCareSet  = p->pInfo + p->nDivsMax * p->nWords;
+    Abc_InfoFill( p->pCareSet, p->nWords );
     // set elementary truth tables
     for ( k = 0; k < p->nLeavesMax; k++ )
     {
@@ -343,7 +374,7 @@ void Abc_ManResubPrint( Abc_ManRes_t * p )
     printf( "Used double ANDs  = %6d.             ", p->nUsedNode2And );       PRT( " 1    ", p->timeRes1 );
     printf( "Used OR-AND       = %6d.             ", p->nUsedNode2OrAnd );     PRT( " D    ", p->timeResD );
     printf( "Used AND-OR       = %6d.             ", p->nUsedNode2AndOr );     PRT( " 2    ", p->timeRes2 );
-    printf( "Used OR-2ANDs     = %6d.             ", p->nUsedNode3OrAnd );     PRT( " 3    ", p->timeRes3 );
+    printf( "Used OR-2ANDs     = %6d.             ", p->nUsedNode3OrAnd );     PRT( "Truth ", p->timeTruth ); //PRT( " 3    ", p->timeRes3 );
     printf( "Used AND-2ORs     = %6d.             ", p->nUsedNode3AndOr );     PRT( "AIG   ", p->timeNtk );
     printf( "TOTAL             = %6d.             ", p->nUsedNodeC +
                                                      p->nUsedNode0 +
@@ -358,8 +389,8 @@ void Abc_ManResubPrint( Abc_ManRes_t * p )
                                                    );                          PRT( "TOTAL ", p->timeTotal );
     printf( "Total leaves   = %8d.\n", p->nTotalLeaves );
     printf( "Total divisors = %8d.\n", p->nTotalDivs );
-    printf( "Total gain     = %8d.\n", p->nTotalGain );
-    
+//    printf( "Total gain     = %8d.\n", p->nTotalGain );
+    printf( "Gain           = %8d. (%6.2f %%).\n", p->nNodesBeg-p->nNodesEnd, 100.0*(p->nNodesBeg-p->nNodesEnd)/p->nNodesBeg );
 }
 
 
@@ -579,36 +610,6 @@ void Abc_ManResubSimulate( Vec_Ptr_t * vDivs, int nLeaves, Vec_Ptr_t * vSims, in
     }
 }
 
-
-/**Function*************************************************************
-
-  Synopsis    []
-
-  Description []
-               
-  SideEffects []
-
-  SeeAlso     []
-
-***********************************************************************/
-Dec_Graph_t * Abc_ManResubQuit( Abc_ManRes_t * p )
-{
-    Dec_Graph_t * pGraph;
-    unsigned * upData;
-    int w;
-    upData = p->pRoot->pData;
-    for ( w = 0; w < p->nWords; w++ )
-        if ( upData[w] )
-            break;
-    if ( w != p->nWords )
-        return NULL;
-    // get constant node graph
-    if ( p->pRoot->fPhase )
-        pGraph = Dec_GraphCreateConst1();
-    else 
-        pGraph = Dec_GraphCreateConst0();
-    return pGraph;
-}
 
 /**Function*************************************************************
 
@@ -854,7 +855,8 @@ void Abc_ManResubDivsS( Abc_ManRes_t * p, int Required )
         puData = pObj->pData;
         // check positive containment
         for ( w = 0; w < p->nWords; w++ )
-            if ( puData[w] & ~puDataR[w] )
+//            if ( puData[w] & ~puDataR[w] )
+            if ( puData[w] & ~puDataR[w] & p->pCareSet[w] ) // care set
                 break;
         if ( w == p->nWords )
         {
@@ -863,7 +865,8 @@ void Abc_ManResubDivsS( Abc_ManRes_t * p, int Required )
         }
         // check negative containment
         for ( w = 0; w < p->nWords; w++ )
-            if ( ~puData[w] & puDataR[w] )
+//            if ( ~puData[w] & puDataR[w] )
+            if ( ~puData[w] & puDataR[w] & p->pCareSet[w] ) // care set
                 break;
         if ( w == p->nWords )
         {
@@ -913,7 +916,8 @@ void Abc_ManResubDivsD( Abc_ManRes_t * p, int Required )
             {
                 // get positive unate divisors
                 for ( w = 0; w < p->nWords; w++ )
-                    if ( (puData0[w] & puData1[w]) & ~puDataR[w] )
+//                    if ( (puData0[w] & puData1[w]) & ~puDataR[w] )
+                    if ( (puData0[w] & puData1[w]) & ~puDataR[w] & p->pCareSet[w] ) // care set
                         break;
                 if ( w == p->nWords )
                 {
@@ -921,7 +925,8 @@ void Abc_ManResubDivsD( Abc_ManRes_t * p, int Required )
                     Vec_PtrPush( p->vDivs2UP1, pObj1 );
                 }
                 for ( w = 0; w < p->nWords; w++ )
-                    if ( (~puData0[w] & puData1[w]) & ~puDataR[w] )
+//                    if ( (~puData0[w] & puData1[w]) & ~puDataR[w] )
+                    if ( (~puData0[w] & puData1[w]) & ~puDataR[w] & p->pCareSet[w] ) // care set
                         break;
                 if ( w == p->nWords )
                 {
@@ -929,7 +934,8 @@ void Abc_ManResubDivsD( Abc_ManRes_t * p, int Required )
                     Vec_PtrPush( p->vDivs2UP1, pObj1 );
                 }
                 for ( w = 0; w < p->nWords; w++ )
-                    if ( (puData0[w] & ~puData1[w]) & ~puDataR[w] )
+//                    if ( (puData0[w] & ~puData1[w]) & ~puDataR[w] )
+                    if ( (puData0[w] & ~puData1[w]) & ~puDataR[w] & p->pCareSet[w] ) // care set
                         break;
                 if ( w == p->nWords )
                 {
@@ -937,7 +943,8 @@ void Abc_ManResubDivsD( Abc_ManRes_t * p, int Required )
                     Vec_PtrPush( p->vDivs2UP1, Abc_ObjNot(pObj1) );
                 }
                 for ( w = 0; w < p->nWords; w++ )
-                    if ( (puData0[w] | puData1[w]) & ~puDataR[w] )
+//                    if ( (puData0[w] | puData1[w]) & ~puDataR[w] )
+                    if ( (puData0[w] | puData1[w]) & ~puDataR[w] & p->pCareSet[w] ) // care set
                         break;
                 if ( w == p->nWords )
                 {
@@ -950,7 +957,8 @@ void Abc_ManResubDivsD( Abc_ManRes_t * p, int Required )
             {
                 // get negative unate divisors
                 for ( w = 0; w < p->nWords; w++ )
-                    if ( ~(puData0[w] & puData1[w]) & puDataR[w] )
+//                    if ( ~(puData0[w] & puData1[w]) & puDataR[w] )
+                    if ( ~(puData0[w] & puData1[w]) & puDataR[w] & p->pCareSet[w] ) // care set
                         break;
                 if ( w == p->nWords )
                 {
@@ -958,7 +966,8 @@ void Abc_ManResubDivsD( Abc_ManRes_t * p, int Required )
                     Vec_PtrPush( p->vDivs2UN1, pObj1 );
                 }
                 for ( w = 0; w < p->nWords; w++ )
-                    if ( ~(~puData0[w] & puData1[w]) & puDataR[w] )
+//                    if ( ~(~puData0[w] & puData1[w]) & puDataR[w] )
+                    if ( ~(~puData0[w] & puData1[w]) & puDataR[w] & p->pCareSet[w] ) // care set
                         break;
                 if ( w == p->nWords )
                 {
@@ -966,7 +975,8 @@ void Abc_ManResubDivsD( Abc_ManRes_t * p, int Required )
                     Vec_PtrPush( p->vDivs2UN1, pObj1 );
                 }
                 for ( w = 0; w < p->nWords; w++ )
-                    if ( ~(puData0[w] & ~puData1[w]) & puDataR[w] )
+//                    if ( ~(puData0[w] & ~puData1[w]) & puDataR[w] )
+                    if ( ~(puData0[w] & ~puData1[w]) & puDataR[w] & p->pCareSet[w] ) // care set
                         break;
                 if ( w == p->nWords )
                 {
@@ -974,7 +984,8 @@ void Abc_ManResubDivsD( Abc_ManRes_t * p, int Required )
                     Vec_PtrPush( p->vDivs2UN1, Abc_ObjNot(pObj1) );
                 }
                 for ( w = 0; w < p->nWords; w++ )
-                    if ( ~(puData0[w] | puData1[w]) & puDataR[w] )
+//                    if ( ~(puData0[w] | puData1[w]) & puDataR[w] )
+                    if ( ~(puData0[w] | puData1[w]) & puDataR[w] & p->pCareSet[w] ) // care set
                         break;
                 if ( w == p->nWords )
                 {
@@ -991,7 +1002,38 @@ void Abc_ManResubDivsD( Abc_ManRes_t * p, int Required )
 
 /**Function*************************************************************
 
-  Synopsis    [Derives unate/binate divisors.]
+  Synopsis    []
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+Dec_Graph_t * Abc_ManResubQuit( Abc_ManRes_t * p )
+{
+    Dec_Graph_t * pGraph;
+    unsigned * upData;
+    int w;
+    upData = p->pRoot->pData;
+    for ( w = 0; w < p->nWords; w++ )
+//        if ( upData[w] )
+        if ( upData[w] & p->pCareSet[w] ) // care set
+            break;
+    if ( w != p->nWords )
+        return NULL;
+    // get constant node graph
+    if ( p->pRoot->fPhase )
+        pGraph = Dec_GraphCreateConst1();
+    else 
+        pGraph = Dec_GraphCreateConst0();
+    return pGraph;
+}
+
+/**Function*************************************************************
+
+  Synopsis    []
 
   Description []
                
@@ -1010,7 +1052,8 @@ Dec_Graph_t * Abc_ManResubDivs0( Abc_ManRes_t * p )
     {
         puData = pObj->pData;
         for ( w = 0; w < p->nWords; w++ )
-            if ( puData[w] != puDataR[w] )
+//            if ( puData[w] != puDataR[w] )
+            if ( (puData[w] ^ puDataR[w]) & p->pCareSet[w] ) // care set
                 break;
         if ( w == p->nWords )
             return Abc_ManResubQuit0( p->pRoot, pObj );
@@ -1020,7 +1063,7 @@ Dec_Graph_t * Abc_ManResubDivs0( Abc_ManRes_t * p )
 
 /**Function*************************************************************
 
-  Synopsis    [Derives unate/binate divisors.]
+  Synopsis    []
 
   Description []
                
@@ -1043,7 +1086,8 @@ Dec_Graph_t * Abc_ManResubDivs1( Abc_ManRes_t * p, int Required )
         {
             puData1 = pObj1->pData;
             for ( w = 0; w < p->nWords; w++ )
-                if ( (puData0[w] | puData1[w]) != puDataR[w] )
+//                if ( (puData0[w] | puData1[w]) != puDataR[w] )
+                if ( ((puData0[w] | puData1[w]) ^ puDataR[w]) & p->pCareSet[w] ) // care set
                     break;
             if ( w == p->nWords )
             {
@@ -1060,7 +1104,8 @@ Dec_Graph_t * Abc_ManResubDivs1( Abc_ManRes_t * p, int Required )
         {
             puData1 = pObj1->pData;
             for ( w = 0; w < p->nWords; w++ )
-                if ( (puData0[w] & puData1[w]) != puDataR[w] )
+//                if ( (puData0[w] & puData1[w]) != puDataR[w] )
+                if ( ((puData0[w] & puData1[w]) ^ puDataR[w]) & p->pCareSet[w] ) // care set
                     break;
             if ( w == p->nWords )
             {
@@ -1074,7 +1119,7 @@ Dec_Graph_t * Abc_ManResubDivs1( Abc_ManRes_t * p, int Required )
 
 /**Function*************************************************************
 
-  Synopsis    [Derives unate/binate divisors.]
+  Synopsis    []
 
   Description []
                
@@ -1100,7 +1145,8 @@ Dec_Graph_t * Abc_ManResubDivs12( Abc_ManRes_t * p, int Required )
             {
                 puData2 = pObj2->pData;
                 for ( w = 0; w < p->nWords; w++ )
-                    if ( (puData0[w] | puData1[w] | puData2[w]) != puDataR[w] )
+//                    if ( (puData0[w] | puData1[w] | puData2[w]) != puDataR[w] )
+                    if ( ((puData0[w] | puData1[w] | puData2[w]) ^ puDataR[w]) & p->pCareSet[w] ) // care set
                         break;
                 if ( w == p->nWords )
                 {
@@ -1138,7 +1184,8 @@ Dec_Graph_t * Abc_ManResubDivs12( Abc_ManRes_t * p, int Required )
             {
                 puData2 = pObj2->pData;
                 for ( w = 0; w < p->nWords; w++ )
-                    if ( (puData0[w] & puData1[w] & puData2[w]) != puDataR[w] )
+//                    if ( (puData0[w] & puData1[w] & puData2[w]) != puDataR[w] )
+                    if ( ((puData0[w] & puData1[w] & puData2[w]) ^ puDataR[w]) & p->pCareSet[w] ) // care set
                         break;
                 if ( w == p->nWords )
                 {
@@ -1170,7 +1217,7 @@ Dec_Graph_t * Abc_ManResubDivs12( Abc_ManRes_t * p, int Required )
 
 /**Function*************************************************************
 
-  Synopsis    [Derives unate/binate divisors.]
+  Synopsis    []
 
   Description []
                
@@ -1198,25 +1245,29 @@ Dec_Graph_t * Abc_ManResubDivs2( Abc_ManRes_t * p, int Required )
             if ( Abc_ObjIsComplement(pObj1) && Abc_ObjIsComplement(pObj2) )
             {
                 for ( w = 0; w < p->nWords; w++ )
-                    if ( (puData0[w] | (puData1[w] | puData2[w])) != puDataR[w] )
+//                    if ( (puData0[w] | (puData1[w] | puData2[w])) != puDataR[w] )
+                    if ( ((puData0[w] | (puData1[w] | puData2[w])) ^ puDataR[w]) & p->pCareSet[w] ) // care set
                         break;
             }
             else if ( Abc_ObjIsComplement(pObj1) )
             {
                 for ( w = 0; w < p->nWords; w++ )
-                    if ( (puData0[w] | (~puData1[w] & puData2[w])) != puDataR[w] )
+//                    if ( (puData0[w] | (~puData1[w] & puData2[w])) != puDataR[w] )
+                    if ( ((puData0[w] | (~puData1[w] & puData2[w])) ^ puDataR[w]) & p->pCareSet[w] ) // care set
                         break;
             }
             else if ( Abc_ObjIsComplement(pObj2) )
             {
                 for ( w = 0; w < p->nWords; w++ )
-                    if ( (puData0[w] | (puData1[w] & ~puData2[w])) != puDataR[w] )
+//                    if ( (puData0[w] | (puData1[w] & ~puData2[w])) != puDataR[w] )
+                    if ( ((puData0[w] | (puData1[w] & ~puData2[w])) ^ puDataR[w]) & p->pCareSet[w] ) // care set
                         break;
             }
             else 
             {
                 for ( w = 0; w < p->nWords; w++ )
-                    if ( (puData0[w] | (puData1[w] & puData2[w])) != puDataR[w] )
+//                    if ( (puData0[w] | (puData1[w] & puData2[w])) != puDataR[w] )
+                    if ( ((puData0[w] | (puData1[w] & puData2[w])) ^ puDataR[w]) & p->pCareSet[w] ) // care set
                         break;
             }
             if ( w == p->nWords )
@@ -1239,25 +1290,29 @@ Dec_Graph_t * Abc_ManResubDivs2( Abc_ManRes_t * p, int Required )
             if ( Abc_ObjIsComplement(pObj1) && Abc_ObjIsComplement(pObj2) )
             {
                 for ( w = 0; w < p->nWords; w++ )
-                    if ( (puData0[w] & (puData1[w] | puData2[w])) != puDataR[w] )
+//                    if ( (puData0[w] & (puData1[w] | puData2[w])) != puDataR[w] )
+                    if ( ((puData0[w] & (puData1[w] | puData2[w])) ^ puDataR[w]) & p->pCareSet[w] ) // care set
                         break;
             }
             else if ( Abc_ObjIsComplement(pObj1) )
             {
                 for ( w = 0; w < p->nWords; w++ )
-                    if ( (puData0[w] & (~puData1[w] & puData2[w])) != puDataR[w] )
+//                    if ( (puData0[w] & (~puData1[w] & puData2[w])) != puDataR[w] )
+                    if ( ((puData0[w] & (~puData1[w] & puData2[w])) ^ puDataR[w]) & p->pCareSet[w] ) // care set
                         break;
             }
             else if ( Abc_ObjIsComplement(pObj2) )
             {
                 for ( w = 0; w < p->nWords; w++ )
-                    if ( (puData0[w] & (puData1[w] & ~puData2[w])) != puDataR[w] )
+//                    if ( (puData0[w] & (puData1[w] & ~puData2[w])) != puDataR[w] )
+                    if ( ((puData0[w] & (puData1[w] & ~puData2[w])) ^ puDataR[w]) & p->pCareSet[w] ) // care set
                         break;
             }
             else 
             {
                 for ( w = 0; w < p->nWords; w++ )
-                    if ( (puData0[w] & (puData1[w] & puData2[w])) != puDataR[w] )
+//                    if ( (puData0[w] & (puData1[w] & puData2[w])) != puDataR[w] )
+                    if ( ((puData0[w] & (puData1[w] & puData2[w])) ^ puDataR[w]) & p->pCareSet[w] ) // care set
                         break;
             }
             if ( w == p->nWords )
@@ -1272,7 +1327,7 @@ Dec_Graph_t * Abc_ManResubDivs2( Abc_ManRes_t * p, int Required )
 
 /**Function*************************************************************
 
-  Synopsis    [Derives unate/binate divisors.]
+  Synopsis    []
 
   Description []
                
@@ -1307,85 +1362,101 @@ Dec_Graph_t * Abc_ManResubDivs3( Abc_ManRes_t * p, int Required )
             {
             case 0: // 0000
                 for ( w = 0; w < p->nWords; w++ )
-                    if ( ((puData0[w] & puData1[w]) | (puData2[w] & puData3[w])) != puDataR[w] )
+//                    if ( ((puData0[w] & puData1[w]) | (puData2[w] & puData3[w])) != puDataR[w] )
+                    if ( (((puData0[w] & puData1[w]) | (puData2[w] & puData3[w])) ^ puDataR[w]) & p->pCareSet[w] ) // care set
                         break;
                 break;
             case 1: // 0001
                 for ( w = 0; w < p->nWords; w++ )
-                    if ( ((puData0[w] & puData1[w]) | (puData2[w] & ~puData3[w])) != puDataR[w] )
+//                    if ( ((puData0[w] & puData1[w]) | (puData2[w] & ~puData3[w])) != puDataR[w] )
+                    if ( (((puData0[w] & puData1[w]) | (puData2[w] & ~puData3[w])) ^ puDataR[w]) & p->pCareSet[w] ) // care set
                         break;
                 break;
             case 2: // 0010
                 for ( w = 0; w < p->nWords; w++ )
-                    if ( ((puData0[w] & puData1[w]) | (~puData2[w] & puData3[w])) != puDataR[w] )
+//                    if ( ((puData0[w] & puData1[w]) | (~puData2[w] & puData3[w])) != puDataR[w] )
+                    if ( (((puData0[w] & puData1[w]) | (~puData2[w] & puData3[w])) ^ puDataR[w]) & p->pCareSet[w] ) // care set
                         break;
                 break;
             case 3: // 0011
                 for ( w = 0; w < p->nWords; w++ )
-                    if ( ((puData0[w] & puData1[w]) | (puData2[w] | puData3[w])) != puDataR[w] )
+//                    if ( ((puData0[w] & puData1[w]) | (puData2[w] | puData3[w])) != puDataR[w] )
+                    if ( (((puData0[w] & puData1[w]) | (puData2[w] | puData3[w])) ^ puDataR[w]) & p->pCareSet[w] ) // care set
                         break;
                 break;
 
             case 4: // 0100
                 for ( w = 0; w < p->nWords; w++ )
-                    if ( ((puData0[w] & ~puData1[w]) | (puData2[w] & puData3[w])) != puDataR[w] )
+//                    if ( ((puData0[w] & ~puData1[w]) | (puData2[w] & puData3[w])) != puDataR[w] )
+                    if ( (((puData0[w] & ~puData1[w]) | (puData2[w] & puData3[w])) ^ puDataR[w]) & p->pCareSet[w] ) // care set
                         break;
                 break;
             case 5: // 0101
                 for ( w = 0; w < p->nWords; w++ )
-                    if ( ((puData0[w] & ~puData1[w]) | (puData2[w] & ~puData3[w])) != puDataR[w] )
+//                    if ( ((puData0[w] & ~puData1[w]) | (puData2[w] & ~puData3[w])) != puDataR[w] )
+                    if ( (((puData0[w] & ~puData1[w]) | (puData2[w] & ~puData3[w])) ^ puDataR[w]) & p->pCareSet[w] ) // care set
                         break;
                 break;
             case 6: // 0110
                 for ( w = 0; w < p->nWords; w++ )
-                    if ( ((puData0[w] & ~puData1[w]) | (~puData2[w] & puData3[w])) != puDataR[w] )
+//                    if ( ((puData0[w] & ~puData1[w]) | (~puData2[w] & puData3[w])) != puDataR[w] )
+                    if ( (((puData0[w] & ~puData1[w]) | (~puData2[w] & puData3[w])) ^ puDataR[w]) & p->pCareSet[w] ) // care set
                         break;
                 break;
             case 7: // 0111
                 for ( w = 0; w < p->nWords; w++ )
-                    if ( ((puData0[w] & ~puData1[w]) | (puData2[w] | puData3[w])) != puDataR[w] )
+//                    if ( ((puData0[w] & ~puData1[w]) | (puData2[w] | puData3[w])) != puDataR[w] )
+                    if ( (((puData0[w] & ~puData1[w]) | (puData2[w] | puData3[w])) ^ puDataR[w]) & p->pCareSet[w] ) // care set
                         break;
                 break;
 
             case 8: // 1000
                 for ( w = 0; w < p->nWords; w++ )
-                    if ( ((~puData0[w] & puData1[w]) | (puData2[w] & puData3[w])) != puDataR[w] )
+//                    if ( ((~puData0[w] & puData1[w]) | (puData2[w] & puData3[w])) != puDataR[w] )
+                    if ( (((~puData0[w] & puData1[w]) | (puData2[w] & puData3[w])) ^ puDataR[w]) & p->pCareSet[w] ) // care set
                         break;
                 break;
             case 9: // 1001
                 for ( w = 0; w < p->nWords; w++ )
-                    if ( ((~puData0[w] & puData1[w]) | (puData2[w] & ~puData3[w])) != puDataR[w] )
+//                    if ( ((~puData0[w] & puData1[w]) | (puData2[w] & ~puData3[w])) != puDataR[w] )
+                    if ( (((~puData0[w] & puData1[w]) | (puData2[w] & ~puData3[w])) ^ puDataR[w]) & p->pCareSet[w] ) // care set
                         break;
                 break;
             case 10: // 1010
                 for ( w = 0; w < p->nWords; w++ )
-                    if ( ((~puData0[w] & puData1[w]) | (~puData2[w] & puData3[w])) != puDataR[w] )
+//                    if ( ((~puData0[w] & puData1[w]) | (~puData2[w] & puData3[w])) != puDataR[w] )
+                    if ( (((~puData0[w] & puData1[w]) | (~puData2[w] & puData3[w])) ^ puDataR[w]) & p->pCareSet[w] ) // care set
                         break;
                 break;
             case 11: // 1011
                 for ( w = 0; w < p->nWords; w++ )
-                    if ( ((~puData0[w] & puData1[w]) | (puData2[w] | puData3[w])) != puDataR[w] )
+//                    if ( ((~puData0[w] & puData1[w]) | (puData2[w] | puData3[w])) != puDataR[w] )
+                    if ( (((~puData0[w] & puData1[w]) | (puData2[w] | puData3[w])) ^ puDataR[w]) & p->pCareSet[w] ) // care set
                         break;
                 break;
 
             case 12: // 1100
                 for ( w = 0; w < p->nWords; w++ )
-                    if ( ((puData0[w] | puData1[w]) | (puData2[w] & puData3[w])) != puDataR[w] )
+//                    if ( ((puData0[w] | puData1[w]) | (puData2[w] & puData3[w])) != puDataR[w] )
+                    if ( (((puData0[w] | puData1[w]) | (puData2[w] & puData3[w])) ^ puDataR[w]) & p->pCareSet[w] ) // care set
                         break;
                 break;
             case 13: // 1101
                 for ( w = 0; w < p->nWords; w++ )
-                    if ( ((puData0[w] | puData1[w]) | (puData2[w] & ~puData3[w])) != puDataR[w] )
+//                    if ( ((puData0[w] | puData1[w]) | (puData2[w] & ~puData3[w])) != puDataR[w] )
+                    if ( (((puData0[w] | puData1[w]) | (puData2[w] & ~puData3[w])) ^ puDataR[w]) & p->pCareSet[w] )
                         break;
                 break;
             case 14: // 1110
                 for ( w = 0; w < p->nWords; w++ )
-                    if ( ((puData0[w] | puData1[w]) | (~puData2[w] & puData3[w])) != puDataR[w] )
+//                    if ( ((puData0[w] | puData1[w]) | (~puData2[w] & puData3[w])) != puDataR[w] )
+                    if ( (((puData0[w] | puData1[w]) | (~puData2[w] & puData3[w])) ^ puDataR[w]) & p->pCareSet[w] )
                         break;
                 break;
             case 15: // 1111
                 for ( w = 0; w < p->nWords; w++ )
-                    if ( ((puData0[w] | puData1[w]) | (puData2[w] | puData3[w])) != puDataR[w] )
+//                    if ( ((puData0[w] | puData1[w]) | (puData2[w] | puData3[w])) != puDataR[w] )
+                    if ( (((puData0[w] | puData1[w]) | (puData2[w] | puData3[w])) ^ puDataR[w]) & p->pCareSet[w] )
                         break;
                 break;
 
@@ -1551,7 +1622,7 @@ Dec_Graph_t * Abc_ManResubEval( Abc_ManRes_t * p, Abc_Obj_t * pRoot, Vec_Ptr_t *
     int Required;
     int clk;
 
-    Required = fUpdateLevel? Abc_NodeReadRequiredLevel(pRoot) : ABC_INFINITY;
+    Required = fUpdateLevel? Abc_ObjRequiredLevel(pRoot) : ABC_INFINITY;
 
     assert( nSteps >= 0 );
     assert( nSteps <= 3 );

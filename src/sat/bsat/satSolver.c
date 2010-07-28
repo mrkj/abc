@@ -90,9 +90,9 @@ static inline void  clause_setactivity(clause* c, float a) { *((float*)&c->lits[
 //=================================================================================================
 // Encode literals in clause pointers:
 
-static clause* clause_from_lit (lit l)     { return (clause*)((unsigned long)l + (unsigned long)l + 1);  }
-static bool    clause_is_lit   (clause* c) { return ((unsigned long)c & 1);                              }
-static lit     clause_read_lit (clause* c) { return (lit)((unsigned long)c >> 1);                        }
+static inline clause* clause_from_lit (lit l)     { return (clause*)((unsigned long)l + (unsigned long)l + 1);  }
+static inline bool    clause_is_lit   (clause* c) { return ((unsigned long)c & 1);                              }
+static inline lit     clause_read_lit (clause* c) { return (lit)((unsigned long)c >> 1);                        }
 
 //=================================================================================================
 // Simple helpers:
@@ -148,7 +148,7 @@ static inline void order_unassigned(sat_solver* s, int v) // undoorder
     }
 }
 
-static int  order_select(sat_solver* s, float random_var_freq) // selectvar
+static inline int  order_select(sat_solver* s, float random_var_freq) // selectvar
 {
     int*    heap;
     double* activity;
@@ -442,7 +442,7 @@ static inline void assume(sat_solver* s, lit l){
 }
 
 
-static inline void sat_solver_canceluntil(sat_solver* s, int level) {
+static void sat_solver_canceluntil(sat_solver* s, int level) {
     lit*     trail;   
     lbool*   values;  
     clause** reasons; 
@@ -456,6 +456,12 @@ static inline void sat_solver_canceluntil(sat_solver* s, int level) {
     values  = s->assigns;
     reasons = s->reasons;
     bound   = (veci_begin(&s->trail_lim))[level];
+
+    ////////////////////////////////////////
+    // added to cancel all assignments
+//    if ( level == -1 )
+//        bound = 0;
+    ////////////////////////////////////////
 
     for (c = s->qtail-1; c >= bound; c--) {
         int     x  = lit_var(trail[c]);
@@ -476,6 +482,16 @@ static void sat_solver_record(sat_solver* s, veci* cls)
     lit*    end   = begin + veci_size(cls);
     clause* c     = (veci_size(cls) > 1) ? clause_new(s,begin,end,1) : (clause*)0;
     enqueue(s,*begin,c);
+
+    ///////////////////////////////////
+    // add clause to internal storage
+    if ( s->pStore )
+    {
+        extern int Sto_ManAddClause( void * p, lit * pBeg, lit * pEnd );
+        int RetValue = Sto_ManAddClause( s->pStore, begin, end );
+        assert( RetValue );
+    }
+    ///////////////////////////////////
 
     assert(veci_size(cls) > 0);
 
@@ -707,13 +723,14 @@ clause* sat_solver_propagate(sat_solver* s)
         //printf("checking lit %d: "L_LIT"\n", veci_size(ws), L_lit(p));
         for (i = j = begin; i < end; ){
             if (clause_is_lit(*i)){
+//                s->stats.inspects2++;
                 *j++ = *i;
                 if (!enqueue(s,clause_read_lit(*i),clause_from_lit(p))){
                     confl = s->binary;
                     (clause_begin(confl))[1] = lit_neg(p);
                     (clause_begin(confl))[0] = clause_read_lit(*i++);
-
                     // Copy the remaining watches:
+//                    s->stats.inspects2 += end - i;
                     while (i < end)
                         *j++ = *i++;
                 }
@@ -754,6 +771,7 @@ clause* sat_solver_propagate(sat_solver* s)
                     if (!enqueue(s,lits[0], *i)){
                         confl = *i++;
                         // Copy the remaining watches:
+//                        s->stats.inspects2 += end - i;
                         while (i < end)
                             *j++ = *i++;
                     }
@@ -871,7 +889,7 @@ static lbool sat_solver_search(sat_solver* s, sint64 nof_conflicts, sint64 nof_l
                 return l_Undef; 
             }
 
-            if (sat_solver_dlevel(s) == 0)
+            if (sat_solver_dlevel(s) == 0 && !s->fSkipSimplify)
                 // Simplify the set of problem clauses:
                 sat_solver_simplify(s);
 
@@ -1022,6 +1040,7 @@ void sat_solver_delete(sat_solver* s)
         free(s->tags     );
     }
 
+    sat_solver_store_free(s);
     free(s);
 }
 
@@ -1046,6 +1065,7 @@ bool sat_solver_addclause(sat_solver* s, lit* begin, lit* end)
         *j = l;
     }
     sat_solver_setnvars(s,maxvar+1);
+//    sat_solver_setnvars(s, lit_var(*(end-1))+1 );
 
     //printlits(begin,end); printf("\n");
     values = s->assigns;
@@ -1065,7 +1085,18 @@ bool sat_solver_addclause(sat_solver* s, lit* begin, lit* end)
 
     if (j == begin)          // empty clause
         return false;
-    else if (j - begin == 1) // unit clause
+
+    ///////////////////////////////////
+    // add clause to internal storage
+    if ( s->pStore )
+    {
+        extern int Sto_ManAddClause( void * p, lit * pBeg, lit * pEnd );
+        int RetValue = Sto_ManAddClause( s->pStore, begin, j );
+        assert( RetValue );
+    }
+    ///////////////////////////////////
+
+    if (j - begin == 1) // unit clause
         return enqueue(s,*begin,(clause*)0);
 
     // create new clause
@@ -1125,6 +1156,7 @@ int sat_solver_solve(sat_solver* s, lit* begin, lit* end, sint64 nConfLimit, sin
     lit*    i;
 
     // set the external limits
+    s->nCalls++;
     s->nRestarts  = 0;
     s->nConfLimit = 0;
     s->nInsLimit  = 0;
@@ -1146,12 +1178,13 @@ int sat_solver_solve(sat_solver* s, lit* begin, lit* end, sint64 nConfLimit, sin
             assume(s, *i);
             if (sat_solver_propagate(s) == NULL)
                 break;
-            // falltrough
+            // fallthrough
         case -1: /* l_False */
             sat_solver_canceluntil(s, 0);
             return l_False;
         }
     }
+    s->nCalls2++;
 
     s->root_level = sat_solver_dlevel(s);
 
@@ -1166,7 +1199,8 @@ int sat_solver_solve(sat_solver* s, lit* begin, lit* end, sint64 nConfLimit, sin
         double Ratio = (s->stats.learnts == 0)? 0.0 :
             s->stats.learnts_literals / (double)s->stats.learnts;
 
-        if (s->verbosity >= 1){
+        if (s->verbosity >= 1)
+        {
             printf("| %9.0f | %7.0f %8.0f | %7.0f %7.0f %8.0f %7.1f | %6.3f %% |\n", 
                 (double)s->stats.conflicts,
                 (double)s->stats.clauses, 
@@ -1198,6 +1232,15 @@ int sat_solver_solve(sat_solver* s, lit* begin, lit* end, sint64 nConfLimit, sin
         printf("==============================================================================\n");
 
     sat_solver_canceluntil(s,0);
+
+    ////////////////////////////////////////////////
+    if ( status == l_False && s->pStore )
+    {
+        extern int Sto_ManAddClause( void * p, lit * pBeg, lit * pEnd );
+        int RetValue = Sto_ManAddClause( s->pStore, NULL, NULL );
+        assert( RetValue );
+    }
+    ////////////////////////////////////////////////
     return status;
 }
 
@@ -1217,6 +1260,51 @@ int sat_solver_nclauses(sat_solver* s)
 int sat_solver_nconflicts(sat_solver* s)
 {
     return (int)s->stats.conflicts;
+}
+
+//=================================================================================================
+// Clause storage functions:
+
+void sat_solver_store_alloc( sat_solver * s )
+{
+    extern void * Sto_ManAlloc();
+    assert( s->pStore == NULL );
+    s->pStore = Sto_ManAlloc();
+}
+
+void sat_solver_store_write( sat_solver * s, char * pFileName )
+{
+    extern void Sto_ManDumpClauses( void * p, char * pFileName );
+    if ( s->pStore ) Sto_ManDumpClauses( s->pStore, pFileName );
+}
+
+void sat_solver_store_free( sat_solver * s )
+{
+    extern void Sto_ManFree( void * p );
+    if ( s->pStore ) Sto_ManFree( s->pStore );
+    s->pStore = NULL;
+}
+ 
+void sat_solver_store_mark_roots( sat_solver * s )
+{
+    extern void Sto_ManMarkRoots( void * p );
+    if ( s->pStore ) Sto_ManMarkRoots( s->pStore );
+}
+
+void sat_solver_store_mark_clauses_a( sat_solver * s )
+{
+    extern void Sto_ManMarkClausesA( void * p );
+    if ( s->pStore ) Sto_ManMarkClausesA( s->pStore );
+}
+
+void * sat_solver_store_release( sat_solver * s )
+{
+    void * pTemp;
+    if ( s->pStore == NULL )
+        return NULL;
+    pTemp = s->pStore;
+    s->pStore = NULL;
+    return pTemp;
 }
 
 //=================================================================================================

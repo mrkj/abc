@@ -324,10 +324,14 @@ void Extra_PrintBinary( FILE * pFile, unsigned Sign[], int nBits )
 ***********************************************************************/
 int Extra_ReadHexadecimal( unsigned Sign[], char * pString, int nVars )
 {
-    int nDigits, Digit, k, c;
-    Sign[0] = 0;
-    // write the number into the file
+    int nWords, nDigits, Digit, k, c;
+    nWords = Extra_TruthWordNum( nVars );
+    for ( k = 0; k < nWords; k++ )
+        Sign[k] = 0;
+    // read the number from the string
     nDigits = (1 << nVars) / 4;
+    if ( nDigits == 0 )
+        nDigits = 1;
     for ( k = 0; k < nDigits; k++ )
     {
         c = nDigits-1-k;
@@ -368,6 +372,34 @@ void Extra_PrintHexadecimal( FILE * pFile, unsigned Sign[], int nVars )
             fprintf( pFile, "%c", 'a' + Digit-10 );
     }
 //    fprintf( pFile, "\n" );
+}
+
+/**Function*************************************************************
+
+  Synopsis    [Prints the hex unsigned into a file.]
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+void Extra_PrintHexadecimalString( char * pString, unsigned Sign[], int nVars )
+{
+    int nDigits, Digit, k;
+    // write the number into the file
+    nDigits = (1 << nVars) / 4;
+    for ( k = nDigits - 1; k >= 0; k-- )
+    {
+        Digit = ((Sign[k/8] >> ((k%8) * 4)) & 15);
+        if ( Digit < 10 )
+            *pString++ = '0' + Digit;
+        else
+            *pString++ = 'a' + Digit-10;
+    }
+//    fprintf( pFile, "\n" );
+    *pString = 0;
 }
 
 /**Function*************************************************************

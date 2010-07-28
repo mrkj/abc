@@ -33,6 +33,8 @@
 
 int s_MappingTime = 0;
 int s_MappingMem = 0;
+int s_ResubTime = 0;
+int s_ResynTime = 0;
 
 ////////////////////////////////////////////////////////////////////////
 ///                     FUNCTION DEFINITIONS                         ///
@@ -52,6 +54,10 @@ int s_MappingMem = 0;
 void Abc_NtkPrintStats( FILE * pFile, Abc_Ntk_t * pNtk, int fFactored )
 {
     int Num;
+
+//    if ( Abc_NtkIsStrash(pNtk) )
+//        Abc_AigCountNext( pNtk->pManFunc );
+
     fprintf( pFile, "%-13s:",       pNtk->pName );
     if ( Abc_NtkAssertNum(pNtk) )
         fprintf( pFile, " i/o/a = %4d/%4d/%4d", Abc_NtkPiNum(pNtk), Abc_NtkPoNum(pNtk), Abc_NtkAssertNum(pNtk) );
@@ -62,7 +68,8 @@ void Abc_NtkPrintStats( FILE * pFile, Abc_Ntk_t * pNtk, int fFactored )
     {
         fprintf( pFile, "  net = %5d", Abc_NtkNetNum(pNtk) );
         fprintf( pFile, "  nd = %5d",  Abc_NtkNodeNum(pNtk) );
-        fprintf( pFile, "  box = %5d", Abc_NtkBoxNum(pNtk) );
+        fprintf( pFile, "  wbox = %3d", Abc_NtkWhiteboxNum(pNtk) );
+        fprintf( pFile, "  bbox = %3d", Abc_NtkBlackboxNum(pNtk) );
     }
     else if ( Abc_NtkIsStrash(pNtk) )
     {        
@@ -77,7 +84,10 @@ void Abc_NtkPrintStats( FILE * pFile, Abc_Ntk_t * pNtk, int fFactored )
 //            fprintf( pFile, " (other = %d)", Abc_NtkNodeNum(pNtk)-3*Num2 );
     }
     else 
+    {
         fprintf( pFile, "  nd = %5d", Abc_NtkNodeNum(pNtk) );
+        fprintf( pFile, "  net = %5d", Abc_NtkGetTotalFanins(pNtk) );
+    }
 
     if ( Abc_NtkIsStrash(pNtk) || Abc_NtkIsNetlist(pNtk) )
     {
@@ -111,22 +121,24 @@ void Abc_NtkPrintStats( FILE * pFile, Abc_Ntk_t * pNtk, int fFactored )
 
     fprintf( pFile, "\n" );
 
+//    Abc_NtkCrossCut( pNtk );
 
     // print the statistic into a file
 /*
     {
         FILE * pTable;
-        pTable = fopen( "iscas/seqmap__stats.txt", "a+" );
-        fprintf( pTable, "%s ",  pNtk->pName );
-        fprintf( pTable, "%d ", Abc_NtkPiNum(pNtk) );
-        fprintf( pTable, "%d ", Abc_NtkPoNum(pNtk) );
-        fprintf( pTable, "%d ", Abc_NtkLatchNum(pNtk) );
+        pTable = fopen( "ibm/seq_stats.txt", "a+" );
+//        fprintf( pTable, "%s ",  pNtk->pName );
+//        fprintf( pTable, "%d ", Abc_NtkPiNum(pNtk) );
+//        fprintf( pTable, "%d ", Abc_NtkPoNum(pNtk) );
         fprintf( pTable, "%d ", Abc_NtkNodeNum(pNtk) );
+        fprintf( pTable, "%d ", Abc_NtkLatchNum(pNtk) );
         fprintf( pTable, "%d ", Abc_NtkLevel(pNtk) );
         fprintf( pTable, "\n" );
         fclose( pTable );
     }
 */
+
 /*
     // print the statistic into a file
     {
@@ -138,20 +150,27 @@ void Abc_NtkPrintStats( FILE * pFile, Abc_Ntk_t * pNtk, int fFactored )
         fprintf( pTable, "\n" );
         fclose( pTable );
     }
-*/ 
+*/
 
 /*
     // print the statistic into a file
     {
         FILE * pTable;
-        pTable = fopen( "a/fpga_stats.txt", "a+" );
+        pTable = fopen( "x/stats_new.txt", "a+" );
         fprintf( pTable, "%s ",  pNtk->pName );
-        fprintf( pTable, "%d ", Abc_NtkLevel(pNtk) );
-        fprintf( pTable, "%d ", Abc_NtkNodeNum(pNtk) );
+//        fprintf( pTable, "%d ", Abc_NtkPiNum(pNtk) );
+//        fprintf( pTable, "%d ", Abc_NtkPoNum(pNtk) );
+//        fprintf( pTable, "%d ", Abc_NtkLevel(pNtk) );
+//        fprintf( pTable, "%d ", Abc_NtkNodeNum(pNtk) );
+//        fprintf( pTable, "%d ", Abc_NtkGetTotalFanins(pNtk) );
+//        fprintf( pTable, "%d ", Abc_NtkLatchNum(pNtk) );
 //        fprintf( pTable, "%.2f ", (float)(s_MappingMem)/(float)(1<<20) );
-//        fprintf( pTable, "%.2f", (float)(s_MappingTime)/(float)(CLOCKS_PER_SEC) );
+        fprintf( pTable, "%.2f", (float)(s_MappingTime)/(float)(CLOCKS_PER_SEC) );
+//        fprintf( pTable, "%.2f", (float)(s_ResynTime)/(float)(CLOCKS_PER_SEC) );
         fprintf( pTable, "\n" );
         fclose( pTable );
+
+        s_ResynTime = 0;
     }
 */
 
@@ -198,6 +217,9 @@ void Abc_NtkPrintStats( FILE * pFile, Abc_Ntk_t * pNtk, int fFactored )
     printf( "Total nodes = %6d   %6.2f Mb   Changes = %6d.\n", 
         s_TotalNodes, s_TotalNodes * 20.0 / (1<<20), s_TotalChanges );
 */
+
+//    if ( Abc_NtkHasSop(pNtk) )
+//        printf( "The total number of cube pairs = %d.\n", Abc_NtkGetCubePairNum(pNtk) );
 }
 
 /**Function*************************************************************
@@ -296,7 +318,7 @@ void Abc_NtkPrintLatch( FILE * pFile, Abc_Ntk_t * pNtk )
         }
         else
         {
-            if ( Abc_LatchIsInit1(pLatch) == Abc_NodeIsConst1(pLatch) )
+            if ( Abc_LatchIsInit1(pLatch) == Abc_NodeIsConst1(Abc_ObjFanin0(Abc_ObjFanin0(pLatch))) )
                 Counter2++;
         }
     }
@@ -304,7 +326,7 @@ void Abc_NtkPrintLatch( FILE * pFile, Abc_Ntk_t * pNtk )
     fprintf( pFile, "Latch = %6d. No = %4d. Zero = %4d. One = %4d. DC = %4d.\n", 
         Abc_NtkLatchNum(pNtk), InitNums[0], InitNums[1], InitNums[2], InitNums[3] );
     fprintf( pFile, "Const fanin = %3d. DC init = %3d. Matching init = %3d. ", Counter0, Counter1, Counter2 );
-    fprintf( pFile, "Self-feed latches = %2d.\n", Abc_NtkCountSelfFeedLatches(pNtk) );
+    fprintf( pFile, "Self-feed latches = %2d.\n", -1 ); //Abc_NtkCountSelfFeedLatches(pNtk) );
 }
 
 /**Function*************************************************************
@@ -892,14 +914,11 @@ void Abc_ObjPrint( FILE * pFile, Abc_Obj_t * pObj )
         case ABC_OBJ_NODE: 
             fprintf( pFile, "Node   " );  
             break;
-        case ABC_OBJ_GATE: 
-            fprintf( pFile, "Gate   " );  
-            break;
         case ABC_OBJ_LATCH:     
             fprintf( pFile, "Latch  " );  
             break;
-        case ABC_OBJ_TRI:     
-            fprintf( pFile, "Tristate" );  
+        case ABC_OBJ_WHITEBOX: 
+            fprintf( pFile, "Whitebox" );  
             break;
         case ABC_OBJ_BLACKBOX:     
             fprintf( pFile, "Blackbox" );  

@@ -27,9 +27,9 @@
 ///                        DECLARATIONS                              ///
 ////////////////////////////////////////////////////////////////////////
 
-static Abc_Ntk_t *  Abc_NtkFromAig( Abc_Ntk_t * pNtkOld, Ivy_Man_t * pMan );
-static Abc_Ntk_t *  Abc_NtkFromAigSeq( Abc_Ntk_t * pNtkOld, Ivy_Man_t * pMan, int fHaig );
-static Ivy_Man_t *  Abc_NtkToAig( Abc_Ntk_t * pNtkOld );
+static Abc_Ntk_t *  Abc_NtkFromIvy( Abc_Ntk_t * pNtkOld, Ivy_Man_t * pMan );
+static Abc_Ntk_t *  Abc_NtkFromIvySeq( Abc_Ntk_t * pNtkOld, Ivy_Man_t * pMan, int fHaig );
+static Ivy_Man_t *  Abc_NtkToIvy( Abc_Ntk_t * pNtkOld );
 
 static void         Abc_NtkStrashPerformAig( Abc_Ntk_t * pNtk, Ivy_Man_t * pMan );
 static Ivy_Obj_t *  Abc_NodeStrashAig( Ivy_Man_t * pMan, Abc_Obj_t * pNode );
@@ -93,7 +93,7 @@ Ivy_Man_t * Abc_NtkIvyBefore( Abc_Ntk_t * pNtk, int fSeq, int fUseDc )
     if ( Abc_NtkGetChoiceNum( pNtk ) )
         printf( "Warning: The choice nodes in the initial AIG are removed by strashing.\n" );
     // convert to the AIG manager
-    pMan = Abc_NtkToAig( pNtk );
+    pMan = Abc_NtkToIvy( pNtk );
     if ( !Ivy_ManCheck( pMan ) )
     {
         printf( "AIG check has failed.\n" );
@@ -130,9 +130,9 @@ Abc_Ntk_t * Abc_NtkIvyAfter( Abc_Ntk_t * pNtk, Ivy_Man_t * pMan, int fSeq, int f
     int nNodes, fCleanup = 1;
     // convert from the AIG manager
     if ( fSeq )
-        pNtkAig = Abc_NtkFromAigSeq( pNtk, pMan, fHaig );
+        pNtkAig = Abc_NtkFromIvySeq( pNtk, pMan, fHaig );
     else
-        pNtkAig = Abc_NtkFromAig( pNtk, pMan );
+        pNtkAig = Abc_NtkFromIvy( pNtk, pMan );
     // report the cleanup results
     if ( !fHaig && fCleanup && (nNodes = Abc_AigCleanup(pNtkAig->pManFunc)) )
         printf( "Warning: AIG cleanup removed %d nodes (this is not a bug).\n", nNodes );
@@ -187,19 +187,45 @@ Abc_Ntk_t * Abc_NtkIvyHaig( Abc_Ntk_t * pNtk, int nIters, int fUseZeroCost, int 
 {
     Abc_Ntk_t * pNtkAig;
     Ivy_Man_t * pMan;
+    int clk;
 //    int i;
+/*
+extern int nMoves;
+extern int nMovesS;
+extern int nClauses;
+extern int timeInv;
 
+nMoves = 0;
+nMovesS = 0;
+nClauses = 0;
+timeInv = 0;
+*/
     pMan = Abc_NtkIvyBefore( pNtk, 1, 1 );
     if ( pMan == NULL )
         return NULL;
 //timeRetime = clock();
 
+clk = clock();
     Ivy_ManHaigStart( pMan, fVerbose );
 //    Ivy_ManRewriteSeq( pMan, 0, 0 );
 //    for ( i = 0; i < nIters; i++ )
 //        Ivy_ManRewriteSeq( pMan, fUseZeroCost, 0 );
+
+//printf( "%d ", Ivy_ManNodeNum(pMan) );
+    Ivy_ManRewriteSeq( pMan, 0, 0 );
     Ivy_ManRewriteSeq( pMan, 0, 0 );
     Ivy_ManRewriteSeq( pMan, 1, 0 );
+//printf( "%d ", Ivy_ManNodeNum(pMan) );
+//printf( "%d ", Ivy_ManNodeNum(pMan->pHaig) );
+//PRT( " ", clock() - clk );
+//printf( "\n" );
+/*
+    printf( "Moves = %d.  ", nMoves );
+    printf( "MovesS = %d.  ", nMovesS );
+    printf( "Clauses = %d.  ", nClauses );
+    PRT( "Time", timeInv );
+*/
+//    Ivy_ManRewriteSeq( pMan, 1, 0 );
 //printf( "Haig size = %d.\n", Ivy_ManNodeNum(pMan->pHaig) );
 //    Ivy_ManHaigPostprocess( pMan, fVerbose );
 //timeRetime = clock() - timeRetime;
@@ -476,7 +502,7 @@ int Abc_NtkIvyProve( Abc_Ntk_t ** ppNtk, void * pPars )
     // strash the network if it is not strashed already
     if ( !Abc_NtkIsStrash(pNtk) )
     {
-        pNtk = Abc_NtkStrash( pNtkTemp = pNtk, 0, 1 );
+        pNtk = Abc_NtkStrash( pNtkTemp = pNtk, 0, 1, 0 );
         Abc_NtkDelete( pNtkTemp );
     }
 
@@ -491,7 +517,7 @@ int Abc_NtkIvyProve( Abc_Ntk_t ** ppNtk, void * pPars )
     }
 
     // if SAT only, solve without iteration
-    RetValue = Abc_NtkMiterSat( pNtk, 2*(sint64)pParams->nMiteringLimitStart, (sint64)0, 0, 0, NULL, NULL );
+    RetValue = Abc_NtkMiterSat( pNtk, 2*(sint64)pParams->nMiteringLimitStart, (sint64)0, 0, NULL, NULL );
     if ( RetValue >= 0 )
         return RetValue;
 
@@ -499,10 +525,12 @@ int Abc_NtkIvyProve( Abc_Ntk_t ** ppNtk, void * pPars )
     if ( pParams->fUseRewriting && Abc_NtkNodeNum(pNtk) > 500 )
     {
         pParams->fUseRewriting = 0;
-        Abc_NtkRewrite( pNtk, 0, 0, 0, 0 );
         pNtk = Abc_NtkBalance( pNtkTemp = pNtk, 0, 0, 0 );          
         Abc_NtkDelete( pNtkTemp );
-        Abc_NtkRewrite( pNtk, 0, 0, 0, 0 );
+        Abc_NtkRewrite( pNtk, 0, 0, 0, 0, 0 );
+        pNtk = Abc_NtkBalance( pNtkTemp = pNtk, 0, 0, 0 );          
+        Abc_NtkDelete( pNtkTemp );
+        Abc_NtkRewrite( pNtk, 0, 0, 0, 0, 0 );
         Abc_NtkRefactor( pNtk, 10, 16, 0, 0, 0, 0 );
     }
 
@@ -582,7 +610,7 @@ Abc_Ntk_t * Abc_NtkIvy( Abc_Ntk_t * pNtk )
         printf( "Warning: The choice nodes in the initial AIG are removed by strashing.\n" );
 
     // convert to the AIG manager
-    pMan = Abc_NtkToAig( pNtk );
+    pMan = Abc_NtkToIvy( pNtk );
     if ( !Ivy_ManCheck( pMan ) )
     {
         Vec_IntFree( vInit );
@@ -628,8 +656,8 @@ Abc_Ntk_t * Abc_NtkIvy( Abc_Ntk_t * pNtk )
 
 /*
     // convert from the AIG manager
-    pNtkAig = Abc_NtkFromAig( pNtk, pMan );
-//    pNtkAig = Abc_NtkFromAigSeq( pNtk, pMan );
+    pNtkAig = Abc_NtkFromIvy( pNtk, pMan );
+//    pNtkAig = Abc_NtkFromIvySeq( pNtk, pMan );
     Ivy_ManStop( pMan );
 
     // report the cleanup results
@@ -665,7 +693,7 @@ Abc_Ntk_t * Abc_NtkIvy( Abc_Ntk_t * pNtk )
   SeeAlso     []
 
 ***********************************************************************/
-Abc_Ntk_t * Abc_NtkFromAig( Abc_Ntk_t * pNtkOld, Ivy_Man_t * pMan )
+Abc_Ntk_t * Abc_NtkFromIvy( Abc_Ntk_t * pNtkOld, Ivy_Man_t * pMan )
 {
     Vec_Int_t * vNodes;
     Abc_Ntk_t * pNtk;
@@ -706,7 +734,7 @@ Abc_Ntk_t * Abc_NtkFromAig( Abc_Ntk_t * pNtkOld, Ivy_Man_t * pMan )
     }
     Vec_IntFree( vNodes );
     if ( !Abc_NtkCheck( pNtk ) )
-        fprintf( stdout, "Abc_NtkFromAig(): Network check has failed.\n" );
+        fprintf( stdout, "Abc_NtkFromIvy(): Network check has failed.\n" );
     return pNtk;
 }
 
@@ -721,7 +749,7 @@ Abc_Ntk_t * Abc_NtkFromAig( Abc_Ntk_t * pNtkOld, Ivy_Man_t * pMan )
   SeeAlso     []
 
 ***********************************************************************/
-Abc_Ntk_t * Abc_NtkFromAigSeq( Abc_Ntk_t * pNtkOld, Ivy_Man_t * pMan, int fHaig )
+Abc_Ntk_t * Abc_NtkFromIvySeq( Abc_Ntk_t * pNtkOld, Ivy_Man_t * pMan, int fHaig )
 {
     Vec_Int_t * vNodes, * vLatches;
     Abc_Ntk_t * pNtk;
@@ -804,7 +832,7 @@ Abc_Ntk_t * Abc_NtkFromAigSeq( Abc_Ntk_t * pNtkOld, Ivy_Man_t * pMan, int fHaig 
     Vec_IntFree( vLatches );
     Vec_IntFree( vNodes );
     if ( !Abc_NtkCheck( pNtk ) )
-        fprintf( stdout, "Abc_NtkFromAigSeq(): Network check has failed.\n" );
+        fprintf( stdout, "Abc_NtkFromIvySeq(): Network check has failed.\n" );
     return pNtk;
 }
 
@@ -819,7 +847,7 @@ Abc_Ntk_t * Abc_NtkFromAigSeq( Abc_Ntk_t * pNtkOld, Ivy_Man_t * pMan, int fHaig 
   SeeAlso     []
 
 ***********************************************************************/
-Ivy_Man_t * Abc_NtkToAig( Abc_Ntk_t * pNtkOld )
+Ivy_Man_t * Abc_NtkToIvy( Abc_Ntk_t * pNtkOld )
 {
     Ivy_Man_t * pMan;
     Abc_Obj_t * pObj;

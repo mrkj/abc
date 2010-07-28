@@ -67,6 +67,8 @@ Io_FileType_t Io_ReadFileType( char * pFileName )
         return IO_FILE_GML;
     if ( !strcmp( pExt, "list" ) )
         return IO_FILE_LIST;
+    if ( !strcmp( pExt, "mv" ) )
+        return IO_FILE_BLIFMV;
     if ( !strcmp( pExt, "pla" ) )
         return IO_FILE_PLA;
     if ( !strcmp( pExt, "v" ) )
@@ -95,7 +97,8 @@ Abc_Ntk_t * Io_ReadNetlist( char * pFileName, Io_FileType_t FileType, int fCheck
         return NULL;
     }
     // check if the file exists
-    if ( (pFile = fopen( pFileName, "r" )) == NULL )
+    pFile = fopen( pFileName, "r" );
+    if ( pFile == NULL )
     {
         fprintf( stdout, "Cannot open input file \"%s\". ", pFileName );
         if ( pFileName = Extra_FileGetSimilarName( pFileName, ".blif", ".bench", ".pla", ".baf", ".aig" ) )
@@ -120,7 +123,10 @@ Abc_Ntk_t * Io_ReadNetlist( char * pFileName, Io_FileType_t FileType, int fCheck
     }
     // read the new netlist
     if ( FileType == IO_FILE_BLIF )
-        pNtk = Io_ReadBlif( pFileName, fCheck );
+//        pNtk = Io_ReadBlif( pFileName, fCheck );
+        pNtk = Io_ReadBlifMv( pFileName, 0, fCheck );
+    else if ( Io_ReadFileType(pFileName) == IO_FILE_BLIFMV )
+        pNtk = Io_ReadBlifMv( pFileName, 1, fCheck );
     else if ( FileType == IO_FILE_BENCH )
         pNtk = Io_ReadBench( pFileName, fCheck );
     else if ( FileType == IO_FILE_EDIF )
@@ -129,6 +135,8 @@ Abc_Ntk_t * Io_ReadNetlist( char * pFileName, Io_FileType_t FileType, int fCheck
         pNtk = Io_ReadEqn( pFileName, fCheck );
     else if ( FileType == IO_FILE_PLA )
         pNtk = Io_ReadPla( pFileName, fCheck );
+    else if ( FileType == IO_FILE_VERILOG )
+        pNtk = Io_ReadVerilog( pFileName, fCheck );
     else 
     {
         fprintf( stderr, "Unknown file format.\n" );
@@ -139,10 +147,12 @@ Abc_Ntk_t * Io_ReadNetlist( char * pFileName, Io_FileType_t FileType, int fCheck
         fprintf( stdout, "Reading network from file has failed.\n" );
         return NULL;
     }
+    if ( Abc_NtkBlackboxNum(pNtk) || Abc_NtkWhiteboxNum(pNtk) )
+        fprintf( stdout, "Warning: The network contains hierarchy.\n" );
     return pNtk;
 }
 
-
+ 
 /**Function*************************************************************
 
   Synopsis    [Read the network from a file.]
@@ -163,8 +173,46 @@ Abc_Ntk_t * Io_Read( char * pFileName, Io_FileType_t FileType, int fCheck )
         return NULL;
     if ( !Abc_NtkIsNetlist(pNtk) )
         return pNtk;
+    // flatten logic hierarchy
+    assert( Abc_NtkIsNetlist(pNtk) );
+    if ( Abc_NtkWhiteboxNum(pNtk) > 0 )
+    {
+        pNtk = Abc_NtkFlattenLogicHierarchy( pTemp = pNtk );
+        Abc_NtkDelete( pTemp );
+        if ( pNtk == NULL )
+        {
+            fprintf( stdout, "Flattening logic hierarchy has failed.\n" );
+            return NULL;
+        }
+    }
+    // convert blackboxes
+    if ( Abc_NtkBlackboxNum(pNtk) > 0 )
+    {
+        printf( "Hierarchy reader converted %d instances of blackboxes.\n", Abc_NtkBlackboxNum(pNtk) );
+        pNtk = Abc_NtkConvertBlackboxes( pTemp = pNtk );
+        Abc_NtkDelete( pTemp );
+        if ( pNtk == NULL )
+        {
+            fprintf( stdout, "Converting blackboxes has failed.\n" );
+            return NULL;
+        }
+    }
+    // consider the case of BLIF-MV
+    if ( Io_ReadFileType(pFileName) == IO_FILE_BLIFMV )
+    {
+//Abc_NtkPrintStats( stdout, pNtk, 0 );
+//    Io_WriteBlifMv( pNtk, "_temp_.mv" );
+        pNtk = Abc_NtkStrashBlifMv( pTemp = pNtk );
+        Abc_NtkDelete( pTemp );
+        if ( pNtk == NULL )
+        {
+            fprintf( stdout, "Converting BLIF-MV to AIG has failed.\n" );
+            return NULL;
+        }
+        return pNtk;
+    }
     // convert the netlist into the logic network
-    pNtk = Abc_NtkNetlistToLogic( pTemp = pNtk );
+    pNtk = Abc_NtkToLogic( pTemp = pNtk );
     Abc_NtkDelete( pTemp );
     if ( pNtk == NULL )
     {
@@ -209,7 +257,7 @@ void Io_Write( Abc_Ntk_t * pNtk, char * pFileName, Io_FileType_t FileType )
             return;
         }
         if ( FileType == IO_FILE_AIGER )
-            Io_WriteAiger( pNtk, pFileName );
+            Io_WriteAiger( pNtk, pFileName, 1 );
         else // if ( FileType == IO_FILE_BAF )
             Io_WriteBaf( pNtk, pFileName );
         return;
@@ -217,7 +265,7 @@ void Io_Write( Abc_Ntk_t * pNtk, char * pFileName, Io_FileType_t FileType )
     // write non-netlist types
     if ( FileType == IO_FILE_CNF )
     {
-        Io_WriteCnf( pNtk, pFileName );
+        Io_WriteCnf( pNtk, pFileName, 0 );
         return;
     }
     if ( FileType == IO_FILE_DOT )
@@ -230,6 +278,13 @@ void Io_Write( Abc_Ntk_t * pNtk, char * pFileName, Io_FileType_t FileType )
         Io_WriteGml( pNtk, pFileName );
         return;
     }
+/*
+    if ( FileType == IO_FILE_BLIFMV )
+    {
+        Io_WriteBlifMv( pNtk, pFileName );
+        return;
+    }
+*/
     // convert logic network into netlist
     if ( FileType == IO_FILE_PLA )
     {
@@ -239,53 +294,169 @@ void Io_Write( Abc_Ntk_t * pNtk, char * pFileName, Io_FileType_t FileType )
             return;
         }
         if ( Abc_NtkIsComb(pNtk) )
-            pNtkTemp = Abc_NtkLogicToNetlist( pNtk, 1 );
+            pNtkTemp = Abc_NtkToNetlist( pNtk );
         else
         {
             fprintf( stdout, "Latches are writen into the PLA file at PI/PO pairs.\n" );
             pNtkCopy = Abc_NtkDup( pNtk );
             Abc_NtkMakeComb( pNtkCopy );
-            pNtkTemp = Abc_NtkLogicToNetlist( pNtk, 1 );
+            pNtkTemp = Abc_NtkToNetlist( pNtk );
             Abc_NtkDelete( pNtkCopy );
         }
+        if ( !Abc_NtkToSop( pNtk, 1 ) )
+            return;
     }
     else if ( FileType == IO_FILE_BENCH )
     {
         if ( !Abc_NtkIsStrash(pNtk) )
         {
-            fprintf( stdout, "Writing BENCH is available for AIGs.\n" );
+            fprintf( stdout, "Writing traditional BENCH is available for AIGs only (use \"write_bench\").\n" );
             return;
         }
-        pNtkTemp = Abc_NtkLogicToNetlistBench( pNtk );
+        pNtkTemp = Abc_NtkToNetlistBench( pNtk );
     }
     else
-        pNtkTemp = Abc_NtkLogicToNetlist( pNtk, 0 );
+        pNtkTemp = Abc_NtkToNetlist( pNtk );
+
     if ( pNtkTemp == NULL )
     {
         fprintf( stdout, "Converting to netlist has failed.\n" );
         return;
     }
+
     if ( FileType == IO_FILE_BLIF )
-        Io_WriteBlifNetlist( pNtkTemp, pFileName, 1 );
+    {
+        if ( !Abc_NtkHasSop(pNtkTemp) && !Abc_NtkHasMapping(pNtkTemp) )
+            Abc_NtkToSop( pNtkTemp, 0 );
+        Io_WriteBlif( pNtkTemp, pFileName, 1 );
+    }
+    else if ( FileType == IO_FILE_BLIFMV )
+    {
+        if ( !Abc_NtkConvertToBlifMv( pNtkTemp ) )
+            return;
+        Io_WriteBlifMv( pNtkTemp, pFileName );
+    }
     else if ( FileType == IO_FILE_BENCH )
         Io_WriteBench( pNtkTemp, pFileName );
     else if ( FileType == IO_FILE_PLA )
         Io_WritePla( pNtkTemp, pFileName );
     else if ( FileType == IO_FILE_EQN )
     {
-        if ( Abc_NtkIsSopNetlist(pNtkTemp) )
-            Abc_NtkSopToAig( pNtkTemp );
+        if ( !Abc_NtkHasAig(pNtkTemp) )
+            Abc_NtkToAig( pNtkTemp );
         Io_WriteEqn( pNtkTemp, pFileName );
     }
     else if ( FileType == IO_FILE_VERILOG )
     {
-        if ( Abc_NtkIsSopNetlist(pNtkTemp) )
-            Abc_NtkSopToAig( pNtkTemp );
-        Io_WriteVerilog( pNtkTemp, pFileName, 1 );
+        if ( !Abc_NtkHasAig(pNtkTemp) && !Abc_NtkHasMapping(pNtkTemp) )
+            Abc_NtkToAig( pNtkTemp );
+        Io_WriteVerilog( pNtkTemp, pFileName );
     }
     else 
         fprintf( stderr, "Unknown file format.\n" );
     Abc_NtkDelete( pNtkTemp );
+}
+
+/**Function*************************************************************
+
+  Synopsis    [Write the network into file.]
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+void Io_WriteHie( Abc_Ntk_t * pNtk, char * pBaseName, char * pFileName )
+{
+    Abc_Ntk_t * pNtkTemp, * pNtkResult, * pNtkBase = NULL;
+    // check if the current network is available
+    if ( pNtk == NULL )
+    {
+        fprintf( stdout, "Empty network.\n" );
+        return;
+    }
+
+    // read the base network
+    assert( Abc_NtkIsStrash(pNtk) || Abc_NtkIsLogic(pNtk) );
+    if ( Io_ReadFileType(pBaseName) == IO_FILE_BLIF )
+        pNtkBase = Io_ReadBlifMv( pBaseName, 0, 1 );
+    else if ( Io_ReadFileType(pBaseName) == IO_FILE_BLIFMV )
+        pNtkBase = Io_ReadBlifMv( pBaseName, 1, 1 );
+    else if ( Io_ReadFileType(pBaseName) == IO_FILE_VERILOG )
+        pNtkBase = Io_ReadVerilog( pBaseName, 1 );
+    else 
+        fprintf( stderr, "Unknown input file format.\n" );
+    if ( pNtkBase == NULL )
+        return;
+
+    // flatten logic hierarchy if present
+    if ( Abc_NtkWhiteboxNum(pNtkBase) > 0 )
+    {
+        pNtkBase = Abc_NtkFlattenLogicHierarchy( pNtkTemp = pNtkBase );
+        if ( pNtkBase == NULL )
+            return;
+        Abc_NtkDelete( pNtkTemp );
+    }
+
+    // reintroduce the boxes into the netlist
+    if ( Io_ReadFileType(pBaseName) == IO_FILE_BLIFMV ) 
+    {
+        if ( Abc_NtkBlackboxNum(pNtkBase) > 0 )
+        {
+            printf( "Hierarchy writer does not support BLIF-MV with blackboxes.\n" );
+            Abc_NtkDelete( pNtkBase );
+            return;
+        }
+        // convert the current network to BLIF-MV
+        assert( !Abc_NtkIsNetlist(pNtk) );
+        pNtkResult = Abc_NtkToNetlist( pNtk );
+        if ( !Abc_NtkConvertToBlifMv( pNtkResult ) )
+            return;
+        // reintroduce the network
+        pNtkResult = Abc_NtkInsertBlifMv( pNtkBase, pNtkTemp = pNtkResult );
+        Abc_NtkDelete( pNtkTemp );
+    }
+    else if ( Abc_NtkBlackboxNum(pNtkBase) > 0 )
+    {
+        // derive the netlist
+        pNtkResult = Abc_NtkToNetlist( pNtk );
+        pNtkResult = Abc_NtkInsertNewLogic( pNtkBase, pNtkTemp = pNtkResult );
+        Abc_NtkDelete( pNtkTemp );
+        if ( pNtkResult )
+            printf( "Hierarchy writer reintroduced %d instances of blackboxes.\n", Abc_NtkBlackboxNum(pNtkBase) );
+    }
+    else
+    {
+        printf( "Warning: The output network does not contain blackboxes.\n" );
+        pNtkResult = Abc_NtkToNetlist( pNtk );
+    }
+    Abc_NtkDelete( pNtkBase );
+    if ( pNtkResult == NULL )
+        return;
+
+    // write the resulting network
+    if ( Io_ReadFileType(pFileName) == IO_FILE_BLIF )
+    {
+        if ( !Abc_NtkHasSop(pNtkResult) && !Abc_NtkHasMapping(pNtkResult) )
+            Abc_NtkToSop( pNtkResult, 0 );
+        Io_WriteBlif( pNtkResult, pFileName, 1 );
+    }
+    else if ( Io_ReadFileType(pFileName) == IO_FILE_VERILOG )
+    {
+        if ( !Abc_NtkHasAig(pNtkResult) && !Abc_NtkHasMapping(pNtkResult) )
+            Abc_NtkToAig( pNtkResult );
+        Io_WriteVerilog( pNtkResult, pFileName );
+    }
+    else if ( Io_ReadFileType(pFileName) == IO_FILE_BLIFMV )
+    {
+        Io_WriteBlifMv( pNtkResult, pFileName );
+    }
+    else 
+        fprintf( stderr, "Unknown output file format.\n" );
+
+    Abc_NtkDelete( pNtkResult );
 }
 
 /**Function*************************************************************
@@ -393,6 +564,38 @@ Abc_Obj_t * Io_ReadCreateLatch( Abc_Ntk_t * pNtk, char * pNetLI, char * pNetLO )
     Abc_ObjAddFanin( pNet, pTerm );
     // set latch name
     Abc_ObjAssignName( pLatch, pNetLO, "L" );
+    return pLatch;
+}
+
+/**Function*************************************************************
+
+  Synopsis    [Create the reset latch with data=1 and init=0.]
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+Abc_Obj_t * Io_ReadCreateResetLatch( Abc_Ntk_t * pNtk, int fBlifMv )
+{
+    Abc_Obj_t * pLatch, * pNode;
+    Abc_Obj_t * pNetLI, * pNetLO;
+    // create latch with 0 init value
+//    pLatch = Io_ReadCreateLatch( pNtk, "_resetLI_", "_resetLO_" );
+    pNetLI = Abc_NtkCreateNet( pNtk );
+    pNetLO = Abc_NtkCreateNet( pNtk );
+    Abc_ObjAssignName( pNetLI, Abc_ObjName(pNetLI), NULL );
+    Abc_ObjAssignName( pNetLO, Abc_ObjName(pNetLO), NULL );
+    pLatch = Io_ReadCreateLatch( pNtk, Abc_ObjName(pNetLI), Abc_ObjName(pNetLO) );
+    // set the initial value
+    Abc_LatchSetInit0( pLatch );
+    // feed the latch with constant1- node
+//    pNode = Abc_NtkCreateNode( pNtk );   
+//    pNode->pData = Abc_SopRegister( pNtk->pManFunc, "2\n1\n" );
+    pNode = Abc_NtkCreateNodeConst1( pNtk );
+    Abc_ObjAddFanin( Abc_ObjFanin0(Abc_ObjFanin0(pLatch)), pNode );
     return pLatch;
 }
 

@@ -3,9 +3,11 @@ SRC +=	src/base/abci/abc.c \
 	src/base/abci/abcAuto.c \
 	src/base/abci/abcBalance.c \
 	src/base/abci/abcBmc.c \
+	src/base/abci/abcCas.c \
 	src/base/abci/abcClpBdd.c \
 	src/base/abci/abcClpSop.c \
 	src/base/abci/abcCut.c \
+	src/base/abci/abcDar.c \
 	src/base/abci/abcDebug.c \
 	src/base/abci/abcDress.c \
 	src/base/abci/abcDsd.c \
@@ -16,6 +18,7 @@ SRC +=	src/base/abci/abc.c \
 	src/base/abci/abcFraig.c \
         src/base/abci/abcFxu.c \
         src/base/abci/abcGen.c \
+        src/base/abci/abcHaig.c \
 	src/base/abci/abcIf.c \
         src/base/abci/abcIvy.c \
 	src/base/abci/abcLut.c \
@@ -24,9 +27,14 @@ SRC +=	src/base/abci/abc.c \
 	src/base/abci/abcMiter.c \
 	src/base/abci/abcMulti.c \
 	src/base/abci/abcNtbdd.c \
+	src/base/abci/abcOdc.c \
 	src/base/abci/abcOrder.c \
+	src/base/abci/abcPart.c \
 	src/base/abci/abcPrint.c \
 	src/base/abci/abcProve.c \
+	src/base/abci/abcQbf.c \
+	src/base/abci/abcQuant.c \
+	src/base/abci/abcRec.c \
 	src/base/abci/abcReconv.c \
 	src/base/abci/abcRefactor.c \
 	src/base/abci/abcRenode.c \

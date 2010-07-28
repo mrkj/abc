@@ -17,7 +17,8 @@
 
 #define STMM_NUMCMP(x,y) ((x) != (y))
 #define STMM_NUMHASH(x,size) (ABS((long)x)%(size))
-#define STMM_PTRHASH(x,size) ((int)((unsigned long)(x)>>2)%size)
+//#define STMM_PTRHASH(x,size) ((int)((unsigned long)(x)>>2)%size) //  64-bit bug fix 9/17/2007
+#define STMM_PTRHASH(x,size) ((int)(((unsigned long)(x)>>2)%size))
 #define EQUAL(func, x, y) \
     ((((func) == stmm_numcmp) || ((func) == stmm_ptrcmp)) ?\
       (STMM_NUMCMP((x),(y)) == 0) : ((*func)((x), (y)) == 0))
@@ -105,7 +106,7 @@ stmm_free_table (table)
     // no need to deallocate entries because they are in the memory manager now
     // added by alanmi
     if ( table->pMemMan )
-        Extra_MmFixedStop (table->pMemMan, 0);
+        Extra_MmFixedStop (table->pMemMan);
     FREE (table->bins);
     FREE (table);
 }
@@ -446,7 +447,7 @@ stmm_copy (old_table)
 					}
 				}
 */
-		Extra_MmFixedStop (new_table->pMemMan, 0);
+		Extra_MmFixedStop (new_table->pMemMan);
 
 		FREE (new_table->bins);
 		FREE (new_table);

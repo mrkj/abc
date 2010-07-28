@@ -72,8 +72,8 @@ static int         Ver_FormulaParserFindVar( char * pString, Vec_Ptr_t * vNames 
 ***********************************************************************/
 void * Ver_FormulaParser( char * pFormula, void * pMan, Vec_Ptr_t * vNames, Vec_Ptr_t * vStackFn, Vec_Int_t * vStackOp, char * pErrorMessage )
 {
-    Hop_Obj_t * bFunc, * bTemp;
     char * pTemp;
+    Hop_Obj_t * bFunc, * bTemp;
     int nParans, Flag;
 	int Oper, Oper1, Oper2;
     int v;
@@ -82,6 +82,11 @@ void * Ver_FormulaParser( char * pFormula, void * pMan, Vec_Ptr_t * vNames, Vec_
     Vec_PtrClear( vNames );
     Vec_PtrClear( vStackFn );
     Vec_IntClear( vStackOp );
+
+    if ( !strcmp(pFormula, "0") || !strcmp(pFormula, "1\'b0") )
+        return Hop_ManConst0(pMan);
+    if ( !strcmp(pFormula, "1") || !strcmp(pFormula, "1\'b1") )
+        return Hop_ManConst1(pMan);
 
     // make sure that the number of opening and closing parantheses is the same
     nParans = 0;
@@ -115,7 +120,7 @@ void * Ver_FormulaParser( char * pFormula, void * pMan, Vec_Ptr_t * vNames, Vec_
         case '\r':
         case '\n':
 			continue;
-
+/*
 		// treat Constant 0 as a variable
 		case VER_PARSE_SYM_CONST0:
 		    Vec_PtrPush( vStackFn, Hop_ManConst0(pMan) );  // Cudd_Ref( Hop_ManConst0(pMan) );
@@ -139,7 +144,7 @@ void * Ver_FormulaParser( char * pFormula, void * pMan, Vec_Ptr_t * vNames, Vec_
 			}
             Flag = VER_PARSE_FLAG_VAR; 
             break;
-
+*/
 		case VER_PARSE_SYM_NEGBEF1:
 		case VER_PARSE_SYM_NEGBEF2:
 			if ( Flag == VER_PARSE_FLAG_VAR )

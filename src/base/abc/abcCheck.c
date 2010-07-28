@@ -38,7 +38,7 @@ static bool Abc_NtkComparePis( Abc_Ntk_t * pNtk1, Abc_Ntk_t * pNtk2, int fComb )
 static bool Abc_NtkComparePos( Abc_Ntk_t * pNtk1, Abc_Ntk_t * pNtk2, int fComb );
 static bool Abc_NtkCompareLatches( Abc_Ntk_t * pNtk1, Abc_Ntk_t * pNtk2, int fComb );
 
-static int  Abc_NtkIsAcyclicHierarchy( Abc_Ntk_t * pNtk );
+static inline char * Abc_ObjNameNet( Abc_Obj_t * pObj ) { return (Abc_ObjIsNode(pObj) && Abc_NtkIsNetlist(pObj->pNtk)) ? Abc_ObjName(Abc_ObjFanout0(pObj)) : Abc_ObjName(pObj); }
 
 ////////////////////////////////////////////////////////////////////////
 ///                     FUNCTION DEFINITIONS                         ///
@@ -98,7 +98,7 @@ bool Abc_NtkDoCheck( Abc_Ntk_t * pNtk )
         fprintf( stdout, "NetworkCheck: Unknown network type.\n" );
         return 0;
     }
-    if ( !Abc_NtkHasSop(pNtk) && !Abc_NtkHasBdd(pNtk) && !Abc_NtkHasAig(pNtk) && !Abc_NtkHasMapping(pNtk) && !Abc_NtkHasBlackbox(pNtk) )
+    if ( !Abc_NtkHasSop(pNtk) && !Abc_NtkHasBdd(pNtk) && !Abc_NtkHasAig(pNtk) && !Abc_NtkHasMapping(pNtk) && !Abc_NtkHasBlifMv(pNtk) && !Abc_NtkHasBlackbox(pNtk) )
     {
         fprintf( stdout, "NetworkCheck: Unknown functionality type.\n" );
         return 0;
@@ -112,20 +112,23 @@ bool Abc_NtkDoCheck( Abc_Ntk_t * pNtk )
         }
     }
 
-    // check CI/CO numbers
-    if ( Abc_NtkPiNum(pNtk) + Abc_NtkLatchNum(pNtk) != Abc_NtkCiNum(pNtk) )
+    if ( Abc_NtkHasOnlyLatchBoxes(pNtk) )
     {
-        fprintf( stdout, "NetworkCheck: Number of CIs does not match number of PIs and latches.\n" );
-        fprintf( stdout, "One possible reason is that latches are added twice:\n" );
-        fprintf( stdout, "in procedure Abc_NtkCreateObj() and in the user's code.\n" );
-        return 0;
-    }
-    if ( Abc_NtkPoNum(pNtk) + Abc_NtkAssertNum(pNtk) + Abc_NtkLatchNum(pNtk) != Abc_NtkCoNum(pNtk) )
-    {
-        fprintf( stdout, "NetworkCheck: Number of COs does not match number of POs, asserts, and latches.\n" );
-        fprintf( stdout, "One possible reason is that latches are added twice:\n" );
-        fprintf( stdout, "in procedure Abc_NtkCreateObj() and in the user's code.\n" );
-        return 0;
+        // check CI/CO numbers
+        if ( Abc_NtkPiNum(pNtk) + Abc_NtkLatchNum(pNtk) != Abc_NtkCiNum(pNtk) )
+        {
+            fprintf( stdout, "NetworkCheck: Number of CIs does not match number of PIs and latches.\n" );
+            fprintf( stdout, "One possible reason is that latches are added twice:\n" );
+            fprintf( stdout, "in procedure Abc_NtkCreateObj() and in the user's code.\n" );
+            return 0;
+        }
+        if ( Abc_NtkPoNum(pNtk) + Abc_NtkAssertNum(pNtk) + Abc_NtkLatchNum(pNtk) != Abc_NtkCoNum(pNtk) )
+        {
+            fprintf( stdout, "NetworkCheck: Number of COs does not match number of POs, asserts, and latches.\n" );
+            fprintf( stdout, "One possible reason is that latches are added twice:\n" );
+            fprintf( stdout, "in procedure Abc_NtkCreateObj() and in the user's code.\n" );
+            return 0;
+        }
     }
 
     // check the names
@@ -138,6 +141,9 @@ bool Abc_NtkDoCheck( Abc_Ntk_t * pNtk )
         return 0;
     if ( !Abc_NtkCheckPos( pNtk ) )
         return 0;
+
+    if ( Abc_NtkHasBlackbox(pNtk) )
+        return 1;
 
     // check the connectivity of objects
     Abc_NtkForEachObj( pNtk, pObj, i )
@@ -193,7 +199,7 @@ bool Abc_NtkDoCheck( Abc_Ntk_t * pNtk )
     // check the EXDC network if present
     if ( pNtk->pExdc )
         Abc_NtkCheck( pNtk->pExdc );
-
+/*
     // check the hierarchy
     if ( Abc_NtkIsNetlist(pNtk) && pNtk->tName2Model )
     {
@@ -214,6 +220,7 @@ bool Abc_NtkDoCheck( Abc_Ntk_t * pNtk )
             return 0;
         }
     }
+*/
     return 1;
 }
 
@@ -234,41 +241,27 @@ bool Abc_NtkCheckNames( Abc_Ntk_t * pNtk )
     Vec_Int_t * vNameIds;
     char * pName;
     int i, NameId;
-/*
-    if ( Abc_NtkIsNetlist(pNtk) )
-    {
 
-        // check that each net has a name
-        Abc_NtkForEachNet( pNtk, pObj, i )
+    if ( Abc_NtkIsNetlist(pNtk) )
+        return 1;
+
+    // check that each CI/CO has a name
+    Abc_NtkForEachCi( pNtk, pObj, i )
+    {
+        pObj = Abc_ObjFanout0Ntk(pObj);
+        if ( Nm_ManFindNameById(pObj->pNtk->pManName, pObj->Id) == NULL )
         {
-            if ( Nm_ManFindNameById(pObj->pNtk->pManName, pObj->Id) )
-            {
-                fprintf( stdout, "NetworkCheck: Net \"%s\" has different name in the name table and at the data pointer.\n", pObj->pData );
-                return 0;
-            }
+            fprintf( stdout, "NetworkCheck: CI with ID %d is in the network but not in the name table.\n", pObj->Id );
+            return 0;
         }
     }
-    else
-*/
+    Abc_NtkForEachCo( pNtk, pObj, i )
     {
-        // check that each CI/CO has a name
-        Abc_NtkForEachCi( pNtk, pObj, i )
+        pObj = Abc_ObjFanin0Ntk(pObj);
+        if ( Nm_ManFindNameById(pObj->pNtk->pManName, pObj->Id) == NULL )
         {
-            pObj = Abc_ObjFanout0Ntk(pObj);
-            if ( Nm_ManFindNameById(pObj->pNtk->pManName, pObj->Id) == NULL )
-            {
-                fprintf( stdout, "NetworkCheck: CI with ID %d is in the network but not in the name table.\n", pObj->Id );
-                return 0;
-            }
-        }
-        Abc_NtkForEachCo( pNtk, pObj, i )
-        {
-            pObj = Abc_ObjFanin0Ntk(pObj);
-            if ( Nm_ManFindNameById(pObj->pNtk->pManName, pObj->Id) == NULL )
-            {
-                fprintf( stdout, "NetworkCheck: CO with ID %d is in the network but not in the name table.\n", pObj->Id );
-                return 0;
-            }
+            fprintf( stdout, "NetworkCheck: CO with ID %d is in the network but not in the name table.\n", pObj->Id );
+            return 0;
         }
     }
 
@@ -286,6 +279,19 @@ bool Abc_NtkCheckNames( Abc_Ntk_t * pNtk )
         }
     }
     Vec_IntFree( vNameIds );
+
+    // make sure the CI names are unique
+    if ( !Abc_NtkCheckUniqueCiNames(pNtk) )
+        return 0;
+
+    // make sure the CO names are unique
+    if ( !Abc_NtkCheckUniqueCoNames(pNtk) )
+        return 0;
+
+    // make sure that if a CO has the same name as a CI, they point directly
+    if ( !Abc_NtkCheckUniqueCioNames(pNtk) )
+        return 0;
+
     return 1;
 }
 
@@ -519,7 +525,7 @@ bool Abc_NtkCheckNode( Abc_Ntk_t * pNtk, Abc_Obj_t * pNode )
     // the node should have a function assigned unless it is an AIG
     if ( pNode->pData == NULL )
     {
-        fprintf( stdout, "NodeCheck: An internal node \"%s\" does not have a logic function.\n", Abc_ObjName(pNode) );
+        fprintf( stdout, "NodeCheck: An internal node \"%s\" does not have a logic function.\n", Abc_ObjNameNet(pNode) );
         return 0;
     }
     // the netlist and SOP logic network should have SOPs
@@ -527,7 +533,7 @@ bool Abc_NtkCheckNode( Abc_Ntk_t * pNtk, Abc_Obj_t * pNode )
     {
         if ( !Abc_SopCheck( pNode->pData, Abc_ObjFaninNum(pNode) ) )
         {
-            fprintf( stdout, "NodeCheck: SOP check for node \"%s\" has failed.\n", Abc_ObjName(pNode) );
+            fprintf( stdout, "NodeCheck: SOP check for node \"%s\" has failed.\n", Abc_ObjNameNet(pNode) );
             return 0;
         }
     }
@@ -536,11 +542,11 @@ bool Abc_NtkCheckNode( Abc_Ntk_t * pNtk, Abc_Obj_t * pNode )
         int nSuppSize = Cudd_SupportSize(pNtk->pManFunc, pNode->pData);
         if ( nSuppSize > Abc_ObjFaninNum(pNode) )
         {
-            fprintf( stdout, "NodeCheck: BDD of the node \"%s\" has incorrect support size.\n", Abc_ObjName(pNode) );
+            fprintf( stdout, "NodeCheck: BDD of the node \"%s\" has incorrect support size.\n", Abc_ObjNameNet(pNode) );
             return 0;
         }
     }
-    else if ( !Abc_NtkHasMapping(pNtk) && !Abc_NtkHasAig(pNtk) )
+    else if ( !Abc_NtkHasMapping(pNtk) && !Abc_NtkHasBlifMv(pNtk) && !Abc_NtkHasAig(pNtk) )
     {
         assert( 0 );
     }
@@ -743,7 +749,6 @@ bool Abc_NtkCompareSignals( Abc_Ntk_t * pNtk1, Abc_Ntk_t * pNtk2, int fOnlyPis, 
     return 1;
 }
 
-
 /**Function*************************************************************
 
   Synopsis    [Returns 0 if the network hierachy contains a cycle.]
@@ -771,6 +776,8 @@ int Abc_NtkIsAcyclicHierarchy_rec( Abc_Ntk_t * pNtk )
     // go through all the children networks
     Abc_NtkForEachBox( pNtk, pObj, i )
     {
+        if ( Abc_ObjIsLatch(pObj) )
+            continue;
         pNtkNext = pObj->pData;
         assert( pNtkNext != NULL );
         if ( pNtkNext->fHiePath )
@@ -796,9 +803,133 @@ int Abc_NtkIsAcyclicHierarchy_rec( Abc_Ntk_t * pNtk )
 ***********************************************************************/
 int Abc_NtkIsAcyclicHierarchy( Abc_Ntk_t * pNtk )
 {
-    assert( Abc_NtkIsNetlist(pNtk) && pNtk->tName2Model );
+    Abc_Ntk_t * pTemp;
+    int i, RetValue;
+    assert( Abc_NtkIsNetlist(pNtk) && pNtk->pDesign );
+    // clear the modules
+    Vec_PtrForEachEntry( pNtk->pDesign->vModules, pTemp, i )
+        pTemp->fHieVisited = pTemp->fHiePath = 0;
+    // traverse
     pNtk->fHiePath = 1;
-    return Abc_NtkIsAcyclicHierarchy_rec( pNtk );
+    RetValue = Abc_NtkIsAcyclicHierarchy_rec( pNtk );
+    pNtk->fHiePath = 0;
+    // clear the modules
+    Vec_PtrForEachEntry( pNtk->pDesign->vModules, pTemp, i )
+        pTemp->fHieVisited = pTemp->fHiePath = 0;
+    return RetValue;
+}
+
+/**Function*************************************************************
+
+  Synopsis    [Returns 0 if CI names are repeated.]
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+int Abc_NtkNamesCompare( char ** pName1, char ** pName2 )
+{
+    return strcmp( *pName1, *pName2 );
+}
+
+/**Function*************************************************************
+
+  Synopsis    [Returns 0 if CI names are repeated.]
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+int Abc_NtkCheckUniqueCiNames( Abc_Ntk_t * pNtk )
+{
+    Vec_Ptr_t * vNames;
+    Abc_Obj_t * pObj;
+    int i, fRetValue = 1;
+    assert( !Abc_NtkIsNetlist(pNtk) );
+    vNames = Vec_PtrAlloc( Abc_NtkCiNum(pNtk) );
+    Abc_NtkForEachCi( pNtk, pObj, i )
+        Vec_PtrPush( vNames, Abc_ObjName(pObj) );
+    Vec_PtrSort( vNames, Abc_NtkNamesCompare );
+    for ( i = 1; i < Abc_NtkCiNum(pNtk); i++ )
+        if ( !strcmp( Vec_PtrEntry(vNames,i-1), Vec_PtrEntry(vNames,i) ) )
+        {
+            printf( "Abc_NtkCheck: Repeated CI names: %s and %s.\n", Vec_PtrEntry(vNames,i-1), Vec_PtrEntry(vNames,i) );
+            fRetValue = 0;
+        }
+    Vec_PtrFree( vNames );
+    return fRetValue;
+}
+
+/**Function*************************************************************
+
+  Synopsis    [Returns 0 if CO names are repeated.]
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+int Abc_NtkCheckUniqueCoNames( Abc_Ntk_t * pNtk )
+{
+    Vec_Ptr_t * vNames;
+    Abc_Obj_t * pObj;
+    int i, fRetValue = 1;
+    assert( !Abc_NtkIsNetlist(pNtk) );
+    vNames = Vec_PtrAlloc( Abc_NtkCoNum(pNtk) );
+    Abc_NtkForEachCo( pNtk, pObj, i )
+        Vec_PtrPush( vNames, Abc_ObjName(pObj) );
+    Vec_PtrSort( vNames, Abc_NtkNamesCompare );
+    for ( i = 1; i < Abc_NtkCoNum(pNtk); i++ )
+    {
+//        printf( "%s\n", Vec_PtrEntry(vNames,i) );
+        if ( !strcmp( Vec_PtrEntry(vNames,i-1), Vec_PtrEntry(vNames,i) ) )
+        {
+            printf( "Abc_NtkCheck: Repeated CO names: %s and %s.\n", Vec_PtrEntry(vNames,i-1), Vec_PtrEntry(vNames,i) );
+            fRetValue = 0;
+        }
+    }
+    Vec_PtrFree( vNames );
+    return fRetValue;
+}
+
+/**Function*************************************************************
+
+  Synopsis    [Returns 0 if there is a pair of CI/CO with the same name and logic in between.]
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+int Abc_NtkCheckUniqueCioNames( Abc_Ntk_t * pNtk )
+{
+    Abc_Obj_t * pObj, * pObjCi;
+    int i, nCiId, fRetValue = 1;
+    assert( !Abc_NtkIsNetlist(pNtk) );
+    Abc_NtkForEachCo( pNtk, pObj, i )
+    {
+        nCiId = Nm_ManFindIdByNameTwoTypes( pNtk->pManName, Abc_ObjName(pObj), ABC_OBJ_PI, ABC_OBJ_BO );
+        if ( nCiId == -1 )
+            continue;
+        pObjCi = Abc_NtkObj( pNtk, nCiId );
+        assert( !strcmp( Abc_ObjName(pObj), Abc_ObjName(pObjCi) ) );
+        if ( Abc_ObjFanin0(pObj) != pObjCi )
+        {
+            printf( "Abc_NtkCheck: A CI/CO pair share the name (%s) but do not link directly.\n", Abc_ObjName(pObj) );
+            fRetValue = 0;
+        }
+    }
+    return fRetValue;
 }
 
 ////////////////////////////////////////////////////////////////////////

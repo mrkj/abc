@@ -151,6 +151,71 @@ static inline Vec_Ptr_t * Vec_PtrAllocArrayCopy( void ** pArray, int nSize )
 
 /**Function*************************************************************
 
+  Synopsis    [Allocates the array of simulation info.]
+
+  Description [Allocates the array containing given number of entries, 
+  each of which contains given number of unsigned words of simulation data.
+  The resulting array can be freed using regular procedure Vec_PtrFree().
+  It is the responsibility of the user to ensure this array is never grown.]
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+static inline Vec_Ptr_t * Vec_PtrAllocSimInfo( int nEntries, int nWords )
+{
+    void ** pMemory;
+    unsigned * pInfo;
+    int i;
+    pMemory = (void **)ALLOC( char, (sizeof(void *) + sizeof(unsigned) * nWords) * nEntries );
+    pInfo = (unsigned *)(pMemory + nEntries);
+    for ( i = 0; i < nEntries; i++ )
+        pMemory[i] = pInfo + i * nWords;
+    return Vec_PtrAllocArray( pMemory, nEntries );
+}
+
+/**Function*************************************************************
+
+  Synopsis    [Allocates the array of truth tables for the given number of vars.]
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+static inline Vec_Ptr_t * Vec_PtrAllocTruthTables( int nVars )
+{
+    Vec_Ptr_t * p;
+    unsigned Masks[5] = { 0xAAAAAAAA, 0xCCCCCCCC, 0xF0F0F0F0, 0xFF00FF00, 0xFFFF0000 };
+    unsigned * pTruth;
+    int i, k, nWords;
+    nWords = (nVars <= 5 ? 1 : (1 << (nVars - 5)));
+    p = Vec_PtrAllocSimInfo( nVars, nWords );
+    for ( i = 0; i < nVars; i++ )
+    {
+        pTruth = (unsigned *)p->pArray[i];
+        if ( i < 5 )
+        {
+            for ( k = 0; k < nWords; k++ )
+                pTruth[k] = Masks[i];
+        }
+        else
+        {
+            for ( k = 0; k < nWords; k++ )
+                if ( k & (1 << (i-5)) )
+                    pTruth[k] = ~(unsigned)0;
+                else
+                    pTruth[k] = 0;
+        }
+    }
+    return p;
+}
+
+/**Function*************************************************************
+
   Synopsis    [Duplicates the integer array.]
 
   Description []
@@ -283,6 +348,37 @@ static inline void * Vec_PtrEntry( Vec_Ptr_t * p, int i )
 
 /**Function*************************************************************
 
+  Synopsis    [Resizes the array of simulation info.]
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+static inline void Vec_PtrDoubleSimInfo( Vec_Ptr_t * vInfo )
+{
+    Vec_Ptr_t * vInfoNew;
+    int nWords;
+    assert( Vec_PtrSize(vInfo) > 2 );
+    // get the new array
+    nWords = (unsigned *)Vec_PtrEntry(vInfo,1) - (unsigned *)Vec_PtrEntry(vInfo,0);
+    vInfoNew = Vec_PtrAllocSimInfo( 2*Vec_PtrSize(vInfo), nWords );
+    // copy the simulation info
+    memcpy( Vec_PtrEntry(vInfoNew,0), Vec_PtrEntry(vInfo,0), Vec_PtrSize(vInfo) * nWords * 4 );
+    // replace the array
+    free( vInfo->pArray );
+    vInfo->pArray = vInfoNew->pArray;
+    vInfo->nSize *= 2;
+    vInfo->nCap *= 2;
+    // free the old array
+    vInfoNew->pArray = NULL;
+    free( vInfoNew );
+}
+
+/**Function*************************************************************
+
   Synopsis    []
 
   Description []
@@ -399,6 +495,40 @@ static inline void Vec_PtrFillExtra( Vec_Ptr_t * p, int nSize, void * Entry )
 
 /**Function*************************************************************
 
+  Synopsis    [Returns the entry even if the place not exist.]
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+static inline void * Vec_PtrGetEntry( Vec_Ptr_t * p, int i )
+{
+    Vec_PtrFillExtra( p, i + 1, NULL );
+    return Vec_PtrEntry( p, i );
+}
+
+/**Function*************************************************************
+
+  Synopsis    [Inserts the entry even if the place does not exist.]
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+static inline void Vec_PtrSetEntry( Vec_Ptr_t * p, int i, void * Entry )
+{
+    Vec_PtrFillExtra( p, i + 1, NULL );
+    Vec_PtrWriteEntry( p, i, Entry );
+}
+
+/**Function*************************************************************
+
   Synopsis    []
 
   Description []
@@ -428,6 +558,25 @@ static inline void Vec_PtrShrink( Vec_Ptr_t * p, int nSizeNew )
 static inline void Vec_PtrClear( Vec_Ptr_t * p )
 {
     p->nSize = 0;
+}
+
+/**Function*************************************************************
+
+  Synopsis    [Copies the interger array.]
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+static inline void Vec_PtrCopy( Vec_Ptr_t * pDest, Vec_Ptr_t * pSour )
+{
+    pDest->nSize = 0;
+    Vec_PtrGrow( pDest, pSour->nSize );
+    memcpy( pDest->pArray, pSour->pArray, sizeof(void *) * pSour->nSize );
+    pDest->nSize = pSour->nSize;
 }
 
 /**Function*************************************************************

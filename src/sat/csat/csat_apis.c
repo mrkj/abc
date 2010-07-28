@@ -90,7 +90,7 @@ ABC_Manager ABC_InitManager()
     // set default parameters for CEC
     Prove_ParamsSetDefault( &mng->Params );
     // set infinite resource limit for the final mitering
-    mng->Params.nMiteringLimitLast = ABC_INFINITY;
+//    mng->Params.nMiteringLimitLast = ABC_INFINITY;
     return mng;
 }
 
@@ -111,7 +111,7 @@ void ABC_ReleaseManager( ABC_Manager mng )
     ABC_TargetResFree(p_res);
     if ( mng->tNode2Name ) stmm_free_table( mng->tNode2Name );
     if ( mng->tName2Node ) stmm_free_table( mng->tName2Node );
-    if ( mng->pMmNames )   Extra_MmFlexStop( mng->pMmNames, 0 );
+    if ( mng->pMmNames )   Extra_MmFlexStop( mng->pMmNames );
     if ( mng->pNtk )       Abc_NtkDelete( mng->pNtk );
     if ( mng->pTarget )    Abc_NtkDelete( mng->pTarget );
     if ( mng->vNodes )     Vec_PtrFree( mng->vNodes );
@@ -572,7 +572,7 @@ void ABC_SolveInit( ABC_Manager mng )
 
     // set the new target network
 //    mng->pTarget = Abc_NtkCreateTarget( mng->pNtk, mng->vNodes, mng->vValues );
-    mng->pTarget = Abc_NtkStrash( mng->pNtk, 0, 1 );
+    mng->pTarget = Abc_NtkStrash( mng->pNtk, 0, 1, 0 );
 }
 
 /**Function*************************************************************
@@ -612,7 +612,7 @@ enum CSAT_StatusT ABC_Solve( ABC_Manager mng )
 
     // try to prove the miter using a number of techniques
     if ( mng->mode )
-        RetValue = Abc_NtkMiterSat( mng->pTarget, (sint64)pParams->nMiteringLimitLast, (sint64)0, 0, 0, NULL, NULL );
+        RetValue = Abc_NtkMiterSat( mng->pTarget, (sint64)pParams->nMiteringLimitLast, (sint64)0, 0, NULL, NULL );
     else
 //        RetValue = Abc_NtkMiterProve( &mng->pTarget, pParams ); // old CEC engine
         RetValue = Abc_NtkIvyProve( &mng->pTarget, pParams ); // new CEC engine
@@ -676,8 +676,8 @@ void ABC_Dump_Bench_File( ABC_Manager mng )
     char * pFileName;
  
     // derive the netlist
-    pNtkAig = Abc_NtkStrash( mng->pNtk, 0, 0 );
-    pNtkTemp = Abc_NtkLogicToNetlistBench( pNtkAig );
+    pNtkAig = Abc_NtkStrash( mng->pNtk, 0, 0, 0 );
+    pNtkTemp = Abc_NtkToNetlistBench( pNtkAig );
     Abc_NtkDelete( pNtkAig );
     if ( pNtkTemp == NULL ) 
         { printf( "ABC_Dump_Bench_File: Dumping BENCH has failed.\n" ); return; }

@@ -50,10 +50,13 @@
 // file "extraDdTransfer.c"
 static DdNode * extraTransferPermuteRecur( DdManager * ddS, DdManager * ddD, DdNode * f, st_table * table, int * Permute );
 static DdNode * extraTransferPermute( DdManager * ddS, DdManager * ddD, DdNode * f, int * Permute );
+static DdNode * cuddBddPermuteRecur ARGS( ( DdManager * manager, DdHashTable * table, DdNode * node, int *permut ) );
 
 // file "cuddUtils.c"
 static void ddSupportStep(DdNode *f, int *support);
 static void ddClearFlag(DdNode *f);
+
+static DdNode* extraZddPrimes( DdManager *dd, DdNode* F );
 
 /**AutomaticEnd***************************************************************/
 
@@ -890,6 +893,73 @@ DdNode * Extra_bddCreateExor( DdManager * dd, int nVars )
     return bFunc;
 }
 
+/**Function********************************************************************
+
+  Synopsis    [Computes the set of primes as a ZDD.]
+
+  Description []
+
+  SideEffects []
+
+  SeeAlso     []
+
+******************************************************************************/
+DdNode * Extra_zddPrimes( DdManager * dd, DdNode * F )
+{
+    DdNode	*res;
+    do {
+		dd->reordered = 0;
+		res = extraZddPrimes(dd, F);
+		if ( dd->reordered == 1 )
+			printf("\nReordering in Extra_zddPrimes()\n");
+    } while (dd->reordered == 1);
+    return(res);
+
+} /* end of Extra_zddPrimes */
+
+/**Function********************************************************************
+
+  Synopsis    [Permutes the variables of the array of BDDs.]
+
+  Description [Given a permutation in array permut, creates a new BDD
+  with permuted variables. There should be an entry in array permut
+  for each variable in the manager. The i-th entry of permut holds the
+  index of the variable that is to substitute the i-th variable.
+  The DDs in the resulting array are already referenced.]
+
+  SideEffects [None]
+
+  SeeAlso     [Cudd_addPermute Cudd_bddSwapVariables]
+
+******************************************************************************/
+void Extra_bddPermuteArray( DdManager * manager, DdNode ** bNodesIn, DdNode ** bNodesOut, int nNodes, int *permut )
+{
+	DdHashTable *table;
+	int i, k;
+	do
+	{
+		manager->reordered = 0;
+		table = cuddHashTableInit( manager, 1, 2 );
+
+		/* permute the output functions one-by-one */
+		for ( i = 0; i < nNodes; i++ )
+		{
+			bNodesOut[i] = cuddBddPermuteRecur( manager, table, bNodesIn[i], permut );
+			if ( bNodesOut[i] == NULL )
+			{
+				/* deref the array of the already computed outputs */
+				for ( k = 0; k < i; k++ )
+					Cudd_RecursiveDeref( manager, bNodesOut[k] );
+				break;
+			}
+			cuddRef( bNodesOut[i] );
+		}
+		/* Dispose of local cache. */
+		cuddHashTableQuit( table );
+	}
+	while ( manager->reordered == 1 );
+}	/* end of Extra_bddPermuteArray */
+
 
 /*---------------------------------------------------------------------------*/
 /* Definition of internal functions                                          */
@@ -1244,6 +1314,297 @@ ddClearFlag(
     return;
 
 } /* end of ddClearFlag */
+
+
+/**Function********************************************************************
+
+  Synopsis    [Composed three subcovers into one ZDD.]
+
+  Description []
+
+  SideEffects [None]
+
+  SeeAlso     []
+
+******************************************************************************/
+DdNode *
+extraComposeCover( 
+  DdManager* dd,    /* the manager */
+  DdNode* zC0,     /* the pointer to the negative var cofactor */ 
+  DdNode* zC1,     /* the pointer to the positive var cofactor */ 
+  DdNode* zC2,     /* the pointer to the cofactor without var */ 
+  int TopVar)    /* the index of the positive ZDD var */
+{
+    DdNode * zRes, * zTemp;
+    /* compose with-neg-var and without-var using the neg ZDD var */
+    zTemp = cuddZddGetNode( dd, 2*TopVar + 1, zC0, zC2 );
+    if ( zTemp == NULL ) 
+    {
+        Cudd_RecursiveDerefZdd(dd, zC0);
+        Cudd_RecursiveDerefZdd(dd, zC1);
+        Cudd_RecursiveDerefZdd(dd, zC2);
+        return NULL;
+    }
+    cuddRef( zTemp );
+    cuddDeref( zC0 );
+    cuddDeref( zC2 );
+
+    /* compose with-pos-var and previous result using the pos ZDD var */
+    zRes = cuddZddGetNode( dd, 2*TopVar, zC1, zTemp );
+    if ( zRes == NULL ) 
+    {
+        Cudd_RecursiveDerefZdd(dd, zC1);
+        Cudd_RecursiveDerefZdd(dd, zTemp);
+        return NULL;
+    }
+    cuddDeref( zC1 );
+    cuddDeref( zTemp );
+    return zRes;
+} /* extraComposeCover */
+
+/**Function********************************************************************
+
+  Synopsis    [Performs the recursive step of prime computation.]
+
+  Description []
+
+  SideEffects []
+
+  SeeAlso     []
+
+******************************************************************************/
+DdNode* extraZddPrimes( DdManager *dd, DdNode* F )
+{
+	DdNode *zRes;
+
+	if ( F == Cudd_Not( dd->one ) )
+		return dd->zero;
+	if ( F == dd->one )
+		return dd->one;
+
+    /* check cache */
+    zRes = cuddCacheLookup1Zdd(dd, extraZddPrimes, F);
+    if (zRes)
+    	return(zRes);
+	{
+		/* temporary variables */
+		DdNode *bF01, *zP0, *zP1;
+		/* three components of the prime set */
+		DdNode *zResE, *zResP, *zResN;
+		int fIsComp = Cudd_IsComplement( F );
+
+		/* find cofactors of F */
+		DdNode * bF0 = Cudd_NotCond( Cudd_E( F ), fIsComp );
+		DdNode * bF1 = Cudd_NotCond( Cudd_T( F ), fIsComp );
+
+		/* find the intersection of cofactors */
+		bF01 = cuddBddAndRecur( dd, bF0, bF1 );
+		if ( bF01 == NULL ) return NULL;
+		cuddRef( bF01 );
+
+		/* solve the problems for cofactors */
+		zP0 = extraZddPrimes( dd, bF0 );
+		if ( zP0 == NULL )
+		{
+			Cudd_RecursiveDeref( dd, bF01 );
+			return NULL;
+		}
+		cuddRef( zP0 );
+
+		zP1 = extraZddPrimes( dd, bF1 );
+		if ( zP1 == NULL )
+		{
+			Cudd_RecursiveDeref( dd, bF01 );
+			Cudd_RecursiveDerefZdd( dd, zP0 );
+			return NULL;
+		}
+		cuddRef( zP1 );
+
+		/* check for local unateness */
+		if ( bF01 == bF0 )       /* unate increasing */
+		{
+			/* intersection is useless */
+			cuddDeref( bF01 );
+			/* the primes of intersection are the primes of F0 */
+			zResE = zP0;
+			/* there are no primes with negative var */
+			zResN = dd->zero;
+			cuddRef( zResN );
+			/* primes with positive var are primes of F1 that are not primes of F01 */
+			zResP = cuddZddDiff( dd, zP1, zP0 );
+			if ( zResP == NULL )  
+			{
+				Cudd_RecursiveDerefZdd( dd, zResE );
+				Cudd_RecursiveDerefZdd( dd, zResN );
+				Cudd_RecursiveDerefZdd( dd, zP1 );
+				return NULL;
+			}
+			cuddRef( zResP );
+			Cudd_RecursiveDerefZdd( dd, zP1 );
+		}
+		else if ( bF01 == bF1 ) /* unate decreasing */
+		{
+			/* intersection is useless */
+			cuddDeref( bF01 );
+			/* the primes of intersection are the primes of F1 */
+			zResE = zP1;
+			/* there are no primes with positive var */
+			zResP = dd->zero;
+			cuddRef( zResP );
+			/* primes with negative var are primes of F0 that are not primes of F01 */
+			zResN = cuddZddDiff( dd, zP0, zP1 );
+			if ( zResN == NULL )  
+			{
+				Cudd_RecursiveDerefZdd( dd, zResE );
+				Cudd_RecursiveDerefZdd( dd, zResP );
+				Cudd_RecursiveDerefZdd( dd, zP0 );
+				return NULL;
+			}
+			cuddRef( zResN );
+			Cudd_RecursiveDerefZdd( dd, zP0 );
+		}
+		else /* not unate */
+		{
+			/* primes without the top var are primes of F10 */
+			zResE = extraZddPrimes( dd, bF01 );
+			if ( zResE == NULL )  
+			{
+				Cudd_RecursiveDerefZdd( dd, bF01 );
+				Cudd_RecursiveDerefZdd( dd, zP0 );
+				Cudd_RecursiveDerefZdd( dd, zP1 );
+				return NULL;
+			}
+			cuddRef( zResE );
+			Cudd_RecursiveDeref( dd, bF01 );
+
+			/* primes with the negative top var are those of P0 that are not in F10 */
+			zResN = cuddZddDiff( dd, zP0, zResE );
+			if ( zResN == NULL )  
+			{
+				Cudd_RecursiveDerefZdd( dd, zResE );
+				Cudd_RecursiveDerefZdd( dd, zP0 );
+				Cudd_RecursiveDerefZdd( dd, zP1 );
+				return NULL;
+			}
+			cuddRef( zResN );
+			Cudd_RecursiveDerefZdd( dd, zP0 );
+
+			/* primes with the positive top var are those of P1 that are not in F10 */
+			zResP = cuddZddDiff( dd, zP1, zResE );
+			if ( zResP == NULL )  
+			{
+				Cudd_RecursiveDerefZdd( dd, zResE );
+				Cudd_RecursiveDerefZdd( dd, zResN );
+				Cudd_RecursiveDerefZdd( dd, zP1 );
+				return NULL;
+			}
+			cuddRef( zResP );
+			Cudd_RecursiveDerefZdd( dd, zP1 );
+		}
+
+		zRes = extraComposeCover( dd, zResN, zResP, zResE, Cudd_Regular(F)->index );
+		if ( zRes == NULL ) return NULL;
+
+		/* insert the result into cache */
+		cuddCacheInsert1(dd, extraZddPrimes, F, zRes);
+		return zRes;
+	}
+} /* end of extraZddPrimes */
+
+/**Function********************************************************************
+
+  Synopsis    [Implements the recursive step of Cudd_bddPermute.]
+
+  Description [ Recursively puts the BDD in the order given in the array permut.
+  Checks for trivial cases to terminate recursion, then splits on the
+  children of this node.  Once the solutions for the children are
+  obtained, it puts into the current position the node from the rest of
+  the BDD that should be here. Then returns this BDD.
+  The key here is that the node being visited is NOT put in its proper
+  place by this instance, but rather is switched when its proper position
+  is reached in the recursion tree.<p>
+  The DdNode * that is returned is the same BDD as passed in as node,
+  but in the new order.]
+
+  SideEffects [None]
+
+  SeeAlso     [Cudd_bddPermute cuddAddPermuteRecur]
+
+******************************************************************************/
+static DdNode *
+cuddBddPermuteRecur( DdManager * manager /* DD manager */ ,
+					 DdHashTable * table /* computed table */ ,
+					 DdNode * node /* BDD to be reordered */ ,
+					 int *permut /* permutation array */  )
+{
+	DdNode *N, *T, *E;
+	DdNode *res;
+	int index;
+
+	statLine( manager );
+	N = Cudd_Regular( node );
+
+	/* Check for terminal case of constant node. */
+	if ( cuddIsConstant( N ) )
+	{
+		return ( node );
+	}
+
+	/* If problem already solved, look up answer and return. */
+	if ( N->ref != 1 && ( res = cuddHashTableLookup1( table, N ) ) != NULL )
+	{
+#ifdef DD_DEBUG
+		bddPermuteRecurHits++;
+#endif
+		return ( Cudd_NotCond( res, N != node ) );
+	}
+
+	/* Split and recur on children of this node. */
+	T = cuddBddPermuteRecur( manager, table, cuddT( N ), permut );
+	if ( T == NULL )
+		return ( NULL );
+	cuddRef( T );
+	E = cuddBddPermuteRecur( manager, table, cuddE( N ), permut );
+	if ( E == NULL )
+	{
+		Cudd_IterDerefBdd( manager, T );
+		return ( NULL );
+	}
+	cuddRef( E );
+
+	/* Move variable that should be in this position to this position
+	   ** by retrieving the single var BDD for that variable, and calling
+	   ** cuddBddIteRecur with the T and E we just created.
+	 */
+	index = permut[N->index];
+	res = cuddBddIteRecur( manager, manager->vars[index], T, E );
+	if ( res == NULL )
+	{
+		Cudd_IterDerefBdd( manager, T );
+		Cudd_IterDerefBdd( manager, E );
+		return ( NULL );
+	}
+	cuddRef( res );
+	Cudd_IterDerefBdd( manager, T );
+	Cudd_IterDerefBdd( manager, E );
+
+	/* Do not keep the result if the reference count is only 1, since
+	   ** it will not be visited again.
+	 */
+	if ( N->ref != 1 )
+	{
+		ptrint fanout = ( ptrint ) N->ref;
+		cuddSatDec( fanout );
+		if ( !cuddHashTableInsert1( table, N, res, fanout ) )
+		{
+			Cudd_IterDerefBdd( manager, res );
+			return ( NULL );
+		}
+	}
+	cuddDeref( res );
+	return ( Cudd_NotCond( res, N != node ) );
+
+}								/* end of cuddBddPermuteRecur */
 
 
 ////////////////////////////////////////////////////////////////////////

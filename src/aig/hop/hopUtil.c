@@ -48,7 +48,7 @@ void Hop_ManIncrementTravId( Hop_Man_t * p )
 
 /**Function*************************************************************
 
-  Synopsis    [Sets the DFS ordering of the nodes.]
+  Synopsis    [Cleans the data pointers for the nodes.]
 
   Description []
                
@@ -69,6 +69,29 @@ void Hop_ManCleanData( Hop_Man_t * p )
         pObj->pData = NULL;
     Hop_ManForEachNode( p, pObj, i )
         pObj->pData = NULL;
+}
+
+/**Function*************************************************************
+
+  Synopsis    [Recursively cleans the data pointers in the cone of the node.]
+
+  Description [Applicable to small AIGs only because no caching is performed.]
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+void Hop_ObjCleanData_rec( Hop_Obj_t * pObj )
+{
+    assert( !Hop_IsComplement(pObj) );
+    assert( !Hop_ObjIsPo(pObj) );
+    if ( Hop_ObjIsAnd(pObj) )
+    {
+        Hop_ObjCleanData_rec( Hop_ObjFanin0(pObj) );
+        Hop_ObjCleanData_rec( Hop_ObjFanin1(pObj) );
+    }
+    pObj->pData = NULL;
 }
 
 /**Function*************************************************************
@@ -351,7 +374,7 @@ void Hop_ObjPrintVerilog( FILE * pFile, Hop_Obj_t * pObj, Vec_Vec_t * vLevels, i
     // constant case
     if ( Hop_ObjIsConst1(pObj) )
     {
-        fprintf( pFile, "%d", !fCompl );
+        fprintf( pFile, "1\'b%d", !fCompl );
         return;
     }
     // PI case
@@ -500,7 +523,7 @@ void Hop_ManDumpBlif( Hop_Man_t * p, char * pFileName )
         pObj->pData = (void *)Counter++;
     Vec_PtrForEachEntry( vNodes, pObj, i )
         pObj->pData = (void *)Counter++;
-    nDigits = Extra_Base10Log( Counter );
+    nDigits = Hop_Base10Log( Counter );
     // write the file
     pFile = fopen( pFileName, "w" );
     fprintf( pFile, "# BLIF file written by procedure Hop_ManDumpBlif() in ABC\n" );

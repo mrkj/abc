@@ -50,14 +50,14 @@ Vec_Int_t * Abc_NtkRetimeInitialValues( Abc_Ntk_t * pNtkCone, Vec_Int_t * vValue
         return Vec_IntDup( vValues );
     // convert the target network to AIG
     pNtkLogic = Abc_NtkDup( pNtkCone );
-    Abc_NtkLogicToAig( pNtkLogic );
+    Abc_NtkToAig( pNtkLogic );
     // get the miter
     pNtkMiter = Abc_NtkCreateTarget( pNtkLogic, pNtkLogic->vCos, vValues );
     if ( fVerbose )
         printf( "The miter for initial state computation has %d AIG nodes. ", Abc_NtkNodeNum(pNtkMiter) );
     // solve the miter
     clk = clock();
-    RetValue = Abc_NtkMiterSat( pNtkMiter, (sint64)500000, (sint64)50000000, 0, 0, NULL, NULL );
+    RetValue = Abc_NtkMiterSat( pNtkMiter, (sint64)500000, (sint64)50000000, 0, NULL, NULL );
     if ( fVerbose ) 
         { PRT( "SAT solving time", clock() - clk ); }
     // analyze the result

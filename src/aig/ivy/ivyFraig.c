@@ -252,7 +252,7 @@ int Ivy_FraigProve( Ivy_Man_t ** ppManAig, void * pPars )
     Prove_Params_t * pParams = pPars;
     Ivy_FraigParams_t Params, * pIvyParams = &Params; 
     Ivy_Man_t * pManAig, * pManTemp;
-    int RetValue, nIter, Counter, clk, timeStart = clock();
+    int RetValue, nIter, clk, timeStart = clock();//, Counter;
     sint64 nSatConfs, nSatInspects;
 
     // start the network and parameters
@@ -314,12 +314,14 @@ int Ivy_FraigProve( Ivy_Man_t ** ppManAig, void * pPars )
 
         // try rewriting
         if ( pParams->fUseRewriting )
-        {
+        { // bug in Ivy_NodeFindCutsAll() when leaves are identical!
+/*
             clk = clock();
             Counter = (int)(pParams->nRewritingLimitStart * pow(pParams->nRewritingLimitMulti,nIter));
             pManAig = Ivy_ManRwsat( pManAig, 0 );  
             RetValue = Ivy_FraigMiterStatus( pManAig );
             Ivy_FraigMiterPrint( pManAig, "Rewriting  ", clk, pParams->fVerbose );
+*/
         }
         if ( RetValue >= 0 )
             break;
@@ -368,6 +370,15 @@ int Ivy_FraigProve( Ivy_Man_t ** ppManAig, void * pPars )
         s_nInsLimitGlobal = 0;        
         RetValue = Ivy_FraigMiterStatus( pManAig );
         Ivy_FraigMiterPrint( pManAig, "SAT solving", clk, pParams->fVerbose );
+        // make sure that the sover never returns "undecided" when infinite resource limits are set
+        if( RetValue == -1 && pParams->nTotalInspectLimit == 0 &&
+            pParams->nTotalBacktrackLimit == 0 )
+        {
+            extern void Prove_ParamsPrint( Prove_Params_t * pParams );
+            Prove_ParamsPrint( pParams );
+            printf("ERROR: ABC has returned \"undecided\" in spite of no limits...\n");
+            exit(1);
+        }
     }
 
     // assign the model if it was proved by rewriting (const 1 miter)
@@ -722,7 +733,12 @@ void Ivy_FraigAssignDist1( Ivy_FraigMan_t * p, unsigned * pPat )
     Ivy_Obj_t * pObj;
     int i, Limit;
     Ivy_ManForEachPi( p->pManAig, pObj, i )
+    {
         Ivy_NodeAssignConst( p, pObj, Ivy_InfoHasBit(pPat, i) );
+//        printf( "%d", Ivy_InfoHasBit(pPat, i) );
+    }
+//    printf( "\n" );
+
     Limit = IVY_MIN( Ivy_ManPiNum(p->pManAig), p->nSimWords * 32 - 1 );
     for ( i = 0; i < Limit; i++ )
         Ivy_InfoXorBit( Ivy_ObjSim( Ivy_ManPi(p->pManAig,i) )->pData, i+1 );
@@ -1731,7 +1747,6 @@ void Ivy_FraigResimulate( Ivy_FraigMan_t * p )
         printf( "Error: A counter-example did not refine classes!\n" );
     assert( nChanges >= 1 );
 //printf( "Refined classes! = %5d.   Changes = %4d.\n", p->lClasses.nItems, nChanges );
-
     if ( !p->pParams->fPatScores )
         return;
 
@@ -2007,6 +2022,8 @@ Ivy_Obj_t * Ivy_FraigAnd( Ivy_FraigMan_t * p, Ivy_Obj_t * pObjOld )
     if ( Ivy_Regular(pObjNew) == Ivy_Regular(pObjReprNew) )
         return pObjNew;
     assert( Ivy_Regular(pObjNew) != Ivy_ManConst1(p->pManFraig) );
+//    printf( "Node = %d. Repr = %d.\n", pObjOld->Id, Ivy_ObjClassNodeRepr(pObjOld)->Id );
+
     // they are different (the counter-example is in p->pPatWords)
     RetValue = Ivy_FraigNodesAreEquiv( p, Ivy_Regular(pObjReprNew), Ivy_Regular(pObjNew) );
     if ( RetValue == 1 )  // proved equivalent
@@ -2083,6 +2100,9 @@ int Ivy_FraigNodesAreEquiv( Ivy_FraigMan_t * p, Ivy_Obj_t * pOld, Ivy_Obj_t * pN
         p->pSat = sat_solver_new();
         p->nSatVars = 1;
         sat_solver_setnvars( p->pSat, 1000 );
+        // var 0 is reserved for const1 node - add the clause
+//        pLits[0] = toLit( 0 );
+//        sat_solver_addclause( p->pSat, pLits, pLits + 1 );
     }
 
     // if the nodes do not have SAT variables, allocate them
@@ -2214,6 +2234,9 @@ int Ivy_FraigNodeIsConst( Ivy_FraigMan_t * p, Ivy_Obj_t * pNew )
         p->pSat = sat_solver_new();
         p->nSatVars = 1;
         sat_solver_setnvars( p->pSat, 1000 );
+        // var 0 is reserved for const1 node - add the clause
+//        pLits[0] = toLit( 0 );
+//        sat_solver_addclause( p->pSat, pLits, pLits + 1 );
     }
 
     // if the nodes do not have SAT variables, allocate them

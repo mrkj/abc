@@ -26,7 +26,6 @@
 ////////////////////////////////////////////////////////////////////////
 
 #include <stdio.h>
-#include "extra.h"
 
 ////////////////////////////////////////////////////////////////////////
 ///                         PARAMETERS                               ///
@@ -106,6 +105,28 @@ static inline Vec_Int_t * Vec_IntStart( int nSize )
 
 /**Function*************************************************************
 
+  Synopsis    [Allocates a vector with the given size and cleans it.]
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+static inline Vec_Int_t * Vec_IntStartNatural( int nSize )
+{
+    Vec_Int_t * p;
+    int i;
+    p = Vec_IntAlloc( nSize );
+    p->nSize = nSize;
+    for ( i = 0; i < nSize; i++ )
+        p->pArray[i] = i;
+    return p;
+}
+
+/**Function*************************************************************
+
   Synopsis    [Creates the vector from an integer array of the given size.]
 
   Description []
@@ -163,7 +184,7 @@ static inline Vec_Int_t * Vec_IntDup( Vec_Int_t * pVec )
     Vec_Int_t * p;
     p = ALLOC( Vec_Int_t, 1 );
     p->nSize  = pVec->nSize;
-    p->nCap   = pVec->nCap;
+    p->nCap   = pVec->nSize;
     p->pArray = p->nCap? ALLOC( int, p->nCap ) : NULL;
     memcpy( p->pArray, pVec->pArray, sizeof(int) * pVec->nSize );
     return p;
@@ -477,45 +498,6 @@ static inline void Vec_IntPushFirst( Vec_Int_t * p, int Entry )
 
 /**Function*************************************************************
 
-  Synopsis    []
-
-  Description []
-               
-  SideEffects []
-
-  SeeAlso     []
-
-***********************************************************************/
-static inline void Vec_IntPushMem( Extra_MmStep_t * pMemMan, Vec_Int_t * p, int Entry )
-{
-    if ( p->nSize == p->nCap )
-    {
-        int * pArray;
-        int i;
-
-        if ( p->nSize == 0 )
-            p->nCap = 1;
-        if ( pMemMan )
-            pArray = (int *)Extra_MmStepEntryFetch( pMemMan, p->nCap * 8 );
-        else
-            pArray = ALLOC( int, p->nCap * 2 );
-        if ( p->pArray )
-        {
-            for ( i = 0; i < p->nSize; i++ )
-                pArray[i] = p->pArray[i];
-            if ( pMemMan )
-                Extra_MmStepEntryRecycle( pMemMan, (char *)p->pArray, p->nCap * 4 );
-            else
-                free( p->pArray );
-        }
-        p->nCap *= 2;
-        p->pArray = pArray;
-    }
-    p->pArray[p->nSize++] = Entry;
-}
-
-/**Function*************************************************************
-
   Synopsis    [Inserts the entry while preserving the increasing order.]
 
   Description []
@@ -773,6 +755,75 @@ static inline void Vec_IntSortUnsigned( Vec_Int_t * p )
 {
     qsort( (void *)p->pArray, p->nSize, sizeof(int), 
             (int (*)(const void *, const void *)) Vec_IntSortCompareUnsigned );
+}
+
+/**Function*************************************************************
+
+  Synopsis    [Returns the number of common entries.]
+
+  Description [Assumes that the vectors are sorted in the increasing order.]
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+static inline int Vec_IntTwoCountCommon( Vec_Int_t * vArr1, Vec_Int_t * vArr2 )
+{
+    int * pBeg1 = vArr1->pArray;
+    int * pBeg2 = vArr2->pArray;
+    int * pEnd1 = vArr1->pArray + vArr1->nSize;
+    int * pEnd2 = vArr2->pArray + vArr2->nSize;
+    int Counter = 0;
+    while ( pBeg1 < pEnd1 && pBeg2 < pEnd2 )
+    {
+        if ( *pBeg1 == *pBeg2 )
+            pBeg1++, pBeg2++, Counter++;
+        else if ( *pBeg1 < *pBeg2 )
+            pBeg1++;
+        else 
+            pBeg2++;
+    }
+    return Counter;
+}
+
+/**Function*************************************************************
+
+  Synopsis    [Returns the result of merging the two vectors.]
+
+  Description [Assumes that the vectors are sorted in the increasing order.]
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+static inline Vec_Int_t * Vec_IntTwoMerge( Vec_Int_t * vArr1, Vec_Int_t * vArr2 )
+{
+    Vec_Int_t * vArr = Vec_IntAlloc( vArr1->nSize + vArr2->nSize ); 
+    int * pBeg  = vArr->pArray;
+    int * pBeg1 = vArr1->pArray;
+    int * pBeg2 = vArr2->pArray;
+    int * pEnd1 = vArr1->pArray + vArr1->nSize;
+    int * pEnd2 = vArr2->pArray + vArr2->nSize;
+    while ( pBeg1 < pEnd1 && pBeg2 < pEnd2 )
+    {
+        if ( *pBeg1 == *pBeg2 )
+            *pBeg++ = *pBeg1++, pBeg2++;
+        else if ( *pBeg1 < *pBeg2 )
+            *pBeg++ = *pBeg1++;
+        else 
+            *pBeg++ = *pBeg2++;
+    }
+    while ( pBeg1 < pEnd1 )
+        *pBeg++ = *pBeg1++;
+    while ( pBeg2 < pEnd2 )
+        *pBeg++ = *pBeg2++;
+    vArr->nSize = pBeg - vArr->pArray;
+    assert( vArr->nSize <= vArr->nCap );
+    assert( vArr->nSize >= vArr1->nSize );
+    assert( vArr->nSize >= vArr2->nSize );
+    return vArr;
 }
 
 #endif

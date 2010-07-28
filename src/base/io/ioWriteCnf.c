@@ -19,6 +19,7 @@
 ***********************************************************************/
 
 #include "io.h"
+#include "satSolver.h"
 
 ////////////////////////////////////////////////////////////////////////
 ///                        DECLARATIONS                              ///
@@ -41,14 +42,13 @@ static Abc_Ntk_t * s_pNtk = NULL;
   SeeAlso     []
 
 ***********************************************************************/
-int Io_WriteCnf( Abc_Ntk_t * pNtk, char * pFileName )
+int Io_WriteCnf( Abc_Ntk_t * pNtk, char * pFileName, int fAllPrimes )
 {
-    solver * pSat;
-    if ( !Abc_NtkIsStrash(pNtk) )
-    {
-        fprintf( stdout, "Io_WriteCnf(): Currently can only process AIGs.\n" );
-        return 0;
-    }
+    sat_solver * pSat;
+    if ( Abc_NtkIsStrash(pNtk) )
+        printf( "Io_WriteCnf() warning: Generating CNF by applying heuristic AIG to CNF conversion.\n" );
+    else
+        printf( "Io_WriteCnf() warning: Generating CNF by convering logic nodes into CNF clauses.\n" );
     if ( Abc_NtkPoNum(pNtk) != 1 )
     {
         fprintf( stdout, "Io_WriteCnf(): Currently can only process the miter (the network with one PO).\n" );
@@ -64,8 +64,11 @@ int Io_WriteCnf( Abc_Ntk_t * pNtk, char * pFileName )
         fprintf( stdout, "The network has no logic nodes. No CNF file is generaled.\n" );
         return 0;
     }
+    // convert to logic BDD network
+    if ( Abc_NtkIsLogic(pNtk) )
+        Abc_NtkToBdd( pNtk );
     // create solver with clauses
-    pSat = Abc_NtkMiterSatCreate( pNtk, 0 );
+    pSat = Abc_NtkMiterSatCreate( pNtk, fAllPrimes );
     if ( pSat == NULL )
     {
         fprintf( stdout, "The problem is trivially UNSAT. No CNF file is generated.\n" );
@@ -73,10 +76,10 @@ int Io_WriteCnf( Abc_Ntk_t * pNtk, char * pFileName )
     }        
     // write the clauses
     s_pNtk = pNtk;
-    Asat_SolverWriteDimacs( pSat, pFileName, 0, 0, 1 );
+    Sat_SolverWriteDimacs( pSat, pFileName, 0, 0, 1 );
     s_pNtk = NULL;
     // free the solver
-    solver_delete( pSat );
+    sat_solver_delete( pSat );
     return 1;
 }
 

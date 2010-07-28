@@ -126,6 +126,7 @@ Abc_Ntk_t * Io_ReadBlifAsAig( char * pFileName, int fCheck )
         printf( "Io_Blif(): The file is unavailable (absent or open).\n" );
         return 0;
     }
+    fclose( pFile );
 
     // start the file reader
     p = Io_BlifAlloc();
@@ -526,7 +527,12 @@ static void Io_BlifReadPreparse( Io_BlifMan_t * p )
         else if ( !strncmp(pCur, "end", 3) || !strncmp(pCur, "exdc", 4) )
             break;
         else
-            fprintf( stdout, "Line %d: Skipping line \"%s\".\n", Io_BlifGetLine(p, pCur-1), pCur-1 );
+        {
+            pCur--;
+            if ( pCur[strlen(pCur)-1] == '\r' )
+                pCur[strlen(pCur)-1] = 0;
+            fprintf( stdout, "Line %d: Skipping line \"%s\".\n", Io_BlifGetLine(p, pCur), pCur );
+        }
     }
 
     // count the number of objects
