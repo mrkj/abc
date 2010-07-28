@@ -46,8 +46,11 @@ Abc_Ntk_t * Io_ReadEdif( char * pFileName, int fCheck )
     Extra_FileReader_t * p;
     Abc_Ntk_t * pNtk;
 
+    printf( "Currently this parser does not work!\n" );
+    return NULL;
+
     // start the file
-    p = Extra_FileReaderAlloc( pFileName, "#", "\n", " \t\r()" );
+    p = Extra_FileReaderAlloc( pFileName, "#", "\n\r", " \t()" );
     if ( p == NULL )
         return NULL;
 
@@ -121,7 +124,8 @@ Abc_Ntk_t * Io_ReadEdifNetwork( Extra_FileReader_t * p )
             else
             {
                 pObj = Abc_NtkCreateNode( pNtk );
-                pObj->pData = Abc_NtkRegisterName( pNtk, pGateName );
+//                pObj->pData = Abc_NtkRegisterName( pNtk, pGateName );
+                pObj->pData = Extra_UtilStrsav( pGateName ); // memory leak!!!
             }
             Abc_ObjAddFanin( pNet, pObj );
         }
@@ -181,7 +185,7 @@ Abc_Ntk_t * Io_ReadEdifNetwork( Extra_FileReader_t * p )
         else if ( strcmp( vTokens->pArray[0], "design" ) == 0 )
         {
             free( pNtk->pName ); 
-            pNtk->pName = util_strsav( vTokens->pArray[3] );
+            pNtk->pName = Extra_UtilStrsav( vTokens->pArray[3] );
             break;
         }
     }
@@ -191,7 +195,7 @@ Abc_Ntk_t * Io_ReadEdifNetwork( Extra_FileReader_t * p )
     Abc_NtkForEachNode( pNtk, pObj, i )
     {
         if ( strncmp( pObj->pData, "And", 3 ) == 0 )
-            Abc_ObjSetData( pObj, Abc_SopCreateAnd(pNtk->pManFunc, Abc_ObjFaninNum(pObj)) );
+            Abc_ObjSetData( pObj, Abc_SopCreateAnd(pNtk->pManFunc, Abc_ObjFaninNum(pObj), NULL) );
         else if ( strncmp( pObj->pData, "Or", 2 ) == 0 )
             Abc_ObjSetData( pObj, Abc_SopCreateOr(pNtk->pManFunc, Abc_ObjFaninNum(pObj), NULL) );
         else if ( strncmp( pObj->pData, "Nand", 4 ) == 0 )

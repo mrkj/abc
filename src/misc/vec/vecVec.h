@@ -26,7 +26,6 @@
 ////////////////////////////////////////////////////////////////////////
 
 #include <stdio.h>
-#include "extra.h"
 
 ////////////////////////////////////////////////////////////////////////
 ///                         PARAMETERS                               ///
@@ -70,6 +69,9 @@ struct Vec_Vec_t_
         Vec_PtrForEachEntry( Vec_VecEntry(vGlob, i), pEntry, k ) 
 #define Vec_VecForEachEntryReverse( vGlob, pEntry, i, k )                                     \
     for ( i = 0; i < Vec_VecSize(vGlob); i++ )                                                \
+        Vec_PtrForEachEntryReverse( Vec_VecEntry(vGlob, i), pEntry, k ) 
+#define Vec_VecForEachEntryReverseReverse( vGlob, pEntry, i, k )                              \
+    for ( i = Vec_VecSize(vGlob) - 1; i >= 0; i-- )                                           \
         Vec_PtrForEachEntryReverse( Vec_VecEntry(vGlob, i), pEntry, k ) 
 
 ////////////////////////////////////////////////////////////////////////
@@ -119,6 +121,28 @@ static inline Vec_Vec_t * Vec_VecStart( int nSize )
         p->pArray[i] = Vec_PtrAlloc( 0 );
     p->nSize = nSize;
     return p;
+}
+
+/**Function*************************************************************
+
+  Synopsis    [Allocates a vector with the given capacity.]
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+static inline void Vec_VecExpand( Vec_Vec_t * p, int Level )
+{
+    int i;
+    if ( p->nSize >= Level + 1 )
+        return;
+    Vec_PtrGrow( (Vec_Ptr_t *)p, Level + 1 );
+    for ( i = p->nSize; i <= Level; i++ )
+        p->pArray[i] = Vec_PtrAlloc( 0 );
+    p->nSize = Level + 1;
 }
 
 /**Function*************************************************************
@@ -256,9 +280,9 @@ static inline void Vec_VecPushUnique( Vec_Vec_t * p, int Level, void * Entry )
         Vec_PtrPushUnique( (Vec_Ptr_t*)p->pArray[Level], Entry );
 }
 
+#endif
+
 ////////////////////////////////////////////////////////////////////////
 ///                       END OF FILE                                ///
 ////////////////////////////////////////////////////////////////////////
-
-#endif
 

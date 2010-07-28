@@ -24,6 +24,9 @@
 ///                        DECLARATIONS                              ///
 ////////////////////////////////////////////////////////////////////////
 
+static int Cut_NodeMapping( Cut_Man_t * p, Cut_Cut_t * pCuts, int Node, int Node0, int Node1 );
+static int Cut_NodeMapping2( Cut_Man_t * p, Cut_Cut_t * pCuts, int Node, int Node0, int Node1 );
+
 ////////////////////////////////////////////////////////////////////////
 ///                     FUNCTION DEFINITIONS                         ///
 ////////////////////////////////////////////////////////////////////////
@@ -104,6 +107,36 @@ static inline void Cut_CutFilter( Cut_Man_t * p, Cut_Cut_t * pList )
 
 /**Function*************************************************************
 
+  Synopsis    [Checks equality of one cut.]
+
+  Description [Returns 1 if the cut is removed.]
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+static inline int Cut_CutFilterOneEqual( Cut_Man_t * p, Cut_List_t * pSuperList, Cut_Cut_t * pCut )
+{
+    Cut_Cut_t * pTemp;
+    Cut_ListForEachCut( pSuperList->pHead[pCut->nLeaves], pTemp )
+    {
+        // skip the non-contained cuts
+        if ( pCut->uSign != pTemp->uSign )
+            continue;
+        // check containment seriously
+        if ( Cut_CutCheckDominance( pTemp, pCut ) )
+        {
+            p->nCutsFilter++;
+            Cut_CutRecycle( p, pCut );
+            return 1;
+        }
+    }
+    return 0;
+}
+
+/**Function*************************************************************
+
   Synopsis    [Checks containment for one cut.]
 
   Description [Returns 1 if the cut is removed.]
@@ -173,6 +206,32 @@ static inline int Cut_CutFilterOne( Cut_Man_t * p, Cut_List_t * pSuperList, Cut_
 
     return 0;
 }
+
+/**Function*************************************************************
+
+  Synopsis    [Checks if the cut is local and can be removed.]
+
+  Description [Returns 1 if the cut is removed.]
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+static inline int Cut_CutFilterGlobal( Cut_Man_t * p, Cut_Cut_t * pCut )
+{
+    int a;
+    if ( pCut->nLeaves == 1 )
+        return 0;
+    for ( a = 0; a < (int)pCut->nLeaves; a++ )
+        if ( Vec_IntEntry( p->vNodeAttrs, pCut->pLeaves[a] ) ) // global
+            return 0;
+    // there is no global nodes, the cut should be removed
+    p->nCutsFilter++;
+    Cut_CutRecycle( p, pCut );
+    return 1;
+}
+
 
 /**Function*************************************************************
 
@@ -266,6 +325,7 @@ static inline int Cut_CutProcessTwo( Cut_Man_t * p, Cut_Cut_t * pCut0, Cut_Cut_t
     if ( p->pParams->fFilter )
     {
         if ( Cut_CutFilterOne(p, pSuperList, pCut) )
+//        if ( Cut_CutFilterOneEqual(p, pSuperList, pCut) )
             return 0;
         if ( p->pParams->fSeq )
         {
@@ -275,9 +335,17 @@ static inline int Cut_CutProcessTwo( Cut_Man_t * p, Cut_Cut_t * pCut0, Cut_Cut_t
                 return 0;
         }
     }
+
+    if ( p->pParams->fGlobal )
+    {
+        assert( p->vNodeAttrs != NULL );
+        if ( Cut_CutFilterGlobal( p, pCut ) )
+            return 0;
+    }
+
     // compute the truth table
     if ( p->pParams->fTruth )
-        Cut_TruthCompute( pCut, pCut0, pCut1, p->fCompl0, p->fCompl1 );
+        Cut_TruthCompute( p, pCut, pCut0, pCut1, p->fCompl0, p->fCompl1 );
     // add to the list
     Cut_ListAdd( pSuperList, pCut );
     // return status (0 if okay; 1 if exceeded the limit)
@@ -295,7 +363,7 @@ static inline int Cut_CutProcessTwo( Cut_Man_t * p, Cut_Cut_t * pCut0, Cut_Cut_t
   SeeAlso     []
 
 ***********************************************************************/
-Cut_Cut_t * Cut_NodeComputeCuts( Cut_Man_t * p, int Node, int Node0, int Node1, int fCompl0, int fCompl1, int fTriv )
+Cut_Cut_t * Cut_NodeComputeCuts( Cut_Man_t * p, int Node, int Node0, int Node1, int fCompl0, int fCompl1, int fTriv, int TreeCode )
 {
     Cut_List_t Super, * pSuper = &Super;
     Cut_Cut_t * pList, * pCut;
@@ -312,7 +380,7 @@ Cut_Cut_t * Cut_NodeComputeCuts( Cut_Man_t * p, int Node, int Node0, int Node1, 
     // compute the cuts
 clk = clock();
     Cut_ListStart( pSuper );
-    Cut_NodeDoComputeCuts( p, pSuper, Node, fCompl0, fCompl1, Cut_NodeReadCutsNew(p, Node0), Cut_NodeReadCutsNew(p, Node1), fTriv );
+    Cut_NodeDoComputeCuts( p, pSuper, Node, fCompl0, fCompl1, Cut_NodeReadCutsNew(p, Node0), Cut_NodeReadCutsNew(p, Node1), fTriv, TreeCode );
     pList = Cut_ListFinish( pSuper );
 p->timeMerge += clock() - clk;
     // verify the result of cut computation
@@ -331,15 +399,155 @@ p->timeMerge += clock() - clk;
     // set the list at the node
     Vec_PtrFillExtra( p->vCutsNew, Node + 1, NULL );
     assert( Cut_NodeReadCutsNew(p, Node) == NULL );
+    /////
+//    pList->pNext = NULL;
+    /////
     Cut_NodeWriteCutsNew( p, Node, pList );
     // filter the cuts
 //clk = clock();
 //    if ( p->pParams->fFilter )
 //        Cut_CutFilter( p, pList0 );
 //p->timeFilter += clock() - clk;
+    // perform mapping of this node with these cuts
+clk = clock();
+    if ( p->pParams->fMap && !p->pParams->fSeq )
+    {
+//        int Delay1, Delay2;
+//        Delay1 = Cut_NodeMapping( p, pList, Node, Node0, Node1 );    
+//        Delay2 = Cut_NodeMapping2( p, pList, Node, Node0, Node1 );   
+//        assert( Delay1 >= Delay2 );
+        Cut_NodeMapping( p, pList, Node, Node0, Node1 );
+    }
+p->timeMap += clock() - clk;
     return pList;
 }
- 
+
+/**Function*************************************************************
+
+  Synopsis    [Returns optimum delay mapping.]
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+int Cut_NodeMapping2( Cut_Man_t * p, Cut_Cut_t * pCuts, int Node, int Node0, int Node1 )
+{
+    Cut_Cut_t * pCut;
+    int DelayMin, DelayCur, i;
+    if ( pCuts == NULL )
+        p->nDelayMin = -1;
+    if ( p->nDelayMin == -1 )
+        return -1;
+    DelayMin = 1000000;
+    Cut_ListForEachCut( pCuts, pCut )
+    {
+        if ( pCut->nLeaves == 1 )
+            continue;
+        DelayCur = 0;
+        for ( i = 0; i < (int)pCut->nLeaves; i++ )
+            if ( DelayCur < Vec_IntEntry(p->vDelays, pCut->pLeaves[i]) )
+                DelayCur = Vec_IntEntry(p->vDelays, pCut->pLeaves[i]);
+        if ( DelayMin > DelayCur )
+            DelayMin = DelayCur;
+    }
+    if ( DelayMin == 1000000 )
+    {
+         p->nDelayMin = -1;
+         return -1;
+    }
+    DelayMin++;
+    Vec_IntWriteEntry( p->vDelays, Node, DelayMin );
+    if ( p->nDelayMin < DelayMin )
+        p->nDelayMin = DelayMin;
+    return DelayMin;
+}
+
+/**Function*************************************************************
+
+  Synopsis    [Returns optimum delay mapping using the largest cut.]
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+int Cut_NodeMapping( Cut_Man_t * p, Cut_Cut_t * pCuts, int Node, int Node0, int Node1 )
+{
+    Cut_Cut_t * pCut0, * pCut1, * pCut;
+    int Delay0, Delay1, Delay;
+    // get the fanin cuts
+    Delay0 = Vec_IntEntry( p->vDelays2, Node0 );
+    Delay1 = Vec_IntEntry( p->vDelays2, Node1 );
+    pCut0 = (Delay0 == 0) ? Vec_PtrEntry( p->vCutsNew, Node0 ) : Vec_PtrEntry( p->vCutsMax, Node0 );
+    pCut1 = (Delay1 == 0) ? Vec_PtrEntry( p->vCutsNew, Node1 ) : Vec_PtrEntry( p->vCutsMax, Node1 );
+    if ( Delay0 == Delay1 )
+        Delay = (Delay0 == 0) ? Delay0 + 1: Delay0;
+    else if ( Delay0 > Delay1 )
+    {
+        Delay = Delay0;
+        pCut1 = Vec_PtrEntry( p->vCutsNew, Node1 );
+        assert( pCut1->nLeaves == 1 );
+    }
+    else // if ( Delay0 < Delay1 )
+    {
+        Delay = Delay1;
+        pCut0 = Vec_PtrEntry( p->vCutsNew, Node0 );
+        assert( pCut0->nLeaves == 1 );
+    }
+    // merge the cuts
+    if ( pCut0->nLeaves < pCut1->nLeaves )
+        pCut  = Cut_CutMergeTwo( p, pCut1, pCut0 );
+    else
+        pCut  = Cut_CutMergeTwo( p, pCut0, pCut1 );
+    if ( pCut == NULL )
+    {
+        Delay++;
+        pCut = Cut_CutAlloc( p );
+        pCut->nLeaves = 2;
+        pCut->pLeaves[0] = Node0 < Node1 ? Node0 : Node1;
+        pCut->pLeaves[1] = Node0 < Node1 ? Node1 : Node0;
+    }
+    assert( Delay > 0 );
+    Vec_IntWriteEntry( p->vDelays2, Node, Delay );
+    Vec_PtrWriteEntry( p->vCutsMax, Node, pCut );
+    if ( p->nDelayMin < Delay )
+        p->nDelayMin = Delay;
+    return Delay;
+}
+
+/**Function*************************************************************
+
+  Synopsis    [Computes area after mapping.]
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+int Cut_ManMappingArea_rec( Cut_Man_t * p, int Node )
+{
+    Cut_Cut_t * pCut;
+    int i, Counter;
+    if ( p->vCutsMax == NULL )
+        return 0;
+    pCut = Vec_PtrEntry( p->vCutsMax, Node );
+    if ( pCut == NULL || pCut->nLeaves == 1 )
+        return 0;
+    Counter = 0;
+    for ( i = 0; i < (int)pCut->nLeaves; i++ )
+        Counter += Cut_ManMappingArea_rec( p, pCut->pLeaves[i] );
+    Vec_PtrWriteEntry( p->vCutsMax, Node, NULL );
+    return 1 + Counter;
+}
+
+
 /**Function*************************************************************
 
   Synopsis    [Computes the cuts by merging cuts at two nodes.]
@@ -351,28 +559,10 @@ p->timeMerge += clock() - clk;
   SeeAlso     []
 
 ***********************************************************************/
-void Cut_NodeDoComputeCuts( Cut_Man_t * p, Cut_List_t * pSuper, int Node, int fCompl0, int fCompl1, Cut_Cut_t * pList0, Cut_Cut_t * pList1, int fTriv )
+void Cut_NodeDoComputeCuts( Cut_Man_t * p, Cut_List_t * pSuper, int Node, int fCompl0, int fCompl1, Cut_Cut_t * pList0, Cut_Cut_t * pList1, int fTriv, int TreeCode )
 {
-    Cut_Cut_t * pStop0, * pStop1, * pTemp0, * pTemp1;
+    Cut_Cut_t * pStop0, * pStop1, * pTemp0, * pTemp1, * pStore0, * pStore1;
     int i, nCutsOld, Limit;
-    // get the cut lists of children
-    if ( pList0 == NULL || pList1 == NULL )
-        return;
-    // start the new list
-    nCutsOld = p->nCutsCur;
-    Limit = p->pParams->nVarsMax;
-    // get the simultation bit of the node
-    p->fSimul = (fCompl0 ^ pList0->fSimul) & (fCompl1 ^ pList1->fSimul);
-    // set temporary variables
-    p->fCompl0 = fCompl0;
-    p->fCompl1 = fCompl1;
-    // find the point in the list where the max-var cuts begin
-    Cut_ListForEachCut( pList0, pStop0 )
-        if ( pStop0->nLeaves == (unsigned)Limit )
-            break;
-    Cut_ListForEachCut( pList1, pStop1 )
-        if ( pStop1->nLeaves == (unsigned)Limit )
-            break;
     // start with the elementary cut
     if ( fTriv ) 
     {
@@ -380,13 +570,47 @@ void Cut_NodeDoComputeCuts( Cut_Man_t * p, Cut_List_t * pSuper, int Node, int fC
         pTemp0 = Cut_CutCreateTriv( p, Node );
         Cut_ListAdd( pSuper, pTemp0 );
         p->nNodeCuts++;
-        nCutsOld++;
     }
+    // get the cut lists of children
+    if ( pList0 == NULL || pList1 == NULL || (p->pParams->fLocal && TreeCode)  )
+        return;
+
+    // remember the old number of cuts
+    nCutsOld = p->nCutsCur;
+    Limit = p->pParams->nVarsMax;
+    // get the simultation bit of the node
+    p->fSimul = (fCompl0 ^ pList0->fSimul) & (fCompl1 ^ pList1->fSimul);
+    // set temporary variables
+    p->fCompl0 = fCompl0;
+    p->fCompl1 = fCompl1;
+    // if tree cuts are computed, make sure only the unit cuts propagate over the DAG nodes
+    if ( TreeCode & 1 )
+    {
+        assert( pList0->nLeaves == 1 );
+        pStore0 = pList0->pNext;
+        pList0->pNext = NULL;
+    }
+    if ( TreeCode & 2 )
+    {
+        assert( pList1->nLeaves == 1 );
+        pStore1 = pList1->pNext;
+        pList1->pNext = NULL;
+    }
+    // find the point in the list where the max-var cuts begin
+    Cut_ListForEachCut( pList0, pStop0 )
+        if ( pStop0->nLeaves == (unsigned)Limit )
+            break;
+    Cut_ListForEachCut( pList1, pStop1 )
+        if ( pStop1->nLeaves == (unsigned)Limit )
+            break;
+
     // small by small
     Cut_ListForEachCutStop( pList0, pTemp0, pStop0 )
     Cut_ListForEachCutStop( pList1, pTemp1, pStop1 )
+    {
         if ( Cut_CutProcessTwo( p, pTemp0, pTemp1, pSuper ) )
-            return;
+            goto Quits;
+    }
     // small by large
     Cut_ListForEachCutStop( pList0, pTemp0, pStop0 )
     Cut_ListForEachCut( pStop1, pTemp1 )
@@ -394,7 +618,7 @@ void Cut_NodeDoComputeCuts( Cut_Man_t * p, Cut_List_t * pSuper, int Node, int fC
         if ( (pTemp0->uSign & pTemp1->uSign) != pTemp0->uSign )
             continue;
         if ( Cut_CutProcessTwo( p, pTemp0, pTemp1, pSuper ) )
-            return;
+            goto Quits;
     }
     // small by large
     Cut_ListForEachCutStop( pList1, pTemp1, pStop1 )
@@ -403,7 +627,7 @@ void Cut_NodeDoComputeCuts( Cut_Man_t * p, Cut_List_t * pSuper, int Node, int fC
         if ( (pTemp0->uSign & pTemp1->uSign) != pTemp1->uSign )
             continue;
         if ( Cut_CutProcessTwo( p, pTemp0, pTemp1, pSuper ) )
-            return;
+            goto Quits;
     }
     // large by large
     Cut_ListForEachCut( pStop0, pTemp0 )
@@ -418,13 +642,15 @@ void Cut_NodeDoComputeCuts( Cut_Man_t * p, Cut_List_t * pSuper, int Node, int fC
         if ( i < Limit )
             continue;
         if ( Cut_CutProcessTwo( p, pTemp0, pTemp1, pSuper ) )
-            return;
+            goto Quits;
     } 
-    if ( fTriv ) 
-    {
-        p->nCutsMulti += p->nCutsCur - nCutsOld;         
-        p->nNodesMulti++;
-    }
+    if ( p->nNodeCuts == 0 )
+        p->nNodesNoCuts++;
+Quits:
+    if ( TreeCode & 1 )
+        pList0->pNext = pStore0;
+    if ( TreeCode & 2 )
+        pList1->pNext = pStore1;
 }
 
 /**Function*************************************************************

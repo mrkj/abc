@@ -26,7 +26,6 @@
 ////////////////////////////////////////////////////////////////////////
 
 #include <stdio.h>
-#include "extra.h"
 
 ////////////////////////////////////////////////////////////////////////
 ///                         PARAMETERS                               ///
@@ -303,6 +302,7 @@ static inline void Vec_StrWriteEntry( Vec_Str_t * p, int i, char Entry )
 ***********************************************************************/
 static inline char Vec_StrEntryLast( Vec_Str_t * p )
 {
+    assert( p->nSize > 0 );
     return p->pArray[p->nSize-1];
 }
 
@@ -494,16 +494,16 @@ static inline int Vec_StrSortCompare2( char * pp1, char * pp2 )
 static inline void Vec_StrSort( Vec_Str_t * p, int fReverse )
 {
     if ( fReverse ) 
-        qsort( (void *)p->pArray, p->nSize, sizeof(int), 
+        qsort( (void *)p->pArray, p->nSize, sizeof(char), 
                 (int (*)(const void *, const void *)) Vec_StrSortCompare2 );
     else
-        qsort( (void *)p->pArray, p->nSize, sizeof(int), 
+        qsort( (void *)p->pArray, p->nSize, sizeof(char), 
                 (int (*)(const void *, const void *)) Vec_StrSortCompare1 );
 }
+
+#endif
 
 ////////////////////////////////////////////////////////////////////////
 ///                       END OF FILE                                ///
 ////////////////////////////////////////////////////////////////////////
-
-#endif
 

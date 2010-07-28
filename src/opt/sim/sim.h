@@ -21,6 +21,10 @@
 #ifndef __SIM_H__
 #define __SIM_H__
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /*
     The ideas realized in this package are described in the paper:
     "Detecting Symmetries in Boolean Functions using Circuit Representation, 
@@ -139,8 +143,8 @@ struct Sim_Pat_t_
 ///                      MACRO DEFINITIONS                           ///
 ////////////////////////////////////////////////////////////////////////
 
-#define SIM_NUM_WORDS(n)      ((n)/32 + (((n)%32) > 0))
-#define SIM_LAST_BITS(n)      ((((n)%32) > 0)? (n)%32 : 32)
+#define SIM_NUM_WORDS(n)      (((n)>>5) + (((n)&31) > 0))
+#define SIM_LAST_BITS(n)      ((((n)&31) > 0)? (n)&31 : 32)
 
 #define SIM_MASK_FULL         (0xFFFFFFFF)
 #define SIM_MASK_BEG(n)       (SIM_MASK_FULL >> (32-n))
@@ -217,9 +221,13 @@ extern int             Sim_UtilCountAllPairs( Vec_Ptr_t * vSuppFun, int nSimWord
 extern void            Sim_UtilCountPairsAll( Sym_Man_t * p );
 extern int             Sim_UtilMatrsAreDisjoint( Sym_Man_t * p );
 
+#ifdef __cplusplus
+}
+#endif
+
+#endif
+
 ////////////////////////////////////////////////////////////////////////
 ///                       END OF FILE                                ///
 ////////////////////////////////////////////////////////////////////////
-
-#endif
 

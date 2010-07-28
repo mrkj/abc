@@ -6,7 +6,8 @@
 *Purpose:
 *       This include file contains the function declarations for commonly
 *       used library functions which either don't fit somewhere else, or,
-*       cannot be declared in the normal place for other reasons.
+*       cannot be declared in the normal place for other reasons. 
+*
 *       [ANSI]
 *
 *       [Public]

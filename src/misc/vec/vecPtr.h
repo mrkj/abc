@@ -26,7 +26,6 @@
 ////////////////////////////////////////////////////////////////////////
 
 #include <stdio.h>
-#include "extra.h"
 
 ////////////////////////////////////////////////////////////////////////
 ///                         PARAMETERS                               ///
@@ -293,6 +292,23 @@ static inline void * Vec_PtrEntry( Vec_Ptr_t * p, int i )
   SeeAlso     []
 
 ***********************************************************************/
+static inline void ** Vec_PtrEntryP( Vec_Ptr_t * p, int i )
+{
+    assert( i >= 0 && i < p->nSize );
+    return p->pArray + i;
+}
+
+/**Function*************************************************************
+
+  Synopsis    []
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
 static inline void Vec_PtrWriteEntry( Vec_Ptr_t * p, int i, void * Entry )
 {
     assert( i >= 0 && i < p->nSize );
@@ -312,6 +328,7 @@ static inline void Vec_PtrWriteEntry( Vec_Ptr_t * p, int i, void * Entry )
 ***********************************************************************/
 static inline void * Vec_PtrEntryLast( Vec_Ptr_t * p )
 {
+    assert( p->nSize > 0 );
     return p->pArray[p->nSize-1];
 }
 
@@ -370,7 +387,11 @@ static inline void Vec_PtrFillExtra( Vec_Ptr_t * p, int nSize, void * Entry )
     int i;
     if ( p->nSize >= nSize )
         return;
-    Vec_PtrGrow( p, nSize );
+    assert( p->nSize < nSize );
+    if ( 2 * p->nSize > nSize )
+        Vec_PtrGrow( p, 2 * nSize );
+    else
+        Vec_PtrGrow( p, nSize );
     for ( i = p->nSize; i < nSize; i++ )
         p->pArray[i] = Entry;
     p->nSize = nSize;
@@ -472,6 +493,26 @@ static inline void * Vec_PtrPop( Vec_Ptr_t * p )
 
 /**Function*************************************************************
 
+  Synopsis    [Find entry.]
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+static inline int Vec_PtrFind( Vec_Ptr_t * p, void * Entry )
+{
+    int i;
+    for ( i = 0; i < p->nSize; i++ )
+        if ( p->pArray[i] == Entry )
+            return i;
+    return -1;
+}
+
+/**Function*************************************************************
+
   Synopsis    []
 
   Description []
@@ -484,10 +525,18 @@ static inline void * Vec_PtrPop( Vec_Ptr_t * p )
 static inline void Vec_PtrRemove( Vec_Ptr_t * p, void * Entry )
 {
     int i;
+    // delete assuming that it is closer to the end
+    for ( i = p->nSize - 1; i >= 0; i-- )
+        if ( p->pArray[i] == Entry )
+            break;
+    assert( i >= 0 );
+/*
+    // delete assuming that it is closer to the beginning
     for ( i = 0; i < p->nSize; i++ )
         if ( p->pArray[i] == Entry )
             break;
     assert( i < p->nSize );
+*/
     for ( i++; i < p->nSize; i++ )
         p->pArray[i-1] = p->pArray[i];
     p->nSize--;
@@ -525,14 +574,40 @@ static inline void Vec_PtrReorder( Vec_Ptr_t * p, int nItems )
 ***********************************************************************/
 static inline void Vec_PtrSort( Vec_Ptr_t * p, int (*Vec_PtrSortCompare)() )
 {
+    if ( p->nSize < 2 )
+        return;
     qsort( (void *)p->pArray, p->nSize, sizeof(void *), 
             (int (*)(const void *, const void *)) Vec_PtrSortCompare );
 }
+
+/**Function*************************************************************
+
+  Synopsis    [Sorting the entries by their integer value.]
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+static inline void Vec_PtrUniqify( Vec_Ptr_t * p, int (*Vec_PtrSortCompare)() )
+{
+    int i, k;
+    if ( p->nSize < 2 )
+        return;
+    qsort( (void *)p->pArray, p->nSize, sizeof(void *), 
+            (int (*)(const void *, const void *)) Vec_PtrSortCompare );
+    for ( i = k = 1; i < p->nSize; i++ )
+        if ( p->pArray[i] != p->pArray[i-1] )
+            p->pArray[k++] = p->pArray[i];
+    p->nSize = k;
+}
+
+#endif
 
 
 ////////////////////////////////////////////////////////////////////////
 ///                       END OF FILE                                ///
 ////////////////////////////////////////////////////////////////////////
-
-#endif
 

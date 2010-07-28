@@ -40,6 +40,49 @@ int timeAssign;
   SeeAlso     []
 
 ***********************************************************************/
+void Prove_ParamsSetDefault( Prove_Params_t * pParams )
+{
+    // clean the parameter structure
+    memset( pParams, 0, sizeof(Prove_Params_t) );
+    // general parameters
+    pParams->fUseFraiging         = 1;       // enables fraiging
+    pParams->fUseRewriting        = 1;       // enables rewriting
+    pParams->fUseBdds             = 0;       // enables BDD construction when other methods fail
+    pParams->fVerbose             = 0;       // prints verbose stats
+    // iterations
+    pParams->nItersMax            = 6;       // the number of iterations
+    // mitering 
+    pParams->nMiteringLimitStart  = 300;    // starting mitering limit
+    pParams->nMiteringLimitMulti  = 2.0;     // multiplicative coefficient to increase the limit in each iteration
+    // rewriting (currently not used)
+    pParams->nRewritingLimitStart = 3;       // the number of rewriting iterations
+    pParams->nRewritingLimitMulti = 1.0;     // multiplicative coefficient to increase the limit in each iteration
+    // fraiging 
+    pParams->nFraigingLimitStart  = 2;       // starting backtrack(conflict) limit
+    pParams->nFraigingLimitMulti  = 8.0;     // multiplicative coefficient to increase the limit in each iteration
+    // last-gasp BDD construction
+    pParams->nBddSizeLimit        = 1000000; // the number of BDD nodes when construction is aborted
+    pParams->fBddReorder          = 1;       // enables dynamic BDD variable reordering
+    // last-gasp mitering
+//    pParams->nMiteringLimitLast   = 1000000; // final mitering limit
+    pParams->nMiteringLimitLast   = 0;       // final mitering limit
+    // global SAT solver limits
+    pParams->nTotalBacktrackLimit = 0;       // global limit on the number of backtracks
+    pParams->nTotalInspectLimit   = 0;       // global limit on the number of clause inspects
+//    pParams->nTotalInspectLimit   = 100000000;  // global limit on the number of clause inspects
+}
+
+/**Function*************************************************************
+
+  Synopsis    [Sets the default parameters of the package.]
+
+  Description [This set of parameters is tuned for equivalence checking.]
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
 void Fraig_ParamsSetDefault( Fraig_Params_t * pParams )
 {
     memset( pParams, 0, sizeof(Fraig_Params_t) );
@@ -56,6 +99,8 @@ void Fraig_ParamsSetDefault( Fraig_Params_t * pParams )
     pParams->fVerbose   =  0;                     // the verbosiness flag
     pParams->fVerboseP  =  0;                     // the verbose flag for reporting the proof
     pParams->fInternal  =  0;                     // the flag indicates the internal run 
+    pParams->nConfLimit =  0;                     // the limit on the number of conflicts
+    pParams->nInspLimit =  0;                     // the limit on the number of inspections
 }
 
 /**Function*************************************************************
@@ -85,6 +130,8 @@ void Fraig_ParamsSetDefaultFull( Fraig_Params_t * pParams )
     pParams->fVerbose   =  0;                     // the verbosiness flag
     pParams->fVerboseP  =  0;                     // the verbose flag for reporting the proof
     pParams->fInternal  =  0;                     // the flag indicates the internal run 
+    pParams->nConfLimit =  0;                     // the limit on the number of conflicts
+    pParams->nInspLimit =  0;                     // the limit on the number of inspections
 }
 
 /**Function*************************************************************
@@ -104,7 +151,8 @@ Fraig_Man_t * Fraig_ManCreate( Fraig_Params_t * pParams )
     Fraig_Man_t * p;
 
     // set the random seed for simulation
-    srand( 0xFEEDDEAF );
+//    srand( 0xFEEDDEAF );
+    srand( 0xDEADCAFE );
 
     // set parameters for equivalence checking
     if ( pParams == NULL )
@@ -139,6 +187,7 @@ Fraig_Man_t * Fraig_ManCreate( Fraig_Params_t * pParams )
     p->fTryProve  = pParams->fTryProve;   // disable accumulation of structural choices (keeps only the first choice)
     p->fVerbose   = pParams->fVerbose;    // disable verbose output
     p->fVerboseP  = pParams->fVerboseP;   // disable verbose output
+    p->nInspLimit = pParams->nInspLimit;  // the limit on the number of inspections
 
     // start memory managers
     p->mmNodes    = Fraig_MemFixedStart( sizeof(Fraig_Node_t) );
@@ -184,7 +233,7 @@ void Fraig_ManFree( Fraig_Man_t * p )
 //        Fraig_TablePrintStatsF( p );
 //        Fraig_TablePrintStatsF0( p );
     }
-
+ 
     for ( i = 0; i < p->vNodes->nSize; i++ )
         if ( p->vNodes->pArray[i]->vFanins )
         {
@@ -270,8 +319,8 @@ void Fraig_ManPrintStats( Fraig_Man_t * p )
         (sizeof(Fraig_Node_t) + sizeof(unsigned)*(p->nWordsRand + p->nWordsDyna) /*+ p->nSuppWords*sizeof(unsigned)*/))/(1<<20);
     printf( "Words: Random = %d. Dynamic = %d. Used = %d. Memory = %0.2f Mb.\n", 
         p->nWordsRand, p->nWordsDyna, p->iWordPerm, nMemory );
-    printf( "Proof = %d. Counter-example = %d. Fail = %d. Zero = %d.\n", 
-        p->nSatProof, p->nSatCounter, p->nSatFails, p->nSatZeros );
+    printf( "Proof = %d. Counter-example = %d. Fail = %d. FailReal = %d. Zero = %d.\n", 
+        p->nSatProof, p->nSatCounter, p->nSatFails, p->nSatFailsReal, p->nSatZeros );
     printf( "Nodes: Final = %d. Total = %d. Mux = %d. (Exor = %d.) ClaVars = %d.\n", 
         Fraig_CountNodes(p,0), p->vNodes->nSize, Fraig_ManCountMuxes(p), Fraig_ManCountExors(p), p->nVarsClauses );
     if ( p->pSat ) Msat_SolverPrintStats( p->pSat );

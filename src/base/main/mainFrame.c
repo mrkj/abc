@@ -48,8 +48,9 @@ int         Abc_FrameReadNtkStoreSize()              { return s_GlobalFrame->nSt
 void *      Abc_FrameReadLibLut()                    { return s_GlobalFrame->pLibLut;      } 
 void *      Abc_FrameReadLibGen()                    { return s_GlobalFrame->pLibGen;      } 
 void *      Abc_FrameReadLibSuper()                  { return s_GlobalFrame->pLibSuper;    } 
-void *      Abc_FrameReadManDd()                     { return s_GlobalFrame->dd;           } 
-void *      Abc_FrameReadManDec()                    { return s_GlobalFrame->pManDec;      } 
+void *      Abc_FrameReadLibVer()                    { return s_GlobalFrame->pLibVer;      } 
+void *      Abc_FrameReadManDd()                     { if ( s_GlobalFrame->dd == NULL )      s_GlobalFrame->dd = Cudd_Init( 0, 0, CUDD_UNIQUE_SLOTS, CUDD_CACHE_SLOTS, 0 );  return s_GlobalFrame->dd;      } 
+void *      Abc_FrameReadManDec()                    { if ( s_GlobalFrame->pManDec == NULL ) s_GlobalFrame->pManDec = Dec_ManStart();                                        return s_GlobalFrame->pManDec; } 
 char *      Abc_FrameReadFlag( char * pFlag )        { return Cmd_FlagReadByName( s_GlobalFrame, pFlag );  } 
 
 void        Abc_FrameSetNtkStore( Abc_Ntk_t * pNtk ) { s_GlobalFrame->pStored  = pNtk;     } 
@@ -57,6 +58,7 @@ void        Abc_FrameSetNtkStoreSize( int nStored )  { s_GlobalFrame->nStored  =
 void        Abc_FrameSetLibLut( void * pLib )        { s_GlobalFrame->pLibLut   = pLib;    } 
 void        Abc_FrameSetLibGen( void * pLib )        { s_GlobalFrame->pLibGen   = pLib;    } 
 void        Abc_FrameSetLibSuper( void * pLib )      { s_GlobalFrame->pLibSuper = pLib;    } 
+void        Abc_FrameSetLibVer( void * pLib )        { s_GlobalFrame->pLibVer   = pLib;    } 
 void        Abc_FrameSetFlag( char * pFlag, char * pValue )  { Cmd_FlagUpdateValue( s_GlobalFrame, pFlag, pValue );  } 
 
 /**Function*************************************************************
@@ -97,7 +99,8 @@ bool Abc_FrameIsFlagEnabled( char * pFlag )
 Abc_Frame_t * Abc_FrameAllocate()
 {
     Abc_Frame_t * p;
-
+    extern void define_cube_size( int n );
+    extern void set_espresso_flags();
     // allocate and clean
     p = ALLOC( Abc_Frame_t, 1 );
     memset( p, 0, sizeof(Abc_Frame_t) );
@@ -111,8 +114,10 @@ Abc_Frame_t * Abc_FrameAllocate()
     p->nSteps = 1;
 	p->fBatchMode = 0;
     // initialize decomposition manager
-    p->pManDec = Dec_ManStart();
-    p->dd = Cudd_Init( 0, 0, CUDD_UNIQUE_SLOTS, CUDD_CACHE_SLOTS, 0 );
+    define_cube_size(20);
+    set_espresso_flags();
+    // initialize the trace manager
+//    Abc_HManStart();
     return p;
 }
 
@@ -130,11 +135,19 @@ Abc_Frame_t * Abc_FrameAllocate()
 ***********************************************************************/
 void Abc_FrameDeallocate( Abc_Frame_t * p )
 {
-    Dec_ManStop( p->pManDec );
-    Extra_StopManager( p->dd );
+    extern void Rwt_ManGlobalStop();
+    extern void undefine_cube_size();
+//    extern void Ivy_TruthManStop();
+//    Abc_HManStop();
+    undefine_cube_size();
+    Rwt_ManGlobalStop();
+//    Ivy_TruthManStop();
+    if ( p->pLibVer ) Abc_LibFree( p->pLibVer );
+    if ( p->pManDec ) Dec_ManStop( p->pManDec );
+    if ( p->dd )      Extra_StopManager( p->dd );
     Abc_FrameDeleteAllNetworks( p );
     free( p );
-    p = NULL;
+    s_GlobalFrame = NULL;
 }
 
 /**Function*************************************************************
@@ -152,6 +165,22 @@ void Abc_FrameRestart( Abc_Frame_t * p )
 {
 }
 
+/**Function*************************************************************
+
+  Synopsis    []
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+bool Abc_FrameShowProgress( Abc_Frame_t * p )
+{
+    return Abc_FrameIsFlagEnabled( "progressbar" );
+}
+
 
 /**Function*************************************************************
 
@@ -164,7 +193,7 @@ void Abc_FrameRestart( Abc_Frame_t * p )
   SeeAlso     []
 
 ***********************************************************************/
-Abc_Ntk_t * Abc_FrameReadNet( Abc_Frame_t * p )
+Abc_Ntk_t * Abc_FrameReadNtk( Abc_Frame_t * p )
 {
     return p->pNtkCur;
 }
@@ -397,7 +426,7 @@ void Abc_FrameUnmapAllNetworks( Abc_Frame_t * p )
     Abc_Ntk_t * pNtk;
     for ( pNtk = p->pNtkCur; pNtk; pNtk = Abc_NtkBackup(pNtk) )
         if ( Abc_NtkHasMapping(pNtk) )
-            Abc_NtkUnmap( pNtk );
+            Abc_NtkMapToSop( pNtk );
 }
 
 /**Function*************************************************************
@@ -423,7 +452,7 @@ void Abc_FrameDeleteAllNetworks( Abc_Frame_t * p )
         Abc_NtkDelete( pNtk );
     // set the current network empty
     p->pNtkCur = NULL;
-    fprintf( p->Out, "All networks have been deleted.\n" );
+//    fprintf( p->Out, "All networks have been deleted.\n" );
 }
 
 /**Function*************************************************************

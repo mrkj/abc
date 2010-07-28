@@ -19,6 +19,10 @@
 #ifndef __FXU_H__
 #define __FXU_H__
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 ////////////////////////////////////////////////////////////////////////
 ///                          INCLUDES                                ///
 ////////////////////////////////////////////////////////////////////////
@@ -33,8 +37,10 @@
 ///                    STRUCTURE DEFINITIONS                         ///
 ////////////////////////////////////////////////////////////////////////
 
+#ifndef __cplusplus
 #ifndef bool
 #define bool int
+#endif
 #endif
 
 typedef struct FxuDataStruct   Fxu_Data_t;
@@ -74,9 +80,13 @@ struct FxuDataStruct
 /*===== fxu.c ==========================================================*/
 extern int          Fxu_FastExtract( Fxu_Data_t * pData );
 
+#ifdef __cplusplus
+}
+#endif
+
+#endif
+
 ////////////////////////////////////////////////////////////////////////
 ///                       END OF FILE                                ///
 ////////////////////////////////////////////////////////////////////////
-
-#endif
 

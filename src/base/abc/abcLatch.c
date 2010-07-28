@@ -45,10 +45,10 @@ bool Abc_NtkLatchIsSelfFeed_rec( Abc_Obj_t * pLatch, Abc_Obj_t * pLatchRoot )
     assert( Abc_ObjIsLatch(pLatch) );
     if ( pLatch == pLatchRoot )
         return 1;
-    pFanin = Abc_ObjFanin0(pLatch);
-    if ( !Abc_ObjIsLatch(pFanin) )
+    pFanin = Abc_ObjFanin0(Abc_ObjFanin0(pLatch));
+    if ( !Abc_ObjIsBo(pFanin) || !Abc_ObjIsLatch(Abc_ObjFanin0(pFanin)) )
         return 0;
-    return Abc_NtkLatchIsSelfFeed_rec( pFanin, pLatch );
+    return Abc_NtkLatchIsSelfFeed_rec( Abc_ObjFanin0(pFanin), pLatch );
 }
 
 /**Function*************************************************************
@@ -66,10 +66,10 @@ bool Abc_NtkLatchIsSelfFeed( Abc_Obj_t * pLatch )
 {
     Abc_Obj_t * pFanin;
     assert( Abc_ObjIsLatch(pLatch) );
-    pFanin = Abc_ObjFanin0(pLatch);
-    if ( !Abc_ObjIsLatch(pFanin) )
+    pFanin = Abc_ObjFanin0(Abc_ObjFanin0(pLatch));
+    if ( !Abc_ObjIsBo(pFanin) || !Abc_ObjIsLatch(Abc_ObjFanin0(pFanin)) )
         return 0;
-    return Abc_NtkLatchIsSelfFeed_rec( pFanin, pLatch );
+    return Abc_NtkLatchIsSelfFeed_rec( Abc_ObjFanin0(pFanin), pLatch );
 }
 
 /**Function*************************************************************
@@ -110,14 +110,18 @@ int Abc_NtkCountSelfFeedLatches( Abc_Ntk_t * pNtk )
 ***********************************************************************/
 int Abc_NtkRemoveSelfFeedLatches( Abc_Ntk_t * pNtk )
 {
-    Abc_Obj_t * pLatch;
+    Abc_Obj_t * pLatch, * pConst1;
     int i, Counter;
     Counter = 0;
     Abc_NtkForEachLatch( pNtk, pLatch, i )
     {
         if ( Abc_NtkLatchIsSelfFeed( pLatch ) )
         {
-            Abc_ObjPatchFanin( pLatch, Abc_ObjFanin0(pLatch), Abc_NtkConst1(pNtk) );
+            if ( Abc_NtkIsStrash(pNtk) )
+                pConst1 = Abc_AigConst1(pNtk);
+            else
+                pConst1 = Abc_NtkCreateNodeConst1(pNtk);
+            Abc_ObjPatchFanin( Abc_ObjFanin0(pLatch), Abc_ObjFanin0(Abc_ObjFanin0(pLatch)), pConst1 );
             Counter++;
         }
     }
@@ -155,11 +159,8 @@ void Abc_NtkLatchPipe( Abc_Ntk_t * pNtk, int nLatches )
             pLatch = Abc_NtkCreateLatch( pNtk );
             Abc_ObjAddFanin( pLatch, pFanin );
             Abc_LatchSetInitDc( pLatch );
-            // add the latch to the CI/CO lists
-            Vec_PtrPush( pNtk->vCis, pLatch );
-            Vec_PtrPush( pNtk->vCos, pLatch );
             // create the name of the new latch
-            Abc_NtkLogicStoreName( pLatch, Abc_ObjNameDummy("LL", i*nLatches + k, nDigits) );
+            Abc_ObjAssignName( pLatch, Abc_ObjNameDummy("LL", i*nLatches + k, nDigits), NULL );
         }
         // patch the PI fanouts
         Vec_PtrForEachEntry( vNodes, pFanout, k )
@@ -167,6 +168,47 @@ void Abc_NtkLatchPipe( Abc_Ntk_t * pNtk, int nLatches )
     }
     Vec_PtrFree( vNodes );
     Abc_NtkLogicMakeSimpleCos( pNtk, 0 );
+}
+
+/**Function*************************************************************
+
+  Synopsis    [Strashes one logic node using its SOP.]
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+Vec_Int_t * Abc_NtkCollectLatchValues( Abc_Ntk_t * pNtk )
+{
+    Vec_Int_t * vValues;
+    Abc_Obj_t * pLatch;
+    int i;
+    vValues = Vec_IntAlloc( Abc_NtkLatchNum(pNtk) );
+    Abc_NtkForEachLatch( pNtk, pLatch, i )
+        Vec_IntPush( vValues, Abc_LatchIsInit1(pLatch) );
+    return vValues;
+}
+
+/**Function*************************************************************
+
+  Synopsis    [Strashes one logic node using its SOP.]
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+void Abc_NtkInsertLatchValues( Abc_Ntk_t * pNtk, Vec_Int_t * vValues )
+{
+    Abc_Obj_t * pLatch;
+    int i;
+    Abc_NtkForEachLatch( pNtk, pLatch, i )
+        pLatch->pData = (void *)(vValues? (Vec_IntEntry(vValues,i)? ABC_INIT_ONE : ABC_INIT_ZERO) : ABC_INIT_DC);
 }
 
 

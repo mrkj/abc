@@ -26,7 +26,7 @@
 ///                        DECLARATIONS                              ///
 ////////////////////////////////////////////////////////////////////////
 
-static Abc_Ntk_t *    Abc_NtkFromFraig( Fraig_Man_t * pMan, Abc_Ntk_t * pNtk );
+extern Abc_Ntk_t *    Abc_NtkFromFraig( Fraig_Man_t * pMan, Abc_Ntk_t * pNtk );
 static Abc_Ntk_t *    Abc_NtkFromFraig2( Fraig_Man_t * pMan, Abc_Ntk_t * pNtk );
 static Abc_Obj_t *    Abc_NodeFromFraig_rec( Abc_Ntk_t * pNtkNew, Fraig_Node_t * pNodeFraig );
 static void           Abc_NtkFromFraig2_rec( Abc_Ntk_t * pNtkNew, Abc_Obj_t * pNode, Vec_Ptr_t * vNodeReprs );
@@ -56,12 +56,15 @@ Abc_Ntk_t * Abc_NtkFraig( Abc_Ntk_t * pNtk, void * pParams, int fAllNodes, int f
 {
     Fraig_Params_t * pPars = pParams;
     Abc_Ntk_t * pNtkNew;
-    Fraig_Man_t * pMan;
+    Fraig_Man_t * pMan; 
     // check if EXDC is present
     if ( fExdc && pNtk->pExdc == NULL )
         fExdc = 0, printf( "Warning: Networks has no EXDC.\n" );
     // perform fraiging
     pMan = Abc_NtkToFraig( pNtk, pParams, fAllNodes, fExdc ); 
+    // add algebraic choices
+//    if ( pPars->fChoicing )
+//        Fraig_ManAddChoices( pMan, 0, 6 );
     // prove the miter if asked to
     if ( pPars->fTryProve )
         Fraig_ManProveMiter( pMan );
@@ -110,11 +113,11 @@ void * Abc_NtkToFraig( Abc_Ntk_t * pNtk, void * pParams, int fAllNodes, int fExd
 
     // map the constant node
     Abc_NtkCleanCopy( pNtk );
-    Abc_NtkConst1(pNtk)->pCopy = (Abc_Obj_t *)Fraig_ManReadConst1(pMan);
+    Abc_AigConst1(pNtk)->pCopy = (Abc_Obj_t *)Fraig_ManReadConst1(pMan);
     // create PIs and remember them in the old nodes
     Abc_NtkForEachCi( pNtk, pNode, i )
         pNode->pCopy = (Abc_Obj_t *)Fraig_ManReadIthVar(pMan, i);
-
+ 
     // perform strashing
     vNodes = Abc_AigDfs( pNtk, fAllNodes, 0 );
     if ( !fInternal )
@@ -165,7 +168,7 @@ Fraig_Node_t * Abc_NtkToFraigExdc( Fraig_Man_t * pMan, Abc_Ntk_t * pNtkMain, Abc
     // strash the EXDC network
     pNtkStrash = Abc_NtkStrash( pNtkExdc, 0, 0 );
     Abc_NtkCleanCopy( pNtkStrash );
-    Abc_NtkConst1(pNtkStrash)->pCopy = (Abc_Obj_t *)Fraig_ManReadConst1(pMan);
+    Abc_AigConst1(pNtkStrash)->pCopy = (Abc_Obj_t *)Fraig_ManReadConst1(pMan);
     // set the mapping of the PI nodes
     ppNames = Abc_NtkCollectCioNames( pNtkMain, 0 );
     Abc_NtkForEachCi( pNtkStrash, pObj, i )
@@ -282,7 +285,7 @@ Abc_Ntk_t * Abc_NtkFromFraig( Fraig_Man_t * pMan, Abc_Ntk_t * pNtk )
     Abc_NtkForEachCi( pNtk, pNode, i )
         Fraig_NodeSetData1( Fraig_ManReadIthVar(pMan, i), (Fraig_Node_t *)pNode->pCopy );
     // set the constant node
-    Fraig_NodeSetData1( Fraig_ManReadConst1(pMan), (Fraig_Node_t *)Abc_NtkConst1(pNtkNew) );
+    Fraig_NodeSetData1( Fraig_ManReadConst1(pMan), (Fraig_Node_t *)Abc_AigConst1(pNtkNew) );
     // process the nodes in topological order
     pProgress = Extra_ProgressBarStart( stdout, Abc_NtkCoNum(pNtk) );
     Abc_NtkForEachCo( pNtk, pNode, i )
@@ -381,7 +384,7 @@ Abc_Ntk_t * Abc_NtkFromFraig2( Fraig_Man_t * pMan, Abc_Ntk_t * pNtk )
 
     // map the nodes into their lowest level representives
     tTable = stmm_init_table(stmm_ptrcmp,stmm_ptrhash);
-    pNode = Abc_NtkConst1(pNtk);
+    pNode = Abc_AigConst1(pNtk);
     if ( !stmm_find_or_add( tTable, (char *)Fraig_Regular(pNode->pCopy), (char ***)&ppSlot ) )
         *ppSlot = pNode;
     Abc_NtkForEachCi( pNtk, pNode, i )
@@ -604,7 +607,7 @@ Abc_Obj_t * Abc_NodeFraigTrust( Abc_Ntk_t * pNtkNew, Abc_Obj_t * pNode )
     assert( nFanins == Abc_SopGetVarNum(pNode->pData) );
     // check if it is a constant
     if ( nFanins == 0 )
-        return Abc_ObjNotCond( Abc_NtkConst1(pNtkNew), Abc_SopIsConst0(pNode->pData) );
+        return Abc_ObjNotCond( Abc_AigConst1(pNtkNew), Abc_SopIsConst0(pNode->pData) );
     if ( nFanins == 1 )
         return Abc_ObjNotCond( Abc_ObjFanin0(pNode)->pCopy, Abc_SopIsInv(pNode->pData) );
     if ( nFanins == 2 && Abc_SopIsAndType(pNode->pData) )
@@ -676,7 +679,7 @@ int Abc_NtkFraigStore( Abc_Ntk_t * pNtk )
     {
         // add the new network to storage
         nAndsOld = Abc_NtkNodeNum( pStore );
-        if ( !Abc_NtkAppend( pStore, pNtk ) )
+        if ( !Abc_NtkAppend( pStore, pNtk, 0 ) )
         {
             printf( "The current network cannot be appended to the stored network.\n" );
             return 0;
@@ -684,7 +687,7 @@ int Abc_NtkFraigStore( Abc_Ntk_t * pNtk )
         // set the number of networks stored
         Abc_FrameSetNtkStoreSize( Abc_FrameReadNtkStoreSize() + 1 );
     }
-    printf( "The number of AIG nodes added to storage = %5d.\n", Abc_NtkNodeNum(pStore) - nAndsOld );
+//    printf( "The number of AIG nodes added to storage = %5d.\n", Abc_NtkNodeNum(pStore) - nAndsOld );
     return 1;
 }
 
@@ -704,6 +707,7 @@ Abc_Ntk_t * Abc_NtkFraigRestore()
     Fraig_Params_t Params;
     Abc_Ntk_t * pStore, * pFraig;
     int nWords1, nWords2, nWordsMin;
+    int clk = clock();
 
     // get the stored network
     pStore = Abc_FrameReadNtkStore();
@@ -740,6 +744,7 @@ Abc_Ntk_t * Abc_NtkFraigRestore()
 //    Fraig_ManReportChoices( p );
     // transform it into FRAIG
     pFraig = Abc_NtkFraig( pStore, &Params, 1, 0 );
+PRT( "Total fraiging time", clock() - clk );
     if ( pFraig == NULL )
         return NULL;
     Abc_NtkDelete( pStore );

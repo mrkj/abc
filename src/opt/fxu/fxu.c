@@ -17,7 +17,6 @@
 ***********************************************************************/
 
 #include "fxuInt.h" 
-//#include "mvc.h"
 #include "fxu.h"
 
 ////////////////////////////////////////////////////////////////////////
@@ -159,7 +158,7 @@ int Fxu_FastExtract( Fxu_Data_t * pData )
     if ( pData->nNodesNew )
         Fxu_CreateCovers( p, pData );
 	Fxu_MatrixDelete( p );
-//    printf( "Memory usage after delocation:   Total = %d. Peak = %d.\n", s_MemoryTotal, s_MemoryPeak );
+//    printf( "Memory usage after deallocation:   Total = %d. Peak = %d.\n", s_MemoryTotal, s_MemoryPeak );
     if ( pData->nNodesNew == pData->nNodesExt )
         printf( "Warning: The limit on the number of extracted divisors has been reached.\n" );
     return pData->nNodesNew;

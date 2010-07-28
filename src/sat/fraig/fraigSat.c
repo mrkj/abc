@@ -17,6 +17,7 @@
 ***********************************************************************/
 
 #include "fraigInt.h"
+#include "math.h"
 
 ////////////////////////////////////////////////////////////////////////
 ///                        DECLARATIONS                              ///
@@ -33,6 +34,7 @@ static void Fraig_SupergateAddClausesExor( Fraig_Man_t * pMan, Fraig_Node_t * pN
 static void Fraig_SupergateAddClausesMux( Fraig_Man_t * pMan, Fraig_Node_t * pNode );
 //static void Fraig_DetectFanoutFreeCone( Fraig_Man_t * pMan, Fraig_Node_t * pNode );
 static void Fraig_DetectFanoutFreeConeMux( Fraig_Man_t * pMan, Fraig_Node_t * pNode );
+static void Fraig_SetActivity( Fraig_Man_t * pMan, Fraig_Node_t * pOld, Fraig_Node_t * pNew );
 
 extern void * Msat_ClauseVecReadEntry( void * p, int i );
 
@@ -40,6 +42,8 @@ extern void * Msat_ClauseVecReadEntry( void * p, int i );
 // from the output of the miter. The ordering of adjacency lists is very important.
 // The best way seems to be fanins followed by fanouts. Slight changes to this order
 // leads to big degradation in quality.
+
+static int nMuxes;
 
 ////////////////////////////////////////////////////////////////////////
 ///                     FUNCTION DEFINITIONS                         ///
@@ -105,7 +109,7 @@ void Fraig_ManProveMiter( Fraig_Man_t * p )
     }
     if ( p->fVerboseP ) 
     {
-        PRT( "Final miter proof time", clock() - clk );
+//        PRT( "Final miter proof time", clock() - clk );
     }
 }
 
@@ -154,6 +158,132 @@ int Fraig_ManCheckMiter( Fraig_Man_t * p )
 
 /**Function*************************************************************
 
+  Synopsis    [Returns 1 if pOld is in the TFI of pNew.]
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+int Fraig_MarkTfi_rec( Fraig_Man_t * pMan, Fraig_Node_t * pNode )
+{
+    // skip the visited node
+    if ( pNode->TravId == pMan->nTravIds )
+        return 0;
+    pNode->TravId = pMan->nTravIds;
+    // skip the PI node
+    if ( pNode->NumPi >= 0 )
+        return 1;
+    // check the children
+    return Fraig_MarkTfi_rec( pMan, Fraig_Regular(pNode->p1) ) +
+           Fraig_MarkTfi_rec( pMan, Fraig_Regular(pNode->p2) );
+}
+
+/**Function*************************************************************
+
+  Synopsis    [Returns 1 if pOld is in the TFI of pNew.]
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+int Fraig_MarkTfi2_rec( Fraig_Man_t * pMan, Fraig_Node_t * pNode )
+{
+    // skip the visited node
+    if ( pNode->TravId == pMan->nTravIds )
+        return 0;
+    // skip the boundary node
+    if ( pNode->TravId == pMan->nTravIds-1 )
+    {
+        pNode->TravId = pMan->nTravIds;
+        return 1;
+    }
+    pNode->TravId = pMan->nTravIds;
+    // skip the PI node
+    if ( pNode->NumPi >= 0 )
+        return 1;
+    // check the children
+    return Fraig_MarkTfi2_rec( pMan, Fraig_Regular(pNode->p1) ) +
+           Fraig_MarkTfi2_rec( pMan, Fraig_Regular(pNode->p2) );
+}
+
+/**Function*************************************************************
+
+  Synopsis    [Returns 1 if pOld is in the TFI of pNew.]
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+int Fraig_MarkTfi3_rec( Fraig_Man_t * pMan, Fraig_Node_t * pNode )
+{
+    // skip the visited node
+    if ( pNode->TravId == pMan->nTravIds )
+        return 1;
+    // skip the boundary node
+    if ( pNode->TravId == pMan->nTravIds-1 )
+    {
+        pNode->TravId = pMan->nTravIds;
+        return 1;
+    }
+    pNode->TravId = pMan->nTravIds;
+    // skip the PI node
+    if ( pNode->NumPi >= 0 )
+        return 0;
+    // check the children
+    return Fraig_MarkTfi3_rec( pMan, Fraig_Regular(pNode->p1) ) *
+           Fraig_MarkTfi3_rec( pMan, Fraig_Regular(pNode->p2) );
+}
+
+/**Function*************************************************************
+
+  Synopsis    []
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+void Fraig_VarsStudy( Fraig_Man_t * p, Fraig_Node_t * pOld, Fraig_Node_t * pNew )
+{
+    int NumPis, NumCut, fContain;
+
+    // mark the TFI of pNew
+    p->nTravIds++;
+    NumPis = Fraig_MarkTfi_rec( p, pNew );
+    printf( "(%d)(%d,%d):", NumPis, pOld->Level, pNew->Level );
+
+    // check if the old is in the TFI
+    if ( pOld->TravId == p->nTravIds )
+    {
+        printf( "* " );
+        return;
+    }
+
+    // count the boundary of nodes in pOld
+    p->nTravIds++;
+    NumCut = Fraig_MarkTfi2_rec( p, pOld );
+    printf( "%d", NumCut );
+
+    // check if the new is contained in the old's support
+    p->nTravIds++;
+    fContain = Fraig_MarkTfi3_rec( p, pNew );
+    printf( "%c ", fContain? '+':'-' );
+}
+
+
+/**Function*************************************************************
+
   Synopsis    [Checks whether two nodes are functinally equivalent.]
 
   Description [The flag (fComp) tells whether the nodes to be checked
@@ -170,11 +300,27 @@ int Fraig_NodeIsEquivalent( Fraig_Man_t * p, Fraig_Node_t * pOld, Fraig_Node_t *
 {
     int RetValue, RetValue1, i, fComp, clk;
     int fVerbose = 0;
+    int fSwitch = 0;
 
     // make sure the nodes are not complemented
     assert( !Fraig_IsComplement(pNew) );
     assert( !Fraig_IsComplement(pOld) );
     assert( pNew != pOld );
+
+    // if at least one of the nodes is a failed node, perform adjustments:
+    // if the backtrack limit is small, simply skip this node
+    // if the backtrack limit is > 10, take the quare root of the limit
+    if ( nBTLimit > 0 && (pOld->fFailTfo || pNew->fFailTfo) )
+    {
+        p->nSatFails++;
+//            return 0;
+//        if ( nBTLimit > 10 )
+//            nBTLimit /= 10;
+        if ( nBTLimit <= 10 )
+            return 0;
+        nBTLimit = (int)sqrt(nBTLimit);
+//        fSwitch = 1;
+    }
 
     p->nSatCalls++;
 
@@ -183,7 +329,7 @@ int Fraig_NodeIsEquivalent( Fraig_Man_t * p, Fraig_Node_t * pOld, Fraig_Node_t *
         Fraig_ManCreateSolver( p );
     // make sure the SAT solver has enough variables
     for ( i = Msat_SolverReadVarNum(p->pSat); i < p->vNodes->nSize; i++ )
-        Msat_SolverAddVar( p->pSat );
+        Msat_SolverAddVar( p->pSat, p->vNodes->pArray[i]->Level );
 
 
  
@@ -195,16 +341,25 @@ int Fraig_NodeIsEquivalent( Fraig_Man_t * p, Fraig_Node_t * pOld, Fraig_Node_t *
     }
 */
 
+    nMuxes = 0;
+
 
     // get the logic cone
 clk = clock();
+//    Fraig_VarsStudy( p, pOld, pNew );
     Fraig_OrderVariables( p, pOld, pNew );
 //    Fraig_PrepareCones( p, pOld, pNew );
 p->timeTrav += clock() - clk;
 
+//    printf( "The number of MUXes detected = %d (%5.2f %% of logic).  ", nMuxes, 300.0*nMuxes/(p->vNodes->nSize - p->vInputs->nSize) );
+//    PRT( "Time", clock() - clk );
+
 if ( fVerbose )
     printf( "%d(%d) - ", Fraig_CountPis(p,p->vVarsInt), Msat_IntVecReadSize(p->vVarsInt) );
 
+
+    // prepare variable activity
+    Fraig_SetActivity( p, pOld, pNew );
 
     // get the complemented attribute
     fComp = Fraig_NodeComparePhase( pOld, pNew );
@@ -216,11 +371,15 @@ if ( fVerbose )
     Msat_SolverPrepare( p->pSat, p->vVarsInt );
 //p->time3 += clock() - clk;
 
+
     // solve under assumptions
     // A = 1; B = 0     OR     A = 1; B = 1 
     Msat_IntVecClear( p->vProj );
     Msat_IntVecPush( p->vProj, MSAT_VAR2LIT(pOld->Num, 0) );
     Msat_IntVecPush( p->vProj, MSAT_VAR2LIT(pNew->Num, !fComp) );
+
+//Msat_SolverWriteDimacs( p->pSat, "temp_fraig.cnf" );
+
     // run the solver
 clk = clock();
     RetValue1 = Msat_SolverSolve( p->pSat, p->vProj, nBTLimit, nTimeLimit );
@@ -256,13 +415,31 @@ PRT( "time", clock() - clk );
 
         // record the counter example
         Fraig_FeedBack( p, Msat_SolverReadModelArray(p->pSat), p->vVarsInt, pOld, pNew );
+
+//        if ( pOld->fFailTfo || pNew->fFailTfo )
+//            printf( "*" );
+//        printf( "s(%d)", pNew->Level );
+        if ( fSwitch )
+             printf( "s(%d)", pNew->Level );
         p->nSatCounter++;
         return 0;
     }
     else // if ( RetValue1 == MSAT_UNKNOWN )
     {
 p->time3 += clock() - clk;
-        p->nSatFails++;
+
+//        if ( pOld->fFailTfo || pNew->fFailTfo )
+//            printf( "*" );
+//        printf( "T(%d)", pNew->Level );
+
+        // mark the node as the failed node
+        if ( pOld != p->pConst1 ) 
+            pOld->fFailTfo = 1;
+        pNew->fFailTfo = 1;
+//        p->nSatFails++;
+        if ( fSwitch )
+             printf( "T(%d)", pNew->Level );
+        p->nSatFailsReal++;
         return 0;
     }
 
@@ -284,6 +461,7 @@ p->time3 += clock() - clk;
 clk = clock();
     RetValue1 = Msat_SolverSolve( p->pSat, p->vProj, nBTLimit, nTimeLimit );
 p->timeSat += clock() - clk;
+
     if ( RetValue1 == MSAT_FALSE )
     {
 //p->time1 += clock() - clk;
@@ -315,17 +493,42 @@ PRT( "time", clock() - clk );
         // record the counter example
         Fraig_FeedBack( p, Msat_SolverReadModelArray(p->pSat), p->vVarsInt, pOld, pNew );
         p->nSatCounter++;
+
+//        if ( pOld->fFailTfo || pNew->fFailTfo )
+//            printf( "*" );
+//        printf( "s(%d)", pNew->Level );
+        if ( fSwitch )
+             printf( "s(%d)", pNew->Level );
         return 0;
     }
     else // if ( RetValue1 == MSAT_UNKNOWN )
     {
 p->time3 += clock() - clk;
-        p->nSatFails++;
+
+//        if ( pOld->fFailTfo || pNew->fFailTfo )
+//            printf( "*" );
+//        printf( "T(%d)", pNew->Level );
+        if ( fSwitch )
+             printf( "T(%d)", pNew->Level );
+
+        // mark the node as the failed node
+        pOld->fFailTfo = 1;
+        pNew->fFailTfo = 1;
+//        p->nSatFails++;
+        p->nSatFailsReal++;
         return 0;
     }
 
     // return SAT proof
     p->nSatProof++;
+
+//    if ( pOld->fFailTfo || pNew->fFailTfo )
+//        printf( "*" );
+//    printf( "u(%d)", pNew->Level );
+
+    if ( fSwitch )
+         printf( "u(%d)", pNew->Level );
+
     return 1;
 }
 
@@ -358,7 +561,7 @@ int Fraig_NodeIsImplication( Fraig_Man_t * p, Fraig_Node_t * pOld, Fraig_Node_t 
         Fraig_ManCreateSolver( p );
     // make sure the SAT solver has enough variables
     for ( i = Msat_SolverReadVarNum(p->pSat); i < p->vNodes->nSize; i++ )
-        Msat_SolverAddVar( p->pSat );
+        Msat_SolverAddVar( p->pSat, p->vNodes->pArray[i]->Level );
 
    // get the logic cone
 clk = clock();
@@ -457,7 +660,7 @@ int Fraig_ManCheckClauseUsingSat( Fraig_Man_t * p, Fraig_Node_t * pNode1, Fraig_
         Fraig_ManCreateSolver( p );
     // make sure the SAT solver has enough variables
     for ( i = Msat_SolverReadVarNum(p->pSat); i < p->vNodes->nSize; i++ )
-        Msat_SolverAddVar( p->pSat );
+        Msat_SolverAddVar( p->pSat, p->vNodes->pArray[i]->Level );
 
    // get the logic cone
 clk = clock();
@@ -551,6 +754,7 @@ void Fraig_PrepareCones( Fraig_Man_t * pMan, Fraig_Node_t * pOld, Fraig_Node_t *
     pMan->nTravIds++;
     Fraig_PrepareCones_rec( pMan, pNew );
     Fraig_PrepareCones_rec( pMan, pOld );
+
 
 /*
     nVars = Msat_IntVecReadSize( pMan->vVarsInt );
@@ -715,6 +919,8 @@ void Fraig_OrderVariables( Fraig_Man_t * pMan, Fraig_Node_t * pOld, Fraig_Node_t
                 Fraig_NodeVecPushUnique( pNode->vFanins, Fraig_Regular(Fraig_Regular(pNode->p2)->p2) );
                 Fraig_SupergateAddClausesMux( pMan, pNode );
 //                Fraig_DetectFanoutFreeConeMux( pMan, pNode );
+
+                nMuxes++;
             }
             else
             {
@@ -1049,6 +1255,33 @@ void Fraig_SupergateAddClausesMux( Fraig_Man_t * p, Fraig_Node_t * pNode )
     Msat_IntVecPush( p->vProj, MSAT_VAR2LIT(VarF,  1) );
     RetValue = Msat_SolverAddClause( p->pSat, p->vProj );
     assert( RetValue );
+
+    // two additional clauses
+    // t' & e' -> f'
+    // t  & e  -> f 
+
+    // t  + e   + f'
+    // t' + e'  + f 
+
+    if ( VarT == VarE )
+    {
+//        assert( fCompT == !fCompE );
+        return;
+    }
+
+    Msat_IntVecClear( p->vProj );
+    Msat_IntVecPush( p->vProj, MSAT_VAR2LIT(VarT,  0^fCompT) );
+    Msat_IntVecPush( p->vProj, MSAT_VAR2LIT(VarE,  0^fCompE) );
+    Msat_IntVecPush( p->vProj, MSAT_VAR2LIT(VarF,  1) );
+    RetValue = Msat_SolverAddClause( p->pSat, p->vProj );
+    assert( RetValue );
+    Msat_IntVecClear( p->vProj );
+    Msat_IntVecPush( p->vProj, MSAT_VAR2LIT(VarT,  1^fCompT) );
+    Msat_IntVecPush( p->vProj, MSAT_VAR2LIT(VarE,  1^fCompE) );
+    Msat_IntVecPush( p->vProj, MSAT_VAR2LIT(VarF,  0) );
+    RetValue = Msat_SolverAddClause( p->pSat, p->vProj );
+    assert( RetValue );
+
 }
 
 
@@ -1180,6 +1413,40 @@ printf( "%d(%d)", vFanins->nSize, nCubes );
     Fraig_NodeVecFree( vInside );
 }
 
+
+
+/**Function*************************************************************
+
+  Synopsis    [Collect variables using their proximity from the nodes.]
+
+  Description [This procedure creates a variable order based on collecting
+  first the nodes that are the closest to the given two target nodes.]
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+void Fraig_SetActivity( Fraig_Man_t * pMan, Fraig_Node_t * pOld, Fraig_Node_t * pNew )
+{
+    Fraig_Node_t * pNode;
+    int i, Number, MaxLevel;
+    float * pFactors = Msat_SolverReadFactors(pMan->pSat);
+    if ( pFactors == NULL )
+        return;
+    MaxLevel = FRAIG_MAX( pOld->Level, pNew->Level );
+    // create the variable order
+    for ( i = 0; i < Msat_IntVecReadSize(pMan->vVarsInt); i++ )
+    {
+        // get the new node on the frontier
+        Number = Msat_IntVecReadEntry(pMan->vVarsInt, i);
+        pNode = pMan->vNodes->pArray[Number];
+        pFactors[pNode->Num] = (float)pow( 0.97, MaxLevel - pNode->Level );
+//        if ( pNode->Num % 50 == 0 )
+//        printf( "(%d) %.2f  ", MaxLevel - pNode->Level, pFactors[pNode->Num] );
+    }
+//    printf( "\n" );
+}
 
 ////////////////////////////////////////////////////////////////////////
 ///                       END OF FILE                                ///

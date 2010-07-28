@@ -126,7 +126,7 @@ Abc_Ntk_t * Seq_NtkFpgaDup( Abc_Ntk_t * pNtk )
 
     // duplicate the nodes in the mapping
     Vec_PtrForEachEntry( p->vMapAnds, pObj, i )
-        Abc_NtkDupObj( pNtkNew, pObj );
+        Abc_NtkDupObj( pNtkNew, pObj, 0 );
 
     // recursively construct the internals of each node
     Vec_PtrForEachEntry( p->vMapAnds, pObj, i )
@@ -280,7 +280,7 @@ Abc_Ntk_t * Seq_NtkSeqFpgaMapped( Abc_Ntk_t * pNtk )
     Abc_Seq_t * p = pNtk->pManFunc;
     Abc_Ntk_t * pNtkMap; 
     Vec_Ptr_t * vLeaves;
-    Abc_Obj_t * pObj, * pLatch, * pFaninNew;
+    Abc_Obj_t * pObj, * pFaninNew;
     Seq_Lat_t * pRing;
     int i;
 
@@ -321,12 +321,8 @@ Abc_Ntk_t * Seq_NtkSeqFpgaMapped( Abc_Ntk_t * pNtk )
     }
 
     // add the latches and their names
-    Abc_NtkAddDummyLatchNames( pNtkMap );
-    Abc_NtkForEachLatch( pNtkMap, pLatch, i )
-    {
-        Vec_PtrPush( pNtkMap->vCis, pLatch );
-        Vec_PtrPush( pNtkMap->vCos, pLatch );
-    }
+    Abc_NtkAddDummyBoxNames( pNtkMap );
+    Abc_NtkOrderCisCos( pNtkMap );
     // fix the problem with complemented and duplicated CO edges
     Abc_NtkLogicMakeSimpleCos( pNtkMap, 1 );
     // make the network minimum base
@@ -386,7 +382,7 @@ int Seq_FpgaMappingCount_rec( Abc_Ntk_t * pNtk, unsigned SeqEdge, Vec_Ptr_t * vL
         if ( SeqEdge == (unsigned)pLeaf )
             return 0;
     // continue unfolding
-    assert( Abc_NodeIsAigAnd(pObj) );
+    assert( Abc_AigNodeIsAnd(pObj) );
     // get new sequential edges
     assert( Lag + Seq_ObjFaninL0(pObj) < 255 );
     assert( Lag + Seq_ObjFaninL1(pObj) < 255 );
@@ -421,7 +417,7 @@ Abc_Obj_t * Seq_FpgaMappingBuild_rec( Abc_Ntk_t * pNtkNew, Abc_Ntk_t * pNtk, uns
         if ( SeqEdge == (unsigned)pLeaf )
             return pObj->pCopy;
     // continue unfolding
-    assert( Abc_NodeIsAigAnd(pObj) );
+    assert( Abc_AigNodeIsAnd(pObj) );
     // get new sequential edges
     assert( Lag + Seq_ObjFaninL0(pObj) < 255 );
     assert( Lag + Seq_ObjFaninL1(pObj) < 255 );
@@ -468,7 +464,7 @@ DdNode * Seq_FpgaMappingBdd_rec( DdManager * dd, Abc_Ntk_t * pNtk, unsigned SeqE
         if ( SeqEdge == (unsigned)pLeaf )
             return Cudd_bddIthVar( dd, i );
     // continue unfolding
-    assert( Abc_NodeIsAigAnd(pObj) );
+    assert( Abc_AigNodeIsAnd(pObj) );
     // get new sequential edges
     assert( Lag + Seq_ObjFaninL0(pObj) < 255 );
     assert( Lag + Seq_ObjFaninL1(pObj) < 255 );
@@ -518,7 +514,7 @@ void Seq_FpgaMappingEdges_rec( Abc_Ntk_t * pNtk, unsigned SeqEdge, Abc_Obj_t * p
         }
     }
     // continue unfolding
-    assert( Abc_NodeIsAigAnd(pObj) );
+    assert( Abc_AigNodeIsAnd(pObj) );
     // get new sequential edges
     assert( Lag + Seq_ObjFaninL0(pObj) < 255 );
     assert( Lag + Seq_ObjFaninL1(pObj) < 255 );
@@ -568,7 +564,7 @@ void Seq_FpgaMappingConnect_rec( Abc_Ntk_t * pNtk, unsigned SeqEdge, Abc_Obj_t *
         }
     }
     // continue unfolding
-    assert( Abc_NodeIsAigAnd(pObj) );
+    assert( Abc_AigNodeIsAnd(pObj) );
     // get new sequential edges
     assert( Lag + Seq_ObjFaninL0(pObj) < 255 );
     assert( Lag + Seq_ObjFaninL1(pObj) < 255 );
@@ -620,7 +616,7 @@ DdNode * Seq_FpgaMappingConnectBdd_rec( Abc_Ntk_t * pNtk, unsigned SeqEdge, Abc_
         }
     }
     // continue unfolding
-    assert( Abc_NodeIsAigAnd(pObj) );
+    assert( Abc_AigNodeIsAnd(pObj) );
     // get new sequential edges
     assert( Lag + Seq_ObjFaninL0(pObj) < 255 );
     assert( Lag + Seq_ObjFaninL1(pObj) < 255 );

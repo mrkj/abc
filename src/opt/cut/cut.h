@@ -21,6 +21,10 @@
 #ifndef __CUT_H__
 #define __CUT_H__
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 ////////////////////////////////////////////////////////////////////////
 ///                          INCLUDES                                ///
 ////////////////////////////////////////////////////////////////////////
@@ -30,7 +34,7 @@
 ////////////////////////////////////////////////////////////////////////
 
 #define CUT_SIZE_MIN    3      // the min K of the K-feasible cut computation
-#define CUT_SIZE_MAX    8      // the max K of the K-feasible cut computation
+#define CUT_SIZE_MAX   12      // the max K of the K-feasible cut computation
 
 #define CUT_SHIFT       8      // the number of bits for storing latch number in the cut leaves
 #define CUT_MASK        0xFF   // the mask to get the stored latch number
@@ -55,8 +59,13 @@ struct Cut_ParamsStruct_t_
     int                fFilter;           // filter dominated cuts
     int                fSeq;              // compute sequential cuts
     int                fDrop;             // drop cuts on the fly
-    int                fMulti;            // compute cuts in multi-input AND gate graph
+    int                fDag;              // compute only DAG cuts
+    int                fTree;             // compute only tree cuts
+    int                fGlobal;           // compute only global cuts
+    int                fLocal;            // compute only local cuts
     int                fRecord;           // record the cut computation flow
+    int                fFancy;            // perform fancy computations
+    int                fMap;              // computes delay of FPGA mapping with cuts
     int                fVerbose;          // the verbosiness flag
 };
 
@@ -105,17 +114,23 @@ extern void             Cut_NodeFreeCuts( Cut_Man_t * p, int Node );
 /*=== cutCut.c ==========================================================*/
 extern void             Cut_CutPrint( Cut_Cut_t * pCut, int fSeq );
 extern void             Cut_CutPrintList( Cut_Cut_t * pList, int fSeq );
+extern int              Cut_CutCountList( Cut_Cut_t * pList );
 /*=== cutMan.c ==========================================================*/
 extern Cut_Man_t *      Cut_ManStart( Cut_Params_t * pParams );
 extern void             Cut_ManStop( Cut_Man_t * p );
 extern void             Cut_ManPrintStats( Cut_Man_t * p );
 extern void             Cut_ManPrintStatsToFile( Cut_Man_t * p, char * pFileName, int TimeTotal );
 extern void             Cut_ManSetFanoutCounts( Cut_Man_t * p, Vec_Int_t * vFanCounts );
+extern void             Cut_ManSetNodeAttrs( Cut_Man_t * p, Vec_Int_t * vFanCounts );
 extern int              Cut_ManReadVarsMax( Cut_Man_t * p );
+extern Cut_Params_t *   Cut_ManReadParams( Cut_Man_t * p );
+extern Vec_Int_t *      Cut_ManReadNodeAttrs( Cut_Man_t * p );
+extern void             Cut_ManIncrementDagNodes( Cut_Man_t * p );
 /*=== cutNode.c ==========================================================*/
-extern Cut_Cut_t *      Cut_NodeComputeCuts( Cut_Man_t * p, int Node, int Node0, int Node1, int fCompl0, int fCompl1, int fTriv ); 
+extern Cut_Cut_t *      Cut_NodeComputeCuts( Cut_Man_t * p, int Node, int Node0, int Node1, int fCompl0, int fCompl1, int fTriv, int TreeCode ); 
 extern Cut_Cut_t *      Cut_NodeUnionCuts( Cut_Man_t * p, Vec_Int_t * vNodes );
 extern Cut_Cut_t *      Cut_NodeUnionCutsSeq( Cut_Man_t * p, Vec_Int_t * vNodes, int CutSetNum, int fFirst );
+extern int              Cut_ManMappingArea_rec( Cut_Man_t * p, int Node );
 /*=== cutSeq.c ==========================================================*/
 extern void             Cut_NodeComputeCutsSeq( Cut_Man_t * p, int Node, int Node0, int Node1, int fCompl0, int fCompl1, int nLat0, int nLat1, int fTriv, int CutSetNum );
 extern void             Cut_NodeNewMergeWithOld( Cut_Man_t * p, int Node );
@@ -130,11 +145,21 @@ extern void             Cut_OracleNodeSetTriv( Cut_Oracle_t * p, int Node );
 extern Cut_Cut_t *      Cut_OracleComputeCuts( Cut_Oracle_t * p, int Node, int Node0, int Node1, int fCompl0, int fCompl1 );
 extern void             Cut_OracleTryDroppingCuts( Cut_Oracle_t * p, int Node );
 /*=== cutTruth.c ==========================================================*/
-extern void             Cut_TruthCanonicize( Cut_Cut_t * pCut );
+extern void             Cut_TruthNCanonicize( Cut_Cut_t * pCut );
+/*=== cutPre22.c ==========================================================*/
+extern void             Cut_CellPrecompute();
+extern void             Cut_CellLoad();
+extern int              Cut_CellIsRunning();
+extern void             Cut_CellDumpToFile();
+extern int              Cut_CellTruthLookup( unsigned * pTruth, int nVars );
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif
 
 ////////////////////////////////////////////////////////////////////////
 ///                       END OF FILE                                ///
 ////////////////////////////////////////////////////////////////////////
-
-#endif
 

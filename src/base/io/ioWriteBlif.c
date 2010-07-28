@@ -26,9 +26,11 @@
 ///                        DECLARATIONS                              ///
 ////////////////////////////////////////////////////////////////////////
 
+static void Io_NtkWrite( FILE * pFile, Abc_Ntk_t * pNtk, int fWriteLatches );
 static void Io_NtkWriteOne( FILE * pFile, Abc_Ntk_t * pNtk, int fWriteLatches );
 static void Io_NtkWritePis( FILE * pFile, Abc_Ntk_t * pNtk, int fWriteLatches );
 static void Io_NtkWritePos( FILE * pFile, Abc_Ntk_t * pNtk, int fWriteLatches );
+static void Io_NtkWriteAsserts( FILE * pFile, Abc_Ntk_t * pNtk );
 static void Io_NtkWriteNodeGate( FILE * pFile, Abc_Obj_t * pNode );
 static void Io_NtkWriteNodeFanins( FILE * pFile, Abc_Obj_t * pNode );
 static void Io_NtkWriteNode( FILE * pFile, Abc_Obj_t * pNode );
@@ -53,13 +55,13 @@ void Io_WriteBlifLogic( Abc_Ntk_t * pNtk, char * FileName, int fWriteLatches )
 {
     Abc_Ntk_t * pNtkTemp;
     // derive the netlist
-    pNtkTemp = Abc_NtkLogicToNetlist(pNtk);
+    pNtkTemp = Abc_NtkLogicToNetlist(pNtk,0);
     if ( pNtkTemp == NULL )
     {
         fprintf( stdout, "Writing BLIF has failed.\n" );
         return;
     }
-    Io_WriteBlif( pNtkTemp, FileName, fWriteLatches );
+    Io_WriteBlifNetlist( pNtkTemp, FileName, fWriteLatches );
     Abc_NtkDelete( pNtkTemp );
 }
 
@@ -74,19 +76,48 @@ void Io_WriteBlifLogic( Abc_Ntk_t * pNtk, char * FileName, int fWriteLatches )
   SeeAlso     []
 
 ***********************************************************************/
-void Io_WriteBlif( Abc_Ntk_t * pNtk, char * FileName, int fWriteLatches )
+void Io_WriteBlifNetlist( Abc_Ntk_t * pNtk, char * FileName, int fWriteLatches )
 {
-    Abc_Ntk_t * pExdc;
+    stmm_generator * gen;
+    Abc_Ntk_t * pNtkTemp;
     FILE * pFile;
     assert( Abc_NtkIsNetlist(pNtk) );
+    // start writing the file
     pFile = fopen( FileName, "w" );
     if ( pFile == NULL )
     {
-        fprintf( stdout, "Io_WriteBlif(): Cannot open the output file.\n" );
+        fprintf( stdout, "Io_WriteBlifNetlist(): Cannot open the output file.\n" );
         return;
     }
-    // write the model name
     fprintf( pFile, "# Benchmark \"%s\" written by ABC on %s\n", pNtk->pName, Extra_TimeStamp() );
+    // write the master network
+    Io_NtkWrite( pFile, pNtk, fWriteLatches );
+    // write the hierarchy if present
+    if ( pNtk->tName2Model )
+    {
+        fprintf( pFile, "\n\n" );
+        stmm_foreach_item( pNtk->tName2Model, gen, NULL, (char **)&pNtkTemp )
+            Io_NtkWrite( pFile, pNtkTemp, fWriteLatches );
+    }
+    fclose( pFile );
+}
+
+/**Function*************************************************************
+
+  Synopsis    [Write the network into a BLIF file with the given name.]
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+void Io_NtkWrite( FILE * pFile, Abc_Ntk_t * pNtk, int fWriteLatches )
+{
+    Abc_Ntk_t * pExdc;
+    assert( Abc_NtkIsNetlist(pNtk) );
+    // write the model name
     fprintf( pFile, ".model %s\n", Abc_NtkName(pNtk) );
     // write the network
     Io_NtkWriteOne( pFile, pNtk, fWriteLatches );
@@ -100,7 +131,6 @@ void Io_WriteBlif( Abc_Ntk_t * pNtk, char * FileName, int fWriteLatches )
     }
     // finalize the file
     fprintf( pFile, ".end\n" );
-    fclose( pFile );
 }
 
 /**Function*************************************************************
@@ -129,6 +159,21 @@ void Io_NtkWriteOne( FILE * pFile, Abc_Ntk_t * pNtk, int fWriteLatches )
     fprintf( pFile, ".outputs" );
     Io_NtkWritePos( pFile, pNtk, fWriteLatches );
     fprintf( pFile, "\n" );
+
+    // write the assertions
+    if ( Abc_NtkAssertNum(pNtk) )
+    {
+        fprintf( pFile, ".asserts" );
+        Io_NtkWriteAsserts( pFile, pNtk );
+        fprintf( pFile, "\n" );
+    }
+
+    // write the blackbox
+    if ( Abc_NtkHasBlackbox( pNtk ) )
+    {
+        fprintf( pFile, ".blackbox\n" );
+        return;
+    }
 
     // write the timing info
     Io_WriteTimingInfo( pFile, pNtk );
@@ -260,6 +305,8 @@ void Io_NtkWritePos( FILE * pFile, Abc_Ntk_t * pNtk, int fWriteLatches )
     {
         Abc_NtkForEachCo( pNtk, pTerm, i )
         {
+            if ( Abc_ObjIsAssert(pTerm) )
+                continue;
             pNet = Abc_ObjFanin0(pTerm);
             // get the line length after this name is written
             AddedLength = strlen(Abc_ObjName(pNet)) + 1;
@@ -277,6 +324,45 @@ void Io_NtkWritePos( FILE * pFile, Abc_Ntk_t * pNtk, int fWriteLatches )
     }
 }
 
+/**Function*************************************************************
+
+  Synopsis    [Writes the assertion list.]
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+void Io_NtkWriteAsserts( FILE * pFile, Abc_Ntk_t * pNtk )
+{
+    Abc_Obj_t * pTerm, * pNet;
+    int LineLength;
+    int AddedLength;
+    int NameCounter;
+    int i;
+
+    LineLength  = 8;
+    NameCounter = 0;
+
+    Abc_NtkForEachAssert( pNtk, pTerm, i )
+    {
+        pNet = Abc_ObjFanin0(pTerm);
+        // get the line length after this name is written
+        AddedLength = strlen(Abc_ObjName(pNet)) + 1;
+        if ( NameCounter && LineLength + AddedLength + 3 > IO_WRITE_LINE_LENGTH )
+        { // write the line extender
+            fprintf( pFile, " \\\n" );
+            // reset the line length
+            LineLength  = 0;
+            NameCounter = 0;
+        }
+        fprintf( pFile, " %s", Abc_ObjName(pNet) );
+        LineLength += AddedLength;
+        NameCounter++;
+    }
+}
 
 /**Function*************************************************************
 
@@ -293,8 +379,8 @@ void Io_NtkWriteLatch( FILE * pFile, Abc_Obj_t * pLatch )
 {
     Abc_Obj_t * pNetLi, * pNetLo;
     int Reset;
-    pNetLi = Abc_ObjFanin0( pLatch );
-    pNetLo = Abc_ObjFanout0( pLatch );
+    pNetLi = Abc_ObjFanin0( Abc_ObjFanin0(pLatch) );
+    pNetLo = Abc_ObjFanout0( Abc_ObjFanout0(pLatch) );
     Reset  = (int)Abc_ObjData( pLatch );
     // write the latch line
     fprintf( pFile, ".latch" );

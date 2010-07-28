@@ -86,18 +86,18 @@ Abc_Ntk_t * Abc_NtkAigToSeq( Abc_Ntk_t * pNtk )
     assert( Abc_NtkCountSelfFeedLatches(pNtk) == 0 );
 
     // start the network
-    pNtkNew = Abc_NtkAlloc( ABC_NTK_SEQ, ABC_FUNC_AIG );
+    pNtkNew = Abc_NtkAlloc( ABC_NTK_SEQ, ABC_FUNC_AIG, 1 );
     // duplicate the name and the spec
-    pNtkNew->pName = util_strsav(pNtk->pName);
-    pNtkNew->pSpec = util_strsav(pNtk->pSpec);
+    pNtkNew->pName = Extra_UtilStrsav(pNtk->pName);
+    pNtkNew->pSpec = Extra_UtilStrsav(pNtk->pSpec);
 
     // map the constant nodes
     Abc_NtkCleanCopy( pNtk );
-    Abc_NtkConst1(pNtk)->pCopy = Abc_NtkConst1(pNtkNew);
+    Abc_AigConst1(pNtk)->pCopy = Abc_AigConst1(pNtkNew);
 
     // copy all objects, except the latches and constant
     Vec_PtrFill( pNtkNew->vObjs, Abc_NtkObjNumMax(pNtk), NULL );
-    Vec_PtrWriteEntry( pNtkNew->vObjs, 0, Abc_NtkConst1(pNtk)->pCopy );
+    Vec_PtrWriteEntry( pNtkNew->vObjs, 0, Abc_AigConst1(pNtk)->pCopy );
     Abc_NtkForEachObj( pNtk, pObj, i )
     {
         if ( i == 0 || Abc_ObjIsLatch(pObj) )
@@ -109,20 +109,26 @@ Abc_Ntk_t * Abc_NtkAigToSeq( Abc_Ntk_t * pNtk )
         Vec_PtrWriteEntry( pNtkNew->vObjs, pObj->pCopy->Id, pObj->pCopy );
         pNtkNew->nObjs++;
     }
-    pNtkNew->nNodes = pNtk->nNodes;
-    pNtkNew->nPis   = pNtk->nPis;
-    pNtkNew->nPos   = pNtk->nPos;
+    pNtkNew->nObjCounts[ABC_OBJ_NODE] = pNtk->nObjCounts[ABC_OBJ_NODE];
 
     // create PI/PO and their names
     Abc_NtkForEachPi( pNtk, pObj, i )
     {
+        Vec_PtrPush( pNtkNew->vPis, pObj->pCopy );
         Vec_PtrPush( pNtkNew->vCis, pObj->pCopy );
-        Abc_NtkLogicStoreName( pObj->pCopy, Abc_ObjName(pObj) );
+        Abc_ObjAssignName( pObj->pCopy, Abc_ObjName(pObj), NULL );
     }
     Abc_NtkForEachPo( pNtk, pObj, i ) 
     {
+        Vec_PtrPush( pNtkNew->vPos, pObj->pCopy );
         Vec_PtrPush( pNtkNew->vCos, pObj->pCopy );
-        Abc_NtkLogicStoreName( pObj->pCopy, Abc_ObjName(pObj) );
+        Abc_ObjAssignName( pObj->pCopy, Abc_ObjName(pObj), NULL );
+    }
+    Abc_NtkForEachAssert( pNtk, pObj, i ) 
+    {
+        Vec_PtrPush( pNtkNew->vAsserts, pObj->pCopy );
+        Vec_PtrPush( pNtkNew->vCos, pObj->pCopy );
+        Abc_ObjAssignName( pObj->pCopy, Abc_ObjName(pObj), NULL );
     }
 
     // relink the choice nodes
@@ -230,7 +236,7 @@ void Abc_NtkAigCutsetCopy( Abc_Ntk_t * pNtk )
     Abc_NtkForEachLatch( pNtk, pLatch, i )
     {
         pDriver = Abc_ObjFanin0(pLatch);
-        if ( Abc_NodeIsTravIdCurrent(pDriver) || !Abc_NodeIsAigAnd(pDriver) )
+        if ( Abc_NodeIsTravIdCurrent(pDriver) || !Abc_AigNodeIsAnd(pDriver) )
             continue;
         Abc_NodeSetTravIdCurrent(pDriver);
         pDriverNew = pDriver->pCopy;
@@ -252,7 +258,7 @@ void Abc_NtkAigCutsetCopy( Abc_Ntk_t * pNtk )
 Abc_Ntk_t * Abc_NtkSeqToLogicSop( Abc_Ntk_t * pNtk )
 {
     Abc_Ntk_t * pNtkNew; 
-    Abc_Obj_t * pObj, * pObjNew, * pFaninNew;
+    Abc_Obj_t * pObj, * pFaninNew;
     Seq_Lat_t * pRing;
     int i;
 
@@ -262,7 +268,7 @@ Abc_Ntk_t * Abc_NtkSeqToLogicSop( Abc_Ntk_t * pNtk )
     // duplicate the nodes
     Abc_AigForEachAnd( pNtk, pObj, i )
     {
-        Abc_NtkDupObj(pNtkNew, pObj);
+        Abc_NtkDupObj(pNtkNew, pObj, 0);
         pObj->pCopy->pData = Abc_SopCreateAnd2( pNtkNew->pManFunc, Abc_ObjFaninC0(pObj), Abc_ObjFaninC1(pObj) );
     }
     // share and create the latches
@@ -296,12 +302,8 @@ Abc_Ntk_t * Abc_NtkSeqToLogicSop( Abc_Ntk_t * pNtk )
     Seq_NtkShareLatchesClean( pNtk );
 
     // add the latches and their names
-    Abc_NtkAddDummyLatchNames( pNtkNew );
-    Abc_NtkForEachLatch( pNtkNew, pObjNew, i )
-    {
-        Vec_PtrPush( pNtkNew->vCis, pObjNew );
-        Vec_PtrPush( pNtkNew->vCos, pObjNew );
-    }
+    Abc_NtkAddDummyBoxNames( pNtkNew );
+    Abc_NtkOrderCisCos( pNtkNew );
     // fix the problem with complemented and duplicated CO edges
     Abc_NtkLogicMakeSimpleCos( pNtkNew, 0 );
     if ( !Abc_NtkCheck( pNtkNew ) )
@@ -324,7 +326,7 @@ Abc_Ntk_t * Abc_NtkSeqToLogicSop( Abc_Ntk_t * pNtk )
 Abc_Ntk_t * Abc_NtkSeqToLogicSop_old( Abc_Ntk_t * pNtk )
 {
     Abc_Ntk_t * pNtkNew; 
-    Abc_Obj_t * pObj, * pObjNew, * pFaninNew;
+    Abc_Obj_t * pObj, * pFaninNew;
     int i;
 
     assert( Abc_NtkIsSeq(pNtk) );
@@ -338,7 +340,7 @@ Abc_Ntk_t * Abc_NtkSeqToLogicSop_old( Abc_Ntk_t * pNtk )
         if ( Abc_ObjFaninNum(pObj) == 0 )
             continue;
         // duplicate the node
-        Abc_NtkDupObj(pNtkNew, pObj);
+        Abc_NtkDupObj(pNtkNew, pObj, 0);
         if ( Abc_ObjFaninNum(pObj) == 1 )
         {
             assert( !Abc_ObjFaninC0(pObj) );
@@ -370,12 +372,8 @@ Abc_Ntk_t * Abc_NtkSeqToLogicSop_old( Abc_Ntk_t * pNtk )
         // the complemented edges are subsumed by the node function
     }
     // add the latches and their names
-    Abc_NtkAddDummyLatchNames( pNtkNew );
-    Abc_NtkForEachLatch( pNtkNew, pObjNew, i )
-    {
-        Vec_PtrPush( pNtkNew->vCis, pObjNew );
-        Vec_PtrPush( pNtkNew->vCos, pObjNew );
-    }
+    Abc_NtkAddDummyBoxNames( pNtkNew );
+    Abc_NtkOrderCisCos( pNtkNew );
     // fix the problem with complemented and duplicated CO edges
     Abc_NtkLogicMakeSimpleCos( pNtkNew, 0 );
     if ( !Abc_NtkCheck( pNtkNew ) )
@@ -430,7 +428,7 @@ bool Abc_NtkSeqCheck( Abc_Ntk_t * pNtk )
         nFanins = Abc_ObjFaninNum(pObj);
         if ( nFanins == 0 )
         {
-            if ( pObj != Abc_NtkConst1(pNtk) )
+            if ( pObj != Abc_AigConst1(pNtk) )
             {
                 printf( "Abc_SeqCheck: The AIG has non-standard constant nodes.\n" );
                 return 0;

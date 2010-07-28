@@ -18,6 +18,7 @@
 
 #include "abc.h"
 #include "dec.h"
+#include "ivy.h"
 
 ////////////////////////////////////////////////////////////////////////
 ///                        DECLARATIONS                              ///
@@ -46,7 +47,7 @@ Abc_Obj_t * Dec_GraphToNetwork( Abc_Ntk_t * pNtk, Dec_Graph_t * pGraph )
     int i;
     // check for constant function
     if ( Dec_GraphIsConst(pGraph) )
-        return Abc_ObjNotCond( Abc_NtkConst1(pNtk), Dec_GraphIsComplement(pGraph) );
+        return Abc_ObjNotCond( Abc_AigConst1(pNtk), Dec_GraphIsComplement(pGraph) );
     // check for a literal
     if ( Dec_GraphIsVar(pGraph) )
         return Abc_ObjNotCond( Dec_GraphVar(pGraph)->pFunc, Dec_GraphIsComplement(pGraph) );
@@ -80,7 +81,7 @@ Abc_Obj_t * Dec_GraphToNetworkNoStrash( Abc_Ntk_t * pNtk, Dec_Graph_t * pGraph )
     int i;
     // check for constant function
     if ( Dec_GraphIsConst(pGraph) )
-        return Abc_ObjNotCond( Abc_NtkConst1(pNtk), Dec_GraphIsComplement(pGraph) );
+        return Abc_ObjNotCond( Abc_AigConst1(pNtk), Dec_GraphIsComplement(pGraph) );
     // check for a literal
     if ( Dec_GraphIsVar(pGraph) )
         return Abc_ObjNotCond( Dec_GraphVar(pGraph)->pFunc, Dec_GraphIsComplement(pGraph) );
@@ -157,7 +158,7 @@ int Dec_GraphToNetworkCount( Abc_Obj_t * pRoot, Dec_Graph_t * pGraph, int NodeMa
         LevelNew = 1 + ABC_MAX( pNode0->Level, pNode1->Level );
         if ( pAnd )
         {
-            if ( Abc_ObjRegular(pAnd) == Abc_NtkConst1(pRoot->pNtk) )
+            if ( Abc_ObjRegular(pAnd) == Abc_AigConst1(pRoot->pNtk) )
                 LevelNew = 0;
             else if ( Abc_ObjRegular(pAnd) == Abc_ObjRegular(pAnd0) )
                 LevelNew = (int)Abc_ObjRegular(pAnd0)->Level;
@@ -200,6 +201,102 @@ void Dec_GraphUpdateNetwork( Abc_Obj_t * pRoot, Dec_Graph_t * pGraph, bool fUpda
     nNodesNew = Abc_NtkNodeNum(pNtk);
     assert( nGain <= nNodesOld - nNodesNew );
 }
+
+
+/**Function*************************************************************
+
+  Synopsis    [Transforms the decomposition graph into the AIG.]
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+Hop_Obj_t * Dec_GraphToNetworkAig( Hop_Man_t * pMan, Dec_Graph_t * pGraph )
+{
+    Dec_Node_t * pNode;
+    Hop_Obj_t * pAnd0, * pAnd1;
+    int i;
+    // check for constant function
+    if ( Dec_GraphIsConst(pGraph) )
+        return Hop_NotCond( Hop_ManConst1(pMan), Dec_GraphIsComplement(pGraph) );
+    // check for a literal
+    if ( Dec_GraphIsVar(pGraph) )
+        return Hop_NotCond( Dec_GraphVar(pGraph)->pFunc, Dec_GraphIsComplement(pGraph) );
+    // build the AIG nodes corresponding to the AND gates of the graph
+    Dec_GraphForEachNode( pGraph, pNode, i )
+    {
+        pAnd0 = Hop_NotCond( Dec_GraphNode(pGraph, pNode->eEdge0.Node)->pFunc, pNode->eEdge0.fCompl ); 
+        pAnd1 = Hop_NotCond( Dec_GraphNode(pGraph, pNode->eEdge1.Node)->pFunc, pNode->eEdge1.fCompl ); 
+        pNode->pFunc = Hop_And( pMan, pAnd0, pAnd1 );
+    }
+    // complement the result if necessary
+    return Hop_NotCond( pNode->pFunc, Dec_GraphIsComplement(pGraph) );
+}
+
+/**Function*************************************************************
+
+  Synopsis    [Strashes one logic node using its SOP.]
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+Hop_Obj_t * Dec_GraphFactorSop( Hop_Man_t * pMan, char * pSop )
+{
+    Hop_Obj_t * pFunc;
+    Dec_Graph_t * pFForm;
+    Dec_Node_t * pNode;
+    int i;
+    // perform factoring
+    pFForm = Dec_Factor( pSop );
+    // collect the fanins
+    Dec_GraphForEachLeaf( pFForm, pNode, i )
+        pNode->pFunc = Hop_IthVar( pMan, i );
+    // perform strashing
+    pFunc = Dec_GraphToNetworkAig( pMan, pFForm );
+    Dec_GraphFree( pFForm );
+    return pFunc;
+}
+
+/**Function*************************************************************
+
+  Synopsis    [Transforms the decomposition graph into the AIG.]
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+Ivy_Obj_t * Dec_GraphToNetworkIvy( Ivy_Man_t * pMan, Dec_Graph_t * pGraph )
+{
+    Dec_Node_t * pNode;
+    Ivy_Obj_t * pAnd0, * pAnd1;
+    int i;
+    // check for constant function
+    if ( Dec_GraphIsConst(pGraph) )
+        return Ivy_NotCond( Ivy_ManConst1(pMan), Dec_GraphIsComplement(pGraph) );
+    // check for a literal
+    if ( Dec_GraphIsVar(pGraph) )
+        return Ivy_NotCond( Dec_GraphVar(pGraph)->pFunc, Dec_GraphIsComplement(pGraph) );
+    // build the AIG nodes corresponding to the AND gates of the graph
+    Dec_GraphForEachNode( pGraph, pNode, i )
+    {
+        pAnd0 = Ivy_NotCond( Dec_GraphNode(pGraph, pNode->eEdge0.Node)->pFunc, pNode->eEdge0.fCompl ); 
+        pAnd1 = Ivy_NotCond( Dec_GraphNode(pGraph, pNode->eEdge1.Node)->pFunc, pNode->eEdge1.fCompl ); 
+        pNode->pFunc = Ivy_And( pMan, pAnd0, pAnd1 );
+    }
+    // complement the result if necessary
+    return Ivy_NotCond( pNode->pFunc, Dec_GraphIsComplement(pGraph) );
+}
+
 
 ////////////////////////////////////////////////////////////////////////
 ///                       END OF FILE                                ///

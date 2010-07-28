@@ -19,7 +19,6 @@
 ***********************************************************************/
 
 #include "io.h"
-#include "seqInt.h"
 
 /*
 -------- Original Message --------
@@ -103,7 +102,7 @@ void Io_WriteList( Abc_Ntk_t * pNtk, char * pFileName, int fUseHost )
     Abc_Obj_t * pObj;
     int i;
 
-    assert( Abc_NtkIsSeq(pNtk)  );
+//    assert( Abc_NtkIsSeq(pNtk)  );
 
     // start the output stream
     pFile = fopen( pFileName, "w" );
@@ -117,11 +116,11 @@ void Io_WriteList( Abc_Ntk_t * pNtk, char * pFileName, int fUseHost )
     fprintf( pFile, "# written by ABC on %s\n", Extra_TimeStamp() );
 
     // write the constant node
-    if ( Abc_ObjFanoutNum( Abc_NtkConst1(pNtk) ) > 0 )
-        Io_WriteListEdge( pFile, Abc_NtkConst1(pNtk) );
+    if ( Abc_ObjFanoutNum( Abc_AigConst1(pNtk) ) > 0 )
+        Io_WriteListEdge( pFile, Abc_AigConst1(pNtk) );
 
-    // write the PO edges
-    Abc_NtkForEachCi( pNtk, pObj, i )
+    // write the PI edges
+    Abc_NtkForEachPi( pNtk, pObj, i )
         Io_WriteListEdge( pFile, pObj );
 
     // write the internal nodes
@@ -132,7 +131,7 @@ void Io_WriteList( Abc_Ntk_t * pNtk, char * pFileName, int fUseHost )
     if ( fUseHost )
         Io_WriteListHost( pFile, pNtk );
     else
-        Abc_NtkForEachCo( pNtk, pObj, i )
+        Abc_NtkForEachPo( pNtk, pObj, i )
             Io_WriteListEdge( pFile, pObj );
 
 	fprintf( pFile, "\n" );
@@ -157,12 +156,14 @@ void Io_WriteListEdge( FILE * pFile, Abc_Obj_t * pObj )
     fprintf( pFile, "%-10s >    ", Abc_ObjName(pObj) );
     Abc_ObjForEachFanout( pObj, pFanout, i )
     {
-        fprintf( pFile, " %s ([%s_to_%s] = %d)", Abc_ObjName(pFanout), Abc_ObjName(pObj), Abc_ObjName(pFanout), Seq_ObjFanoutL(pObj, pFanout) );
-        if ( i == Abc_ObjFanoutNum(pObj) - 1 )
-            fprintf( pFile, "." );
-        else
+        fprintf( pFile, " %s", Abc_ObjName(pFanout) );
+        fprintf( pFile, " ([%s_to_", Abc_ObjName(pObj) );
+//        fprintf( pFile, "%s] = %d)", Abc_ObjName(pFanout), Seq_ObjFanoutL(pObj, pFanout) );
+        fprintf( pFile, "%s] = %d)", Abc_ObjName(pFanout), 0 );
+        if ( i != Abc_ObjFanoutNum(pObj) - 1 )
             fprintf( pFile, "," );
     }
+    fprintf( pFile, "." );
     fprintf( pFile, "\n" );
 }
 
@@ -186,25 +187,99 @@ void Io_WriteListHost( FILE * pFile, Abc_Ntk_t * pNtk )
     {
         fprintf( pFile, "%-10s >    ", Abc_ObjName(pObj) );
         fprintf( pFile, " %s ([%s_to_%s] = %d)", "HOST", Abc_ObjName(pObj), "HOST", 0 );
-        if ( i == Abc_NtkPoNum(pNtk) - 1 )
-            fprintf( pFile, "." );
-        else
-            fprintf( pFile, "," );
+        fprintf( pFile, "." );
+        fprintf( pFile, "\n" );
     }
-    fprintf( pFile, "\n" );
 
     fprintf( pFile, "%-10s >    ", "HOST" );
     Abc_NtkForEachPi( pNtk, pObj, i )
     {
-        fprintf( pFile, " %s ([%s_to_%s] = %d)", Abc_ObjName(pObj), "HOST", Abc_ObjName(pObj), 0 );
-        if ( i == Abc_NtkPiNum(pNtk) - 1 )
-            fprintf( pFile, "." );
-        else
+        fprintf( pFile, " %s", Abc_ObjName(pObj) );
+        fprintf( pFile, " ([%s_to_%s] = %d)", "HOST", Abc_ObjName(pObj), 0 );
+        if ( i != Abc_NtkPiNum(pNtk) - 1 )
             fprintf( pFile, "," );
     }
+    fprintf( pFile, "." );
     fprintf( pFile, "\n" );
 }
 
+
+/**Function*************************************************************
+
+  Synopsis    [Writes the adjacency list for a sequential AIG.]
+
+  Description []
+  
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+void Io_WriteCellNet( Abc_Ntk_t * pNtk, char * pFileName )
+{
+    FILE * pFile;
+    Abc_Obj_t * pObj, * pFanout;
+    int i, k;
+
+    assert( Abc_NtkIsLogic(pNtk)  );
+
+    // start the output stream
+    pFile = fopen( pFileName, "w" );
+    if ( pFile == NULL )
+    {
+        fprintf( stdout, "Io_WriteCellNet(): Cannot open the output file \"%s\".\n", pFileName );
+        return;
+    }
+
+    fprintf( pFile, "# CellNet file for network \"%s\" written by ABC on %s\n", pNtk->pName, Extra_TimeStamp() );
+
+    // the only tricky part with writing is handling latches:
+    // each latch comes with (a) single-input latch-input node, (b) latch proper, (c) single-input latch-output node
+    // we arbitrarily decide to use the interger ID of the latch-input node to represent the latch in the file
+    // (this ID is used for both the cell and the net driven by that cell)
+
+    // write the PIs
+    Abc_NtkForEachPi( pNtk, pObj, i )
+        fprintf( pFile, "cell %d is 0\n", pObj->Id );
+    // write the POs
+    Abc_NtkForEachPo( pNtk, pObj, i )
+        fprintf( pFile, "cell %d is 1\n", pObj->Id );
+    // write the latches (use the ID of latch input)
+    Abc_NtkForEachLatch( pNtk, pObj, i )
+        fprintf( pFile, "cell %d is 2\n", Abc_ObjFanin0(pObj)->Id );
+    // write the logic nodes
+    Abc_NtkForEachNode( pNtk, pObj, i )
+        fprintf( pFile, "cell %d is %d\n", pObj->Id, 3+Abc_ObjFaninNum(pObj) );
+
+    // write the nets driven by PIs
+    Abc_NtkForEachPi( pNtk, pObj, i )
+    {
+        fprintf( pFile, "net %d  %d 0", pObj->Id, pObj->Id );
+        Abc_ObjForEachFanout( pObj, pFanout, k )
+            fprintf( pFile, "  %d %d", pFanout->Id, 1 + Abc_ObjFanoutFaninNum(pFanout, pObj) );
+	    fprintf( pFile, "\n" );
+    }
+    // write the nets driven by latches
+    Abc_NtkForEachLatch( pNtk, pObj, i )
+    {
+        fprintf( pFile, "net %d  %d 0", Abc_ObjFanin0(pObj)->Id, Abc_ObjFanin0(pObj)->Id );
+        pObj = Abc_ObjFanout0(pObj);
+        Abc_ObjForEachFanout( pObj, pFanout, k )
+            fprintf( pFile, "  %d %d", pFanout->Id, 1 + Abc_ObjFanoutFaninNum(pFanout, pObj) );
+	    fprintf( pFile, "\n" );
+    }
+    // write the nets driven by nodes
+    Abc_NtkForEachNode( pNtk, pObj, i )
+    {
+        fprintf( pFile, "net %d  %d 0", pObj->Id, pObj->Id );
+        Abc_ObjForEachFanout( pObj, pFanout, k )
+            fprintf( pFile, "  %d %d", pFanout->Id, 1 + Abc_ObjFanoutFaninNum(pFanout, pObj) );
+	    fprintf( pFile, "\n" );
+    }
+
+	fprintf( pFile, "\n" );
+	fclose( pFile );
+}
 
 ////////////////////////////////////////////////////////////////////////
 ///                       END OF FILE                                ///

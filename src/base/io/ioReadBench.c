@@ -47,7 +47,7 @@ Abc_Ntk_t * Io_ReadBench( char * pFileName, int fCheck )
     Abc_Ntk_t * pNtk;
 
     // start the file
-    p = Extra_FileReaderAlloc( pFileName, "#", "\n", " \t\r,()=" );
+    p = Extra_FileReaderAlloc( pFileName, "#", "\n\r", " \t,()=" );
     if ( p == NULL )
         return NULL;
 
@@ -82,7 +82,7 @@ Abc_Ntk_t * Io_ReadBenchNetwork( Extra_FileReader_t * p )
     ProgressBar * pProgress;
     Vec_Ptr_t * vTokens;
     Abc_Ntk_t * pNtk;
-    Abc_Obj_t * pNet, * pNode;
+    Abc_Obj_t * pNode;
     Vec_Str_t * vString;
     char * pType, ** ppNames;
     int iLine, nNames;
@@ -127,7 +127,7 @@ Abc_Ntk_t * Io_ReadBenchNetwork( Extra_FileReader_t * p )
                 pNode = Io_ReadCreateNode( pNtk, vTokens->pArray[0], ppNames, nNames );
                 // assign the cover
                 if ( strcmp(pType, "AND") == 0 )
-                    Abc_ObjSetData( pNode, Abc_SopCreateAnd(pNtk->pManFunc, nNames) );
+                    Abc_ObjSetData( pNode, Abc_SopCreateAnd(pNtk->pManFunc, nNames, NULL) );
                 else if ( strcmp(pType, "OR") == 0 )
                     Abc_ObjSetData( pNode, Abc_SopCreateOr(pNtk->pManFunc, nNames, NULL) );
                 else if ( strcmp(pType, "NAND") == 0 )
@@ -136,13 +136,19 @@ Abc_Ntk_t * Io_ReadBenchNetwork( Extra_FileReader_t * p )
                     Abc_ObjSetData( pNode, Abc_SopCreateNor(pNtk->pManFunc, nNames) );
                 else if ( strcmp(pType, "XOR") == 0 )
                     Abc_ObjSetData( pNode, Abc_SopCreateXor(pNtk->pManFunc, nNames) );
-                else if ( strcmp(pType, "NXOR") == 0 )
+                else if ( strcmp(pType, "NXOR") == 0 || strcmp(pType, "XNOR") == 0 )
                     Abc_ObjSetData( pNode, Abc_SopCreateNxor(pNtk->pManFunc, nNames) );
                 else if ( strncmp(pType, "BUF", 3) == 0 )
                     Abc_ObjSetData( pNode, Abc_SopCreateBuf(pNtk->pManFunc) );
                 else if ( strcmp(pType, "NOT") == 0 )
                     Abc_ObjSetData( pNode, Abc_SopCreateInv(pNtk->pManFunc) );
-                else 
+                else if ( strncmp(pType, "MUX", 3) == 0 )
+                    Abc_ObjSetData( pNode, Abc_SopRegister(pNtk->pManFunc, "1-0 1\n-11 1\n") );
+                else if ( strncmp(pType, "vdd", 3) == 0 )
+                    Abc_ObjSetData( pNode, Abc_SopRegister( pNtk->pManFunc, " 1\n" ) );
+                else if ( strncmp(pType, "gnd", 3) == 0 )
+                    Abc_ObjSetData( pNode, Abc_SopRegister( pNtk->pManFunc, " 0\n" ) );
+                else
                 {
                     printf( "Cannot determine gate type \"%s\" in line %d.\n", pType, Extra_FileReaderGetLineNumber(p, 0) );
                     Vec_StrFree( vString );
@@ -156,10 +162,10 @@ Abc_Ntk_t * Io_ReadBenchNetwork( Extra_FileReader_t * p )
     Vec_StrFree( vString );
 
     // check if constant have been added
-    if ( pNet = Abc_NtkFindNet( pNtk, "vdd" ) )
-        Io_ReadCreateConst( pNtk, "vdd", 1 );
-    if ( pNet = Abc_NtkFindNet( pNtk, "gnd" ) )
-        Io_ReadCreateConst( pNtk, "gnd", 0 );
+//    if ( pNet = Abc_NtkFindNet( pNtk, "vdd" ) )
+//        Io_ReadCreateConst( pNtk, "vdd", 1 );
+//    if ( pNet = Abc_NtkFindNet( pNtk, "gnd" ) )
+//        Io_ReadCreateConst( pNtk, "gnd", 0 );
 
     Abc_NtkFinalizeRead( pNtk );
     return pNtk;

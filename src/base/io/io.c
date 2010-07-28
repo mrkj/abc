@@ -26,24 +26,35 @@
 ////////////////////////////////////////////////////////////////////////
 
 static int IoCommandRead        ( Abc_Frame_t * pAbc, int argc, char **argv );
+static int IoCommandReadAiger   ( Abc_Frame_t * pAbc, int argc, char **argv );
 static int IoCommandReadBaf     ( Abc_Frame_t * pAbc, int argc, char **argv );
 static int IoCommandReadBlif    ( Abc_Frame_t * pAbc, int argc, char **argv );
 static int IoCommandReadBench   ( Abc_Frame_t * pAbc, int argc, char **argv );
 static int IoCommandReadEdif    ( Abc_Frame_t * pAbc, int argc, char **argv );
 static int IoCommandReadEqn     ( Abc_Frame_t * pAbc, int argc, char **argv );
-static int IoCommandReadVerilog ( Abc_Frame_t * pAbc, int argc, char **argv );
 static int IoCommandReadPla     ( Abc_Frame_t * pAbc, int argc, char **argv );
 static int IoCommandReadTruth   ( Abc_Frame_t * pAbc, int argc, char **argv );
+static int IoCommandReadVerilog ( Abc_Frame_t * pAbc, int argc, char **argv );
+static int IoCommandReadVer     ( Abc_Frame_t * pAbc, int argc, char **argv );
+static int IoCommandReadVerLib  ( Abc_Frame_t * pAbc, int argc, char **argv );
 
+static int IoCommandWrite       ( Abc_Frame_t * pAbc, int argc, char **argv );
+static int IoCommandWriteAiger  ( Abc_Frame_t * pAbc, int argc, char **argv );
 static int IoCommandWriteBaf    ( Abc_Frame_t * pAbc, int argc, char **argv );
 static int IoCommandWriteBlif   ( Abc_Frame_t * pAbc, int argc, char **argv );
 static int IoCommandWriteBench  ( Abc_Frame_t * pAbc, int argc, char **argv );
+static int IoCommandWriteCellNet( Abc_Frame_t * pAbc, int argc, char **argv );
 static int IoCommandWriteCnf    ( Abc_Frame_t * pAbc, int argc, char **argv );
+static int IoCommandWriteCounter( Abc_Frame_t * pAbc, int argc, char **argv );
 static int IoCommandWriteDot    ( Abc_Frame_t * pAbc, int argc, char **argv );
 static int IoCommandWriteEqn    ( Abc_Frame_t * pAbc, int argc, char **argv );
 static int IoCommandWriteGml    ( Abc_Frame_t * pAbc, int argc, char **argv );
 static int IoCommandWriteList   ( Abc_Frame_t * pAbc, int argc, char **argv );
 static int IoCommandWritePla    ( Abc_Frame_t * pAbc, int argc, char **argv );
+static int IoCommandWriteVerilog( Abc_Frame_t * pAbc, int argc, char **argv );
+static int IoCommandWriteVerLib ( Abc_Frame_t * pAbc, int argc, char **argv );
+
+extern Abc_Lib_t * Ver_ParseFile( char * pFileName, Abc_Lib_t * pGateLib, int fCheck, int fUseMemMan );
 
 ////////////////////////////////////////////////////////////////////////
 ///                     FUNCTION DEFINITIONS                         ///
@@ -63,24 +74,33 @@ static int IoCommandWritePla    ( Abc_Frame_t * pAbc, int argc, char **argv );
 void Io_Init( Abc_Frame_t * pAbc )
 {
     Cmd_CommandAdd( pAbc, "I/O", "read",          IoCommandRead,         1 );
+    Cmd_CommandAdd( pAbc, "I/O", "read_aiger",    IoCommandReadAiger,    1 );
     Cmd_CommandAdd( pAbc, "I/O", "read_baf",      IoCommandReadBaf,      1 );
     Cmd_CommandAdd( pAbc, "I/O", "read_blif",     IoCommandReadBlif,     1 );
     Cmd_CommandAdd( pAbc, "I/O", "read_bench",    IoCommandReadBench,    1 );
-    Cmd_CommandAdd( pAbc, "I/O", "read_edif",     IoCommandReadEdif,     1 );
+//    Cmd_CommandAdd( pAbc, "I/O", "read_edif",     IoCommandReadEdif,     1 );
     Cmd_CommandAdd( pAbc, "I/O", "read_eqn",      IoCommandReadEqn,      1 );
-    Cmd_CommandAdd( pAbc, "I/O", "read_verilog",  IoCommandReadVerilog,  1 );
     Cmd_CommandAdd( pAbc, "I/O", "read_pla",      IoCommandReadPla,      1 );
     Cmd_CommandAdd( pAbc, "I/O", "read_truth",    IoCommandReadTruth,    1 );
+//    Cmd_CommandAdd( pAbc, "I/O", "read_verilog",  IoCommandReadVerilog,  1 );
+//    Cmd_CommandAdd( pAbc, "I/O", "read_ver",      IoCommandReadVer,      1 );
+//    Cmd_CommandAdd( pAbc, "I/O", "read_verlib",   IoCommandReadVerLib,   0 );
 
+    Cmd_CommandAdd( pAbc, "I/O", "write",         IoCommandWrite,        0 );
+    Cmd_CommandAdd( pAbc, "I/O", "write_aiger",   IoCommandWriteAiger,   0 );
     Cmd_CommandAdd( pAbc, "I/O", "write_baf",     IoCommandWriteBaf,     0 );
     Cmd_CommandAdd( pAbc, "I/O", "write_blif",    IoCommandWriteBlif,    0 );
     Cmd_CommandAdd( pAbc, "I/O", "write_bench",   IoCommandWriteBench,   0 );
+    Cmd_CommandAdd( pAbc, "I/O", "write_cellnet", IoCommandWriteCellNet, 0 );
+    Cmd_CommandAdd( pAbc, "I/O", "write_counter", IoCommandWriteCounter, 0 );
     Cmd_CommandAdd( pAbc, "I/O", "write_cnf",     IoCommandWriteCnf,     0 );
     Cmd_CommandAdd( pAbc, "I/O", "write_dot",     IoCommandWriteDot,     0 );
     Cmd_CommandAdd( pAbc, "I/O", "write_eqn",     IoCommandWriteEqn,     0 );
     Cmd_CommandAdd( pAbc, "I/O", "write_gml",     IoCommandWriteGml,     0 );
-    Cmd_CommandAdd( pAbc, "I/O", "write_list",    IoCommandWriteList,    0 );
+//    Cmd_CommandAdd( pAbc, "I/O", "write_list",    IoCommandWriteList,    0 );
     Cmd_CommandAdd( pAbc, "I/O", "write_pla",     IoCommandWritePla,     0 );
+//    Cmd_CommandAdd( pAbc, "I/O", "write_verilog", IoCommandWriteVerilog, 0 );
+//    Cmd_CommandAdd( pAbc, "I/O", "write_verlib",  IoCommandWriteVerLib,  0 );
 }
 
 /**Function*************************************************************
@@ -112,14 +132,13 @@ void Io_End()
 int IoCommandRead( Abc_Frame_t * pAbc, int argc, char ** argv )
 {
     Abc_Ntk_t * pNtk;
-    char * FileName;
-    FILE * pFile;
+    char * pFileName;
     int fCheck;
     int c;
 
     fCheck = 1;
-    util_getopt_reset();
-    while ( ( c = util_getopt( argc, argv, "ch" ) ) != EOF )
+    Extra_UtilGetoptReset();
+    while ( ( c = Extra_UtilGetopt( argc, argv, "ch" ) ) != EOF )
     {
         switch ( c )
         {
@@ -132,38 +151,76 @@ int IoCommandRead( Abc_Frame_t * pAbc, int argc, char ** argv )
                 goto usage;
         }
     }
-
-    if ( argc != util_optind + 1 )
-    {
+    if ( argc != globalUtilOptind + 1 )
         goto usage;
-    }
-
     // get the input file name
-    FileName = argv[util_optind];
-    if ( (pFile = fopen( FileName, "r" )) == NULL )
-    {
-        fprintf( pAbc->Err, "Cannot open input file \"%s\". ", FileName );
-        if ( FileName = Extra_FileGetSimilarName( FileName, ".mv", ".blif", ".pla", ".eqn", ".bench" ) )
-            fprintf( pAbc->Err, "Did you mean \"%s\"?", FileName );
-        fprintf( pAbc->Err, "\n" );
-        return 1;
-    }
-    fclose( pFile );
- 
-    // set the new network
-    pNtk = Io_Read( FileName, fCheck );
+    pFileName = argv[globalUtilOptind];
+    // read the file using the corresponding file reader
+    pNtk = Io_Read( pFileName, Io_ReadFileType(pFileName), fCheck );
     if ( pNtk == NULL )
-    {
-        fprintf( pAbc->Err, "Reading network from file has failed.\n" );
         return 1;
-    }
     // replace the current network
     Abc_FrameReplaceCurrentNetwork( pAbc, pNtk );
     return 0;
 
 usage:
     fprintf( pAbc->Err, "usage: read [-ch] <file>\n" );
-    fprintf( pAbc->Err, "\t         read the network from file in Verilog/BLIF/BENCH format\n" );
+    fprintf( pAbc->Err, "\t         replaces the current network by the network read from <file>\n" );
+    fprintf( pAbc->Err, "\t         by calling the parser that matches the extension of <file>\n" );
+    fprintf( pAbc->Err, "\t-c     : toggle network check after reading [default = %s]\n", fCheck? "yes":"no" );
+    fprintf( pAbc->Err, "\t-h     : prints the command summary\n" );
+    fprintf( pAbc->Err, "\tfile   : the name of a file to read\n" );
+    return 1;
+}
+
+/**Function*************************************************************
+
+  Synopsis    []
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+int IoCommandReadAiger( Abc_Frame_t * pAbc, int argc, char ** argv )
+{
+    Abc_Ntk_t * pNtk;
+    char * pFileName;
+    int fCheck;
+    int c;
+
+    fCheck = 1;
+    Extra_UtilGetoptReset();
+    while ( ( c = Extra_UtilGetopt( argc, argv, "ch" ) ) != EOF )
+    {
+        switch ( c )
+        {
+            case 'c':
+                fCheck ^= 1;
+                break;
+            case 'h':
+                goto usage;
+            default:
+                goto usage;
+        }
+    }
+    if ( argc != globalUtilOptind + 1 )
+        goto usage;
+    // get the input file name
+    pFileName = argv[globalUtilOptind];
+    // read the file using the corresponding file reader
+    pNtk = Io_Read( pFileName, IO_FILE_AIGER, fCheck );
+    if ( pNtk == NULL )
+        return 1;
+    // replace the current network
+    Abc_FrameReplaceCurrentNetwork( pAbc, pNtk );
+    return 0;
+
+usage:
+    fprintf( pAbc->Err, "usage: read_aiger [-ch] <file>\n" );
+    fprintf( pAbc->Err, "\t         read the network in the AIGER format (http://fmv.jku.at/aiger)\n" );
     fprintf( pAbc->Err, "\t-c     : toggle network check after reading [default = %s]\n", fCheck? "yes":"no" );
     fprintf( pAbc->Err, "\t-h     : prints the command summary\n" );
     fprintf( pAbc->Err, "\tfile   : the name of a file to read\n" );
@@ -184,14 +241,13 @@ usage:
 int IoCommandReadBaf( Abc_Frame_t * pAbc, int argc, char ** argv )
 {
     Abc_Ntk_t * pNtk;
-    char * FileName;
-    FILE * pFile;
+    char * pFileName;
     int fCheck;
     int c;
 
     fCheck = 1;
-    util_getopt_reset();
-    while ( ( c = util_getopt( argc, argv, "ch" ) ) != EOF )
+    Extra_UtilGetoptReset();
+    while ( ( c = Extra_UtilGetopt( argc, argv, "ch" ) ) != EOF )
     {
         switch ( c )
         {
@@ -204,32 +260,14 @@ int IoCommandReadBaf( Abc_Frame_t * pAbc, int argc, char ** argv )
                 goto usage;
         }
     }
-
-    if ( argc != util_optind + 1 )
-    {
+    if ( argc != globalUtilOptind + 1 )
         goto usage;
-    }
-
     // get the input file name
-    FileName = argv[util_optind];
-    if ( (pFile = fopen( FileName, "r" )) == NULL )
-    {
-        fprintf( pAbc->Err, "Cannot open input file \"%s\". ", FileName );
-        if ( FileName = Extra_FileGetSimilarName( FileName, ".mv", ".blif", ".pla", ".eqn", ".bench" ) )
-            fprintf( pAbc->Err, "Did you mean \"%s\"?", FileName );
-        fprintf( pAbc->Err, "\n" );
-        return 1;
-    }
-    fclose( pFile );
- 
-    // set the new network
-    pNtk = Io_ReadBaf( FileName, fCheck );
+    pFileName = argv[globalUtilOptind];
+    // read the file using the corresponding file reader
+    pNtk = Io_Read( pFileName, IO_FILE_BAF, fCheck );
     if ( pNtk == NULL )
-    {
-        fprintf( pAbc->Err, "Reading network from BAF file has failed.\n" );
         return 1;
-    }
-
     // replace the current network
     Abc_FrameReplaceCurrentNetwork( pAbc, pNtk );
     return 0;
@@ -256,18 +294,23 @@ usage:
 ***********************************************************************/
 int IoCommandReadBlif( Abc_Frame_t * pAbc, int argc, char ** argv )
 {
-    Abc_Ntk_t * pNtk, * pTemp;
-    char * FileName;
-    FILE * pFile;
+    Abc_Ntk_t * pNtk;
+    char * pFileName;
+    int fReadAsAig;
     int fCheck;
     int c;
+    extern Abc_Ntk_t * Io_ReadBlifAsAig( char * pFileName, int fCheck );
 
     fCheck = 1;
-    util_getopt_reset();
-    while ( ( c = util_getopt( argc, argv, "ch" ) ) != EOF )
+    fReadAsAig = 0;
+    Extra_UtilGetoptReset();
+    while ( ( c = Extra_UtilGetopt( argc, argv, "ach" ) ) != EOF )
     {
         switch ( c )
         {
+            case 'a':
+                fReadAsAig ^= 1;
+                break;
             case 'c':
                 fCheck ^= 1;
                 break;
@@ -277,47 +320,25 @@ int IoCommandReadBlif( Abc_Frame_t * pAbc, int argc, char ** argv )
                 goto usage;
         }
     }
-
-    if ( argc != util_optind + 1 )
-    {
+    if ( argc != globalUtilOptind + 1 )
         goto usage;
-    }
-
     // get the input file name
-    FileName = argv[util_optind];
-    if ( (pFile = fopen( FileName, "r" )) == NULL )
-    {
-        fprintf( pAbc->Err, "Cannot open input file \"%s\". ", FileName );
-        if ( FileName = Extra_FileGetSimilarName( FileName, ".mv", ".blif", ".pla", ".eqn", ".bench" ) )
-            fprintf( pAbc->Err, "Did you mean \"%s\"?", FileName );
-        fprintf( pAbc->Err, "\n" );
-        return 1;
-    }
-    fclose( pFile );
- 
-    // set the new network
-    pNtk = Io_ReadBlif( FileName, fCheck );
+    pFileName = argv[globalUtilOptind];
+    // read the file using the corresponding file reader
+    if ( fReadAsAig )
+        pNtk = Io_ReadBlifAsAig( pFileName, fCheck );
+    else
+        pNtk = Io_Read( pFileName, IO_FILE_BLIF, fCheck );
     if ( pNtk == NULL )
-    {
-        fprintf( pAbc->Err, "Reading network from BLIF file has failed.\n" );
         return 1;
-    }
-
-    pNtk = Abc_NtkNetlistToLogic( pTemp = pNtk );
-    Abc_NtkDelete( pTemp );
-    if ( pNtk == NULL )
-    {
-        fprintf( pAbc->Err, "Converting to logic network after reading has failed.\n" );
-        return 1;
-    }
-
     // replace the current network
     Abc_FrameReplaceCurrentNetwork( pAbc, pNtk );
     return 0;
 
 usage:
-    fprintf( pAbc->Err, "usage: read_blif [-ch] <file>\n" );
+    fprintf( pAbc->Err, "usage: read_blif [-ach] <file>\n" );
     fprintf( pAbc->Err, "\t         read the network in binary BLIF format\n" );
+    fprintf( pAbc->Err, "\t-a     : toggle creating AIG while reading the file [default = %s]\n", fReadAsAig? "yes":"no" );
     fprintf( pAbc->Err, "\t-c     : toggle network check after reading [default = %s]\n", fCheck? "yes":"no" );
     fprintf( pAbc->Err, "\t-h     : prints the command summary\n" );
     fprintf( pAbc->Err, "\tfile   : the name of a file to read\n" );
@@ -337,15 +358,14 @@ usage:
 ***********************************************************************/
 int IoCommandReadBench( Abc_Frame_t * pAbc, int argc, char ** argv )
 {
-    Abc_Ntk_t * pNtk, * pTemp;
-    char * FileName;
-    FILE * pFile;
+    Abc_Ntk_t * pNtk;
+    char * pFileName;
     int fCheck;
     int c;
 
     fCheck = 1;
-    util_getopt_reset();
-    while ( ( c = util_getopt( argc, argv, "ch" ) ) != EOF )
+    Extra_UtilGetoptReset();
+    while ( ( c = Extra_UtilGetopt( argc, argv, "ch" ) ) != EOF )
     {
         switch ( c )
         {
@@ -358,39 +378,14 @@ int IoCommandReadBench( Abc_Frame_t * pAbc, int argc, char ** argv )
                 goto usage;
         }
     }
-
-    if ( argc != util_optind + 1 )
-    {
+    if ( argc != globalUtilOptind + 1 )
         goto usage;
-    }
-
     // get the input file name
-    FileName = argv[util_optind];
-    if ( (pFile = fopen( FileName, "r" )) == NULL )
-    {
-        fprintf( pAbc->Err, "Cannot open input file \"%s\". ", FileName );
-        if ( FileName = Extra_FileGetSimilarName( FileName, ".mv", ".blif", ".pla", ".eqn", ".bench" ) )
-            fprintf( pAbc->Err, "Did you mean \"%s\"?", FileName );
-        fprintf( pAbc->Err, "\n" );
-        return 1;
-    }
-    fclose( pFile );
-
-    // set the new network
-    pNtk = Io_ReadBench( FileName, fCheck );
+    pFileName = argv[globalUtilOptind];
+    // read the file using the corresponding file reader
+    pNtk = Io_Read( pFileName, IO_FILE_BENCH, fCheck );
     if ( pNtk == NULL )
-    {
-        fprintf( pAbc->Err, "Reading network from BENCH file has failed.\n" );
         return 1;
-    }
-
-    pNtk = Abc_NtkNetlistToLogic( pTemp = pNtk );
-    Abc_NtkDelete( pTemp );
-    if ( pNtk == NULL )
-    {
-        fprintf( pAbc->Err, "Converting to logic network after reading has failed.\n" );
-        return 1;
-    }
     // replace the current network
     Abc_FrameReplaceCurrentNetwork( pAbc, pNtk );
     return 0;
@@ -417,15 +412,14 @@ usage:
 ***********************************************************************/
 int IoCommandReadEdif( Abc_Frame_t * pAbc, int argc, char ** argv )
 {
-    Abc_Ntk_t * pNtk, * pTemp;
-    char * FileName;
-    FILE * pFile;
+    Abc_Ntk_t * pNtk;
+    char * pFileName;
     int fCheck;
     int c;
 
     fCheck = 1;
-    util_getopt_reset();
-    while ( ( c = util_getopt( argc, argv, "ch" ) ) != EOF )
+    Extra_UtilGetoptReset();
+    while ( ( c = Extra_UtilGetopt( argc, argv, "ch" ) ) != EOF )
     {
         switch ( c )
         {
@@ -438,39 +432,14 @@ int IoCommandReadEdif( Abc_Frame_t * pAbc, int argc, char ** argv )
                 goto usage;
         }
     }
-
-    if ( argc != util_optind + 1 )
-    {
+    if ( argc != globalUtilOptind + 1 )
         goto usage;
-    }
-
     // get the input file name
-    FileName = argv[util_optind];
-    if ( (pFile = fopen( FileName, "r" )) == NULL )
-    {
-        fprintf( pAbc->Err, "Cannot open input file \"%s\". ", FileName );
-        if ( FileName = Extra_FileGetSimilarName( FileName, ".mv", ".blif", ".pla", ".eqn", ".bench" ) )
-            fprintf( pAbc->Err, "Did you mean \"%s\"?", FileName );
-        fprintf( pAbc->Err, "\n" );
-        return 1;
-    }
-    fclose( pFile );
-
-    // set the new network
-    pNtk = Io_ReadEdif( FileName, fCheck );
+    pFileName = argv[globalUtilOptind];
+    // read the file using the corresponding file reader
+    pNtk = Io_Read( pFileName, IO_FILE_EDIF, fCheck );
     if ( pNtk == NULL )
-    {
-        fprintf( pAbc->Err, "Reading network from EDIF file has failed.\n" );
         return 1;
-    }
-
-    pNtk = Abc_NtkNetlistToLogic( pTemp = pNtk );
-    Abc_NtkDelete( pTemp );
-    if ( pNtk == NULL )
-    {
-        fprintf( pAbc->Err, "Converting to logic network after reading has failed.\n" );
-        return 1;
-    }
     // replace the current network
     Abc_FrameReplaceCurrentNetwork( pAbc, pNtk );
     return 0;
@@ -497,15 +466,14 @@ usage:
 ***********************************************************************/
 int IoCommandReadEqn( Abc_Frame_t * pAbc, int argc, char ** argv )
 {
-    Abc_Ntk_t * pNtk, * pTemp;
-    char * FileName;
-    FILE * pFile;
+    Abc_Ntk_t * pNtk;
+    char * pFileName;
     int fCheck;
     int c;
 
     fCheck = 1;
-    util_getopt_reset();
-    while ( ( c = util_getopt( argc, argv, "ch" ) ) != EOF )
+    Extra_UtilGetoptReset();
+    while ( ( c = Extra_UtilGetopt( argc, argv, "ch" ) ) != EOF )
     {
         switch ( c )
         {
@@ -518,39 +486,14 @@ int IoCommandReadEqn( Abc_Frame_t * pAbc, int argc, char ** argv )
                 goto usage;
         }
     }
-
-    if ( argc != util_optind + 1 )
-    {
+    if ( argc != globalUtilOptind + 1 )
         goto usage;
-    }
-
     // get the input file name
-    FileName = argv[util_optind];
-    if ( (pFile = fopen( FileName, "r" )) == NULL )
-    {
-        fprintf( pAbc->Err, "Cannot open input file \"%s\". ", FileName );
-        if ( FileName = Extra_FileGetSimilarName( FileName, ".mv", ".blif", ".pla", ".eqn", ".bench" ) )
-            fprintf( pAbc->Err, "Did you mean \"%s\"?", FileName );
-        fprintf( pAbc->Err, "\n" );
-        return 1;
-    }
-    fclose( pFile );
-
-    // set the new network
-    pNtk = Io_ReadEqn( FileName, fCheck );
+    pFileName = argv[globalUtilOptind];
+    // read the file using the corresponding file reader
+    pNtk = Io_Read( pFileName, IO_FILE_EQN, fCheck );
     if ( pNtk == NULL )
-    {
-        fprintf( pAbc->Err, "Reading network from the equation file has failed.\n" );
         return 1;
-    }
-
-    pNtk = Abc_NtkNetlistToLogic( pTemp = pNtk );
-    Abc_NtkDelete( pTemp );
-    if ( pNtk == NULL )
-    {
-        fprintf( pAbc->Err, "Converting to logic network after reading has failed.\n" );
-        return 1;
-    }
     // replace the current network
     Abc_FrameReplaceCurrentNetwork( pAbc, pNtk );
     return 0;
@@ -575,97 +518,16 @@ usage:
   SeeAlso     []
 
 ***********************************************************************/
-int IoCommandReadVerilog( Abc_Frame_t * pAbc, int argc, char ** argv )
-{
-    Abc_Ntk_t * pNtk, * pTemp;
-    char * FileName;
-    FILE * pFile;
-    int fCheck;
-    int c;
-
-    fCheck = 1;
-    util_getopt_reset();
-    while ( ( c = util_getopt( argc, argv, "ch" ) ) != EOF )
-    {
-        switch ( c )
-        {
-            case 'c':
-                fCheck ^= 1;
-                break;
-            case 'h':
-                goto usage;
-            default:
-                goto usage;
-        }
-    }
-
-    if ( argc != util_optind + 1 )
-    {
-        goto usage;
-    }
-
-    // get the input file name
-    FileName = argv[util_optind];
-    if ( (pFile = fopen( FileName, "r" )) == NULL )
-    {
-        fprintf( pAbc->Err, "Cannot open input file \"%s\". ", FileName );
-        if ( FileName = Extra_FileGetSimilarName( FileName, ".mv", ".blif", ".pla", ".eqn", ".bench" ) )
-            fprintf( pAbc->Err, "Did you mean \"%s\"?", FileName );
-        fprintf( pAbc->Err, "\n" );
-        return 1;
-    }
-    fclose( pFile );
-
-    // set the new network
-    pNtk = Io_ReadVerilog( FileName, fCheck );
-    if ( pNtk == NULL )
-    {
-        fprintf( pAbc->Err, "Reading network from the verilog file has failed.\n" );
-        return 1;
-    }
-
-    pNtk = Abc_NtkNetlistToLogic( pTemp = pNtk );
-    Abc_NtkDelete( pTemp );
-    if ( pNtk == NULL )
-    {
-        fprintf( pAbc->Err, "Converting to logic network after reading has failed.\n" );
-        return 1;
-    }
-    // replace the current network
-    Abc_FrameReplaceCurrentNetwork( pAbc, pNtk );
-    return 0;
-
-usage:
-    fprintf( pAbc->Err, "usage: read_verilog [-ch] <file>\n" );
-    fprintf( pAbc->Err, "\t         read the network in Verilog (IWLS 2005 subset)\n" );
-    fprintf( pAbc->Err, "\t-c     : toggle network check after reading [default = %s]\n", fCheck? "yes":"no" );
-    fprintf( pAbc->Err, "\t-h     : prints the command summary\n" );
-    fprintf( pAbc->Err, "\tfile   : the name of a file to read\n" );
-    return 1;
-}
-
-/**Function*************************************************************
-
-  Synopsis    []
-
-  Description []
-               
-  SideEffects []
-
-  SeeAlso     []
-
-***********************************************************************/
 int IoCommandReadPla( Abc_Frame_t * pAbc, int argc, char ** argv )
 {
-    Abc_Ntk_t * pNtk, * pTemp;
-    char * FileName;
-    FILE * pFile;
+    Abc_Ntk_t * pNtk;
+    char * pFileName;
     int fCheck;
     int c;
 
     fCheck = 1;
-    util_getopt_reset();
-    while ( ( c = util_getopt( argc, argv, "ch" ) ) != EOF )
+    Extra_UtilGetoptReset();
+    while ( ( c = Extra_UtilGetopt( argc, argv, "ch" ) ) != EOF )
     {
         switch ( c )
         {
@@ -678,39 +540,14 @@ int IoCommandReadPla( Abc_Frame_t * pAbc, int argc, char ** argv )
                 goto usage;
         }
     }
-
-    if ( argc != util_optind + 1 )
-    {
+    if ( argc != globalUtilOptind + 1 )
         goto usage;
-    }
-
     // get the input file name
-    FileName = argv[util_optind];
-    if ( (pFile = fopen( FileName, "r" )) == NULL )
-    {
-        fprintf( pAbc->Err, "Cannot open input file \"%s\". ", FileName );
-        if ( FileName = Extra_FileGetSimilarName( FileName, ".mv", ".blif", ".pla", ".eqn", ".bench" ) )
-            fprintf( pAbc->Err, "Did you mean \"%s\"?", FileName );
-        fprintf( pAbc->Err, "\n" );
-        return 1;
-    }
-    fclose( pFile );
-
-    // set the new network
-    pNtk = Io_ReadPla( FileName, fCheck );
+    pFileName = argv[globalUtilOptind];
+    // read the file using the corresponding file reader
+    pNtk = Io_Read( pFileName, IO_FILE_PLA, fCheck );
     if ( pNtk == NULL )
-    {
-        fprintf( pAbc->Err, "Reading network from PLA file has failed.\n" );
         return 1;
-    }
-
-    pNtk = Abc_NtkNetlistToLogic( pTemp = pNtk );
-    Abc_NtkDelete( pTemp );
-    if ( pNtk == NULL )
-    {
-        fprintf( pAbc->Err, "Converting to logic network after reading has failed.\n" );
-        return 1;
-    }
     // replace the current network
     Abc_FrameReplaceCurrentNetwork( pAbc, pNtk );
     return 0;
@@ -743,8 +580,8 @@ int IoCommandReadTruth( Abc_Frame_t * pAbc, int argc, char ** argv )
     int c;
 
     fHex = 0;
-    util_getopt_reset();
-    while ( ( c = util_getopt( argc, argv, "xh" ) ) != EOF )
+    Extra_UtilGetoptReset();
+    while ( ( c = Extra_UtilGetopt( argc, argv, "xh" ) ) != EOF )
     {
         switch ( c )
         {
@@ -758,16 +595,16 @@ int IoCommandReadTruth( Abc_Frame_t * pAbc, int argc, char ** argv )
         }
     }
 
-    if ( argc != util_optind + 1 )
+    if ( argc != globalUtilOptind + 1 )
     {
         goto usage;
     }
 
     // convert truth table to SOP
     if ( fHex )
-        pSopCover = Abc_SopFromTruthHex(argv[util_optind]);
+        pSopCover = Abc_SopFromTruthHex(argv[globalUtilOptind]);
     else
-        pSopCover = Abc_SopFromTruthBin(argv[util_optind]);
+        pSopCover = Abc_SopFromTruthBin(argv[globalUtilOptind]);
     if ( pSopCover == NULL )
     {
         fprintf( pAbc->Err, "Reading truth table has failed.\n" );
@@ -794,6 +631,318 @@ usage:
     return 1;
 }
 
+/**Function*************************************************************
+
+  Synopsis    []
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+int IoCommandReadVerilog( Abc_Frame_t * pAbc, int argc, char ** argv )
+{
+    Abc_Ntk_t * pNtk;
+    char * pFileName;
+    int fCheck;
+    int c;
+
+    printf( "Stand-alone structural Verilog reader is now available as command \"read_ver\".\n" );
+    return 0;
+
+    fCheck = 1;
+    Extra_UtilGetoptReset();
+    while ( ( c = Extra_UtilGetopt( argc, argv, "ch" ) ) != EOF )
+    {
+        switch ( c )
+        {
+            case 'c':
+                fCheck ^= 1;
+                break;
+            case 'h':
+                goto usage;
+            default:
+                goto usage;
+        }
+    }
+    if ( argc != globalUtilOptind + 1 )
+        goto usage;
+    // get the input file name
+    pFileName = argv[globalUtilOptind];
+    // read the file using the corresponding file reader
+    pNtk = Io_Read( pFileName, IO_FILE_VERILOG, fCheck );
+    if ( pNtk == NULL )
+        return 1;
+    // replace the current network
+    Abc_FrameReplaceCurrentNetwork( pAbc, pNtk );
+    return 0;
+
+usage:
+    fprintf( pAbc->Err, "usage: read_verilog [-ch] <file>\n" );
+    fprintf( pAbc->Err, "\t         read the network in Verilog (IWLS 2005 subset)\n" );
+    fprintf( pAbc->Err, "\t-c     : toggle network check after reading [default = %s]\n", fCheck? "yes":"no" );
+    fprintf( pAbc->Err, "\t-h     : prints the command summary\n" );
+    fprintf( pAbc->Err, "\tfile   : the name of a file to read\n" );
+    return 1;
+}
+
+/**Function*************************************************************
+
+  Synopsis    []
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+int IoCommandReadVer( Abc_Frame_t * pAbc, int argc, char ** argv )
+{
+    Abc_Ntk_t * pNtk, * pNtkNew;
+    Abc_Lib_t * pDesign;
+    char * pFileName;
+    FILE * pFile;
+    int fCheck;
+    int c;
+    extern Abc_Ntk_t * Abc_LibDeriveAig( Abc_Ntk_t * pNtk, Abc_Lib_t * pLib );
+
+    fCheck = 1;
+    Extra_UtilGetoptReset();
+    while ( ( c = Extra_UtilGetopt( argc, argv, "ch" ) ) != EOF )
+    {
+        switch ( c )
+        {
+            case 'c':
+                fCheck ^= 1;
+                break;
+            case 'h':
+                goto usage;
+            default:
+                goto usage;
+        }
+    }
+
+    if ( argc != globalUtilOptind + 1 )
+    {
+        goto usage;
+    }
+
+    // get the input file name
+    pFileName = argv[globalUtilOptind];
+    if ( (pFile = fopen( pFileName, "r" )) == NULL )
+    {
+        fprintf( pAbc->Err, "Cannot open input file \"%s\". ", pFileName );
+        if ( pFileName = Extra_FileGetSimilarName( pFileName, ".blif", ".bench", ".pla", ".baf", ".aig" ) )
+            fprintf( pAbc->Err, "Did you mean \"%s\"?", pFileName );
+        fprintf( pAbc->Err, "\n" );
+        return 1;
+    }
+    fclose( pFile );
+
+    // set the new network
+    pDesign = Ver_ParseFile( pFileName, Abc_FrameReadLibVer(), fCheck, 1 );
+    if ( pDesign == NULL )
+    {
+        fprintf( pAbc->Err, "Reading network from the verilog file has failed.\n" );
+        return 1;
+    }
+
+    // derive root design
+    pNtk = Abc_LibDeriveRoot( pDesign );
+    Abc_LibFree( pDesign );
+    if ( pNtk == NULL )
+    {
+        fprintf( pAbc->Err, "Deriving root module has failed.\n" );
+        return 1;
+    }
+
+    // derive the AIG network from this design
+    pNtkNew = Abc_LibDeriveAig( pNtk, Abc_FrameReadLibVer() );
+    Abc_NtkDelete( pNtk );
+    if ( pNtkNew == NULL )
+    {
+        fprintf( pAbc->Err, "Converting root module to AIG has failed.\n" );
+        return 1;
+    }
+    // replace the current network
+    Abc_FrameReplaceCurrentNetwork( pAbc, pNtkNew );
+    return 0;
+
+usage:
+    fprintf( pAbc->Err, "usage: read_ver [-ch] <file>\n" );
+    fprintf( pAbc->Err, "\t         read a network in structural verilog (using current library)\n" );
+    fprintf( pAbc->Err, "\t-c     : toggle network check after reading [default = %s]\n", fCheck? "yes":"no" );
+    fprintf( pAbc->Err, "\t-h     : prints the command summary\n" );
+    fprintf( pAbc->Err, "\tfile   : the name of a file to read\n" );
+    return 1;
+}
+
+/**Function*************************************************************
+
+  Synopsis    []
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+int IoCommandReadVerLib( Abc_Frame_t * pAbc, int argc, char ** argv )
+{
+    Abc_Lib_t * pLibrary;
+    char * pFileName;
+    FILE * pFile;
+    int fCheck;
+    int c;
+
+    fCheck = 1;
+    Extra_UtilGetoptReset();
+    while ( ( c = Extra_UtilGetopt( argc, argv, "ch" ) ) != EOF )
+    {
+        switch ( c )
+        {
+            case 'c':
+                fCheck ^= 1;
+                break;
+            case 'h':
+                goto usage;
+            default:
+                goto usage;
+        }
+    }
+
+    if ( argc != globalUtilOptind + 1 )
+    {
+        goto usage;
+    }
+
+    // get the input file name
+    pFileName = argv[globalUtilOptind];
+    if ( (pFile = fopen( pFileName, "r" )) == NULL )
+    {
+        fprintf( pAbc->Err, "Cannot open input file \"%s\". ", pFileName );
+        if ( pFileName = Extra_FileGetSimilarName( pFileName, ".blif", ".bench", ".pla", ".baf", ".aig" ) )
+            fprintf( pAbc->Err, "Did you mean \"%s\"?", pFileName );
+        fprintf( pAbc->Err, "\n" );
+        return 1;
+    }
+    fclose( pFile );
+
+    // set the new network
+    pLibrary = Ver_ParseFile( pFileName, NULL, fCheck, 0 );
+    if ( pLibrary == NULL )
+    {
+        fprintf( pAbc->Err, "Reading library from the verilog file has failed.\n" );
+        return 1;
+    }
+    printf( "The library contains %d gates.\n", st_count(pLibrary->tModules) );
+    // free old library
+    if ( Abc_FrameReadLibVer() )
+        Abc_LibFree( Abc_FrameReadLibVer() );
+    // read new library
+    Abc_FrameSetLibVer( pLibrary );
+    return 0;
+
+usage:
+    fprintf( pAbc->Err, "usage: read_verlib [-ch] <file>\n" );
+    fprintf( pAbc->Err, "\t         read a gate library in structural verilog\n" );
+    fprintf( pAbc->Err, "\t-c     : toggle network check after reading [default = %s]\n", fCheck? "yes":"no" );
+    fprintf( pAbc->Err, "\t-h     : prints the command summary\n" );
+    fprintf( pAbc->Err, "\tfile   : the name of a file to read\n" );
+    return 1;
+}
+
+
+/**Function*************************************************************
+
+  Synopsis    []
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+int IoCommandWrite( Abc_Frame_t * pAbc, int argc, char **argv )
+{
+    char * pFileName;
+    int c;
+
+    Extra_UtilGetoptReset();
+    while ( ( c = Extra_UtilGetopt( argc, argv, "h" ) ) != EOF )
+    {
+        switch ( c )
+        {
+            case 'h':
+                goto usage;
+            default:
+                goto usage;
+        }
+    }
+    if ( argc != globalUtilOptind + 1 )
+        goto usage;
+    // get the output file name
+    pFileName = argv[globalUtilOptind];
+    // call the corresponding file writer
+    Io_Write( pAbc->pNtkCur, pFileName, Io_ReadFileType(pFileName) );
+    return 0;
+
+usage:
+    fprintf( pAbc->Err, "usage: write [-h] <file>\n" );
+    fprintf( pAbc->Err, "\t         writes the current network into <file> by calling\n" );
+    fprintf( pAbc->Err, "\t         the writer that matches the extension of <file>\n" );
+    fprintf( pAbc->Err, "\t-h     : print the help massage\n" );
+    fprintf( pAbc->Err, "\tfile   : the name of the file to write\n" );
+    return 1;
+}
+
+/**Function*************************************************************
+
+  Synopsis    []
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+int IoCommandWriteAiger( Abc_Frame_t * pAbc, int argc, char **argv )
+{
+    char * pFileName;
+    int c;
+
+    Extra_UtilGetoptReset();
+    while ( ( c = Extra_UtilGetopt( argc, argv, "h" ) ) != EOF )
+    {
+        switch ( c )
+        {
+            case 'h':
+                goto usage;
+            default:
+                goto usage;
+        }
+    }
+    if ( argc != globalUtilOptind + 1 )
+        goto usage;
+    // get the output file name
+    pFileName = argv[globalUtilOptind];
+    // call the corresponding file writer
+    Io_Write( pAbc->pNtkCur, pFileName, IO_FILE_AIGER );
+    return 0;
+
+usage:
+    fprintf( pAbc->Err, "usage: write_aiger [-h] <file>\n" );
+    fprintf( pAbc->Err, "\t         write the network in the AIGER format (http://fmv.jku.at/aiger)\n" );
+    fprintf( pAbc->Err, "\t-h     : print the help massage\n" );
+    fprintf( pAbc->Err, "\tfile   : the name of the file to write (extension .aig)\n" );
+    return 1;
+}
 
 /**Function*************************************************************
 
@@ -808,12 +957,11 @@ usage:
 ***********************************************************************/
 int IoCommandWriteBaf( Abc_Frame_t * pAbc, int argc, char **argv )
 {
-    Abc_Ntk_t * pNtk;
-    char * FileName;
+    char * pFileName;
     int c;
 
-    util_getopt_reset();
-    while ( ( c = util_getopt( argc, argv, "lh" ) ) != EOF )
+    Extra_UtilGetoptReset();
+    while ( ( c = Extra_UtilGetopt( argc, argv, "h" ) ) != EOF )
     {
         switch ( c )
         {
@@ -823,34 +971,19 @@ int IoCommandWriteBaf( Abc_Frame_t * pAbc, int argc, char **argv )
                 goto usage;
         }
     }
-
-    pNtk = pAbc->pNtkCur;
-    if ( pNtk == NULL )
-    {
-        fprintf( pAbc->Out, "Empty network.\n" );
-        return 0;
-    }
-
-    if ( argc != util_optind + 1 )
-    {
+    if ( argc != globalUtilOptind + 1 )
         goto usage;
-    }
-    FileName = argv[util_optind];
-
-    // check the network type
-    if ( !Abc_NtkIsStrash(pNtk) )
-    {
-        fprintf( pAbc->Out, "Currently can only write strashed combinational AIGs.\n" );
-        return 0;
-    }
-    Io_WriteBaf( pNtk, FileName );
+    // get the output file name
+    pFileName = argv[globalUtilOptind];
+    // call the corresponding file writer
+    Io_Write( pAbc->pNtkCur, pFileName, IO_FILE_BAF );
     return 0;
 
 usage:
-    fprintf( pAbc->Err, "usage: write_baf [-lh] <file>\n" );
+    fprintf( pAbc->Err, "usage: write_baf [-h] <file>\n" );
     fprintf( pAbc->Err, "\t         write the network into a BLIF file\n" );
     fprintf( pAbc->Err, "\t-h     : print the help massage\n" );
-    fprintf( pAbc->Err, "\tfile   : the name of the file to write\n" );
+    fprintf( pAbc->Err, "\tfile   : the name of the file to write (extension .baf)\n" );
     return 1;
 }
 
@@ -867,56 +1000,33 @@ usage:
 ***********************************************************************/
 int IoCommandWriteBlif( Abc_Frame_t * pAbc, int argc, char **argv )
 {
-    Abc_Ntk_t * pNtk;
-    char * FileName;
-    int fWriteLatches;
+    char * pFileName;
     int c;
 
-    fWriteLatches = 1;
-    util_getopt_reset();
-    while ( ( c = util_getopt( argc, argv, "lh" ) ) != EOF )
+    Extra_UtilGetoptReset();
+    while ( ( c = Extra_UtilGetopt( argc, argv, "h" ) ) != EOF )
     {
         switch ( c )
         {
-            case 'l':
-                fWriteLatches ^= 1;
-                break;
             case 'h':
                 goto usage;
             default:
                 goto usage;
         }
     }
-
-    pNtk = pAbc->pNtkCur;
-    if ( pNtk == NULL )
-    {
-        fprintf( pAbc->Out, "Empty network.\n" );
-        return 0;
-    }
-
-    if ( argc != util_optind + 1 )
-    {
+    if ( argc != globalUtilOptind + 1 )
         goto usage;
-    }
-    FileName = argv[util_optind];
-
-    // check the network type
-    if ( !Abc_NtkIsLogic(pNtk) && !Abc_NtkIsStrash(pNtk) && !Abc_NtkIsSeq(pNtk) )
-    {
-        fprintf( pAbc->Out, "Currently can only write logic networks, AIGs, and seq AIGs.\n" );
-        return 0;
-    }
-    Io_WriteBlifLogic( pNtk, FileName, fWriteLatches );
-//    Io_WriteBlif( pNtk, FileName, fWriteLatches );
+    // get the output file name
+    pFileName = argv[globalUtilOptind];
+    // call the corresponding file writer
+    Io_Write( pAbc->pNtkCur, pFileName, IO_FILE_BLIF );
     return 0;
 
 usage:
     fprintf( pAbc->Err, "usage: write_blif [-lh] <file>\n" );
     fprintf( pAbc->Err, "\t         write the network into a BLIF file\n" );
-    fprintf( pAbc->Err, "\t-l     : toggle writing latches [default = %s]\n", fWriteLatches? "yes":"no" );
     fprintf( pAbc->Err, "\t-h     : print the help massage\n" );
-    fprintf( pAbc->Err, "\tfile   : the name of the file to write\n" );
+    fprintf( pAbc->Err, "\tfile   : the name of the file to write (extension .blif)\n" );
     return 1;
 }
 
@@ -933,62 +1043,87 @@ usage:
 ***********************************************************************/
 int IoCommandWriteBench( Abc_Frame_t * pAbc, int argc, char **argv )
 {
-    Abc_Ntk_t * pNtk, * pNtkTemp;
-    char * FileName;
-    int fWriteLatches;
+    char * pFileName;
     int c;
 
-    fWriteLatches = 1;
-    util_getopt_reset();
-    while ( ( c = util_getopt( argc, argv, "lh" ) ) != EOF )
+    Extra_UtilGetoptReset();
+    while ( ( c = Extra_UtilGetopt( argc, argv, "lh" ) ) != EOF )
     {
         switch ( c )
         {
-            case 'l':
-                fWriteLatches ^= 1;
-                break;
             case 'h':
                 goto usage;
             default:
                 goto usage;
         }
     }
+    if ( argc != globalUtilOptind + 1 )
+        goto usage;
+    // get the output file name
+    pFileName = argv[globalUtilOptind];
+    // call the corresponding file writer
+    Io_Write( pAbc->pNtkCur, pFileName, IO_FILE_BENCH );
+    return 0;
 
+usage:
+    fprintf( pAbc->Err, "usage: write_bench [-h] <file>\n" );
+    fprintf( pAbc->Err, "\t         write the network in BENCH format\n" );
+    fprintf( pAbc->Err, "\t-h     : print the help massage\n" );
+    fprintf( pAbc->Err, "\tfile   : the name of the file to write (extension .bench)\n" );
+    return 1;
+}
+
+/**Function*************************************************************
+
+  Synopsis    []
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+int IoCommandWriteCellNet( Abc_Frame_t * pAbc, int argc, char **argv )
+{
+    Abc_Ntk_t * pNtk;
+    char * pFileName;
+    int c;
+    extern void Io_WriteCellNet( Abc_Ntk_t * pNtk, char * pFileName );
+
+    Extra_UtilGetoptReset();
+    while ( ( c = Extra_UtilGetopt( argc, argv, "h" ) ) != EOF )
+    {
+        switch ( c )
+        {
+            case 'h':
+                goto usage;
+            default:
+                goto usage;
+        }
+    }
+    if ( argc != globalUtilOptind + 1 )
+        goto usage;
     pNtk = pAbc->pNtkCur;
     if ( pNtk == NULL )
     {
         fprintf( pAbc->Out, "Empty network.\n" );
         return 0;
     }
-
-    if ( argc != util_optind + 1 )
+    // get the output file name
+    pFileName = argv[globalUtilOptind];
+    // call the corresponding file writer
+    if ( !Abc_NtkIsLogic(pNtk) )
     {
-        goto usage;
-    }
-    // get the input file name
-    FileName = argv[util_optind];
-
-    if ( !Abc_NtkIsStrash(pNtk) )
-    {
-        fprintf( pAbc->Out, "The network should be an AIG.\n" );
+        fprintf( pAbc->Out, "The network should be a logic network (if it an AIG, use command \"logic\")\n" );
         return 0;
     }
-
-    // derive the netlist
-    pNtkTemp = Abc_NtkLogicToNetlistBench(pNtk);
-    if ( pNtkTemp == NULL )
-    {
-        fprintf( pAbc->Out, "Writing BENCH has failed.\n" );
-        return 0;
-    }
-    Io_WriteBench( pNtkTemp, FileName );
-    Abc_NtkDelete( pNtkTemp );
+    Io_WriteCellNet( pNtk, pFileName );
     return 0;
 
 usage:
-    fprintf( pAbc->Err, "usage: write_bench [-h] <file>\n" );
-    fprintf( pAbc->Err, "\t         write the network in BENCH format\n" );
-//    fprintf( pAbc->Err, "\t-l     : toggle writing latches [default = %s]\n", fWriteLatches? "yes":"no" );
+    fprintf( pAbc->Err, "usage: write_cellnet [-h] <file>\n" );
+    fprintf( pAbc->Err, "\t         write the network is the cellnet format\n" );
     fprintf( pAbc->Err, "\t-h     : print the help massage\n" );
     fprintf( pAbc->Err, "\tfile   : the name of the file to write\n" );
     return 1;
@@ -1007,11 +1142,11 @@ usage:
 ***********************************************************************/
 int IoCommandWriteCnf( Abc_Frame_t * pAbc, int argc, char **argv )
 {
-    char * FileName;
+    char * pFileName;
     int c;
 
-    util_getopt_reset();
-    while ( ( c = util_getopt( argc, argv, "h" ) ) != EOF )
+    Extra_UtilGetoptReset();
+    while ( ( c = Extra_UtilGetopt( argc, argv, "h" ) ) != EOF )
     {
         switch ( c )
         {
@@ -1021,26 +1156,12 @@ int IoCommandWriteCnf( Abc_Frame_t * pAbc, int argc, char **argv )
                 goto usage;
         }
     }
-
-    if ( pAbc->pNtkCur == NULL )
-    {
-        fprintf( pAbc->Out, "Empty network.\n" );
-        return 0;
-    }
-
-    if ( argc != util_optind + 1 )
-    {
+    if ( argc != globalUtilOptind + 1 )
         goto usage;
-    }
-
-    // get the input file name
-    FileName = argv[util_optind];
-    // write the file
-    if ( !Io_WriteCnf( pAbc->pNtkCur, FileName ) )
-    {
-        printf( "Writing CNF has failed.\n" );
-        return 1;
-    }
+    // get the output file name
+    pFileName = argv[globalUtilOptind];
+    // call the corresponding file writer
+    Io_Write( pAbc->pNtkCur, pFileName, IO_FILE_CNF );
     return 0;
 
 usage:
@@ -1064,12 +1185,11 @@ usage:
 ***********************************************************************/
 int IoCommandWriteDot( Abc_Frame_t * pAbc, int argc, char **argv )
 {
-    char * FileName;
-    Vec_Ptr_t * vNodes;
+    char * pFileName;
     int c;
 
-    util_getopt_reset();
-    while ( ( c = util_getopt( argc, argv, "h" ) ) != EOF )
+    Extra_UtilGetoptReset();
+    while ( ( c = Extra_UtilGetopt( argc, argv, "h" ) ) != EOF )
     {
         switch ( c )
         {
@@ -1079,35 +1199,17 @@ int IoCommandWriteDot( Abc_Frame_t * pAbc, int argc, char **argv )
                 goto usage;
         }
     }
-
-    if ( pAbc->pNtkCur == NULL )
-    {
-        fprintf( pAbc->Out, "Empty network.\n" );
-        return 0;
-    }
-
-    if ( !Abc_NtkHasAig(pAbc->pNtkCur) )
-    {
-        fprintf( stdout, "IoCommandWriteDot(): Currently can only process AIGs.\n" );
-        return 0;
-    }
-
-    if ( argc != util_optind + 1 )
-    {
+    if ( argc != globalUtilOptind + 1 )
         goto usage;
-    }
-
-    // get the input file name
-    FileName = argv[util_optind];
-    // write the file
-    vNodes = Abc_NtkCollectObjects( pAbc->pNtkCur );
-    Io_WriteDotAig( pAbc->pNtkCur, vNodes, NULL, FileName, 0 );
-    Vec_PtrFree( vNodes );
+    // get the output file name
+    pFileName = argv[globalUtilOptind];
+    // call the corresponding file writer
+    Io_Write( pAbc->pNtkCur, pFileName, IO_FILE_DOT );
     return 0;
 
 usage:
     fprintf( pAbc->Err, "usage: write_dot [-h] <file>\n" );
-    fprintf( pAbc->Err, "\t         write the AIG into a DOT file\n" );
+    fprintf( pAbc->Err, "\t         write the current network into a DOT file\n" );
     fprintf( pAbc->Err, "\t-h     : print the help massage\n" );
     fprintf( pAbc->Err, "\tfile   : the name of the file to write\n" );
     return 1;
@@ -1124,17 +1226,22 @@ usage:
   SeeAlso     []
 
 ***********************************************************************/
-int IoCommandWriteEqn( Abc_Frame_t * pAbc, int argc, char **argv )
+int IoCommandWriteCounter( Abc_Frame_t * pAbc, int argc, char **argv )
 {
-    Abc_Ntk_t * pNtk, * pNtkTemp;
-    char * FileName;
+    Abc_Ntk_t * pNtk;
+    char * pFileName;
     int c;
+    int fNames;
 
-    util_getopt_reset();
-    while ( ( c = util_getopt( argc, argv, "h" ) ) != EOF )
+    fNames = 0;
+    Extra_UtilGetoptReset();
+    while ( ( c = Extra_UtilGetopt( argc, argv, "nh" ) ) != EOF )
     {
         switch ( c )
         {
+            case 'n':
+                fNames ^= 1;
+                break;
             case 'h':
                 goto usage;
             default:
@@ -1149,32 +1256,89 @@ int IoCommandWriteEqn( Abc_Frame_t * pAbc, int argc, char **argv )
         return 0;
     }
 
-    if ( argc != util_optind + 1 )
+    if ( argc != globalUtilOptind + 1 )
     {
         goto usage;
     }
-
-    if ( !Abc_NtkIsLogic(pNtk) && !Abc_NtkIsStrash(pNtk) )
-    {
-        fprintf( stdout, "IoCommandWriteGml(): Currently can only process logic networks with BDDs.\n" );
-        return 0;
-    }
-
     // get the input file name
-    FileName = argv[util_optind];
-    // write the file
-    // get rid of complemented covers if present
-    if ( Abc_NtkIsSopLogic(pNtk) )
-        Abc_NtkLogicMakeDirectSops(pNtk);
-    // derive the netlist
-    pNtkTemp = Abc_NtkLogicToNetlist(pNtk);
-    if ( pNtkTemp == NULL )
+    pFileName = argv[globalUtilOptind];
+
+    if ( pNtk->pModel == NULL )
     {
-        fprintf( pAbc->Out, "Writing BENCH has failed.\n" );
+        fprintf( pAbc->Out, "Counter-example is not available.\n" );
         return 0;
     }
-    Io_WriteEqn( pNtkTemp, FileName );
-    Abc_NtkDelete( pNtkTemp );
+
+    // write the counter-example into the file
+    {
+        Abc_Obj_t * pObj;
+        FILE * pFile = fopen( pFileName, "w" );
+        int i;
+        if ( pFile == NULL )
+        {
+            fprintf( stdout, "IoCommandWriteCounter(): Cannot open the output file \"%s\".\n", pFileName );
+            return 1;
+        }
+        if ( fNames )
+        {
+            Abc_NtkForEachPi( pNtk, pObj, i )
+                fprintf( pFile, "%s=%c ", Abc_ObjName(pObj), '0'+(pNtk->pModel[i]==1) );
+        }
+        else
+        {
+            Abc_NtkForEachPi( pNtk, pObj, i )
+                fprintf( pFile, "%c", '0'+(pNtk->pModel[i]==1) );
+        }
+        fprintf( pFile, "\n" );
+        fclose( pFile );
+    }
+
+    return 0;
+
+usage:
+    fprintf( pAbc->Err, "usage: write_counter [-nh] <file>\n" );
+    fprintf( pAbc->Err, "\t         writes the counter-example derived by \"prove\" or \"sat\"\n" );
+    fprintf( pAbc->Err, "\t         the file contains values for each PI in the natural order\n" );
+    fprintf( pAbc->Err, "\t-n     : write input names into the file [default = %s]\n", fNames? "yes": "no" );
+    fprintf( pAbc->Err, "\t-h     : print the help massage\n" );
+    fprintf( pAbc->Err, "\tfile   : the name of the file to write\n" );
+    return 1;
+}
+
+
+/**Function*************************************************************
+
+  Synopsis    []
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+int IoCommandWriteEqn( Abc_Frame_t * pAbc, int argc, char **argv )
+{
+    char * pFileName;
+    int c;
+
+    Extra_UtilGetoptReset();
+    while ( ( c = Extra_UtilGetopt( argc, argv, "h" ) ) != EOF )
+    {
+        switch ( c )
+        {
+            case 'h':
+                goto usage;
+            default:
+                goto usage;
+        }
+    }
+    if ( argc != globalUtilOptind + 1 )
+        goto usage;
+    // get the output file name
+    pFileName = argv[globalUtilOptind];
+    // call the corresponding file writer
+    Io_Write( pAbc->pNtkCur, pFileName, IO_FILE_EQN );
     return 0;
 
 usage:
@@ -1198,11 +1362,11 @@ usage:
 ***********************************************************************/
 int IoCommandWriteGml( Abc_Frame_t * pAbc, int argc, char **argv )
 {
-    char * FileName;
+    char * pFileName;
     int c;
 
-    util_getopt_reset();
-    while ( ( c = util_getopt( argc, argv, "h" ) ) != EOF )
+    Extra_UtilGetoptReset();
+    while ( ( c = Extra_UtilGetopt( argc, argv, "h" ) ) != EOF )
     {
         switch ( c )
         {
@@ -1212,28 +1376,12 @@ int IoCommandWriteGml( Abc_Frame_t * pAbc, int argc, char **argv )
                 goto usage;
         }
     }
-
-    if ( pAbc->pNtkCur == NULL )
-    {
-        fprintf( pAbc->Out, "Empty network.\n" );
-        return 0;
-    }
-
-    if ( !Abc_NtkIsLogic(pAbc->pNtkCur) && !Abc_NtkIsStrash(pAbc->pNtkCur) )
-    {
-        fprintf( stdout, "IoCommandWriteGml(): Currently can only process logic networks with BDDs.\n" );
-        return 0;
-    }
-
-    if ( argc != util_optind + 1 )
-    {
+    if ( argc != globalUtilOptind + 1 )
         goto usage;
-    }
-
-    // get the input file name
-    FileName = argv[util_optind];
-    // write the file
-    Io_WriteGml( pAbc->pNtkCur, FileName );
+    // get the output file name
+    pFileName = argv[globalUtilOptind];
+    // call the corresponding file writer
+    Io_Write( pAbc->pNtkCur, pFileName, IO_FILE_GML );
     return 0;
 
 usage:
@@ -1257,13 +1405,16 @@ usage:
 ***********************************************************************/
 int IoCommandWriteList( Abc_Frame_t * pAbc, int argc, char **argv )
 {
-    char * FileName;
+    char * pFileName;
     int fUseHost;
     int c;
 
+    printf( "This command currently does not work.\n" );
+    return 0;
+
     fUseHost = 1;
-    util_getopt_reset();
-    while ( ( c = util_getopt( argc, argv, "nh" ) ) != EOF )
+    Extra_UtilGetoptReset();
+    while ( ( c = Extra_UtilGetopt( argc, argv, "nh" ) ) != EOF )
     {
         switch ( c )
         {
@@ -1276,28 +1427,24 @@ int IoCommandWriteList( Abc_Frame_t * pAbc, int argc, char **argv )
                 goto usage;
         }
     }
-
+    if ( argc != globalUtilOptind + 1 )
+        goto usage;
     if ( pAbc->pNtkCur == NULL )
     {
         fprintf( pAbc->Out, "Empty network.\n" );
         return 0;
     }
-
+/*
     if ( !Abc_NtkIsSeq(pAbc->pNtkCur) )
     {
         fprintf( stdout, "IoCommandWriteList(): Can write adjacency list for sequential AIGs only.\n" );
         return 0;
     }
-
-    if ( argc != util_optind + 1 )
-    {
-        goto usage;
-    }
-
+*/
     // get the input file name
-    FileName = argv[util_optind];
+    pFileName = argv[globalUtilOptind];
     // write the file
-    Io_WriteList( pAbc->pNtkCur, FileName, fUseHost );
+    Io_WriteList( pAbc->pNtkCur, pFileName, fUseHost );
     return 0;
 
 usage:
@@ -1322,12 +1469,11 @@ usage:
 ***********************************************************************/
 int IoCommandWritePla( Abc_Frame_t * pAbc, int argc, char **argv )
 {
-    Abc_Ntk_t * pNtk, * pNtkTemp;
-    char * FileName;
+    char * pFileName;
     int c;
 
-    util_getopt_reset();
-    while ( ( c = util_getopt( argc, argv, "h" ) ) != EOF )
+    Extra_UtilGetoptReset();
+    while ( ( c = Extra_UtilGetopt( argc, argv, "h" ) ) != EOF )
     {
         switch ( c )
         {
@@ -1337,47 +1483,111 @@ int IoCommandWritePla( Abc_Frame_t * pAbc, int argc, char **argv )
                 goto usage;
         }
     }
-
-    pNtk = pAbc->pNtkCur;
-    if ( pNtk == NULL )
-    {
-        fprintf( pAbc->Out, "Empty network.\n" );
-        return 0;
-    }
-
-    if ( Abc_NtkGetLevelNum(pNtk) > 1 )
-    {
-        fprintf( pAbc->Out, "PLA writing is available for collapsed networks.\n" );
-        return 0;
-    }
-
-    if ( Abc_NtkLatchNum(pNtk) > 0 )
-    {
-        fprintf( pAbc->Out, "Latches are writed at PI/PO pairs in the PLA file.\n" );
-        return 0;
-    }
-
-    if ( argc != util_optind + 1 )
-    {
+    if ( argc != globalUtilOptind + 1 )
         goto usage;
-    }
-    // get the input file name
-    FileName = argv[util_optind];
-
-    // derive the netlist
-    pNtkTemp = Abc_NtkLogicToNetlist(pNtk);
-    if ( pNtkTemp == NULL )
-    {
-        fprintf( pAbc->Out, "Writing PLA has failed.\n" );
-        return 0;
-    }
-    Io_WritePla( pNtkTemp, FileName );
-    Abc_NtkDelete( pNtkTemp );
+    // get the output file name
+    pFileName = argv[globalUtilOptind];
+    // call the corresponding file writer
+    Io_Write( pAbc->pNtkCur, pFileName, IO_FILE_PLA );
     return 0;
 
 usage:
     fprintf( pAbc->Err, "usage: write_pla [-h] <file>\n" );
     fprintf( pAbc->Err, "\t         write the collapsed network into a PLA file\n" );
+    fprintf( pAbc->Err, "\t-h     : print the help massage\n" );
+    fprintf( pAbc->Err, "\tfile   : the name of the file to write\n" );
+    return 1;
+}
+
+/**Function*************************************************************
+
+  Synopsis    []
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+int IoCommandWriteVerilog( Abc_Frame_t * pAbc, int argc, char **argv )
+{
+    char * pFileName;
+    int c;
+
+    Extra_UtilGetoptReset();
+    while ( ( c = Extra_UtilGetopt( argc, argv, "h" ) ) != EOF )
+    {
+        switch ( c )
+        {
+            case 'h':
+                goto usage;
+            default:
+                goto usage;
+        }
+    }
+    if ( argc != globalUtilOptind + 1 )
+        goto usage;
+    // get the output file name
+    pFileName = argv[globalUtilOptind];
+    // call the corresponding file writer
+    Io_Write( pAbc->pNtkCur, pFileName, IO_FILE_VERILOG );
+    return 0;
+
+usage:
+    fprintf( pAbc->Err, "usage: write_verilog [-h] <file>\n" );
+    fprintf( pAbc->Err, "\t         write the current network in Verilog format\n" );
+    fprintf( pAbc->Err, "\t-h     : print the help massage\n" );
+    fprintf( pAbc->Err, "\tfile   : the name of the file to write\n" );
+    return 1;
+}
+
+/**Function*************************************************************
+
+  Synopsis    []
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+int IoCommandWriteVerLib( Abc_Frame_t * pAbc, int argc, char **argv )
+{
+    Abc_Lib_t * pLibrary;
+    char * pFileName;
+    int c;
+    extern void Io_WriteVerilogLibrary( Abc_Lib_t * pLibrary, char * pFileName );
+
+    Extra_UtilGetoptReset();
+    while ( ( c = Extra_UtilGetopt( argc, argv, "h" ) ) != EOF )
+    {
+        switch ( c )
+        {
+            case 'h':
+                goto usage;
+            default:
+                goto usage;
+        }
+    }
+    if ( argc != globalUtilOptind + 1 )
+        goto usage;
+    // get the input file name
+    pFileName = argv[globalUtilOptind];
+    // derive the netlist
+    pLibrary = Abc_FrameReadLibVer();
+    if ( pLibrary == NULL )
+    {
+        fprintf( pAbc->Out, "Verilog library is not specified.\n" );
+        return 0;
+    }
+    Io_WriteVerilogLibrary( pLibrary, pFileName );
+    return 0;
+
+usage:
+    fprintf( pAbc->Err, "usage: write_verlib [-h] <file>\n" );
+    fprintf( pAbc->Err, "\t         write the current verilog library\n" );
     fprintf( pAbc->Err, "\t-h     : print the help massage\n" );
     fprintf( pAbc->Err, "\tfile   : the name of the file to write\n" );
     return 1;

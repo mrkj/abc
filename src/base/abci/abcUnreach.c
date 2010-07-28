@@ -58,7 +58,7 @@ int Abc_NtkExtractSequentialDcs( Abc_Ntk_t * pNtk, bool fVerbose )
     }
 
     // compute the global BDDs of the latches
-    dd = Abc_NtkGlobalBdds( pNtk, 1 );    
+    dd = Abc_NtkBuildGlobalBdds( pNtk, 10000000, 1, 1, fVerbose );    
     if ( dd == NULL )
         return 0;
     if ( fVerbose )
@@ -92,10 +92,10 @@ int Abc_NtkExtractSequentialDcs( Abc_Ntk_t * pNtk, bool fVerbose )
     pNtk->pExdc = Abc_NtkConstructExdc( dd, pNtk, bUnreach );
     Cudd_RecursiveDeref( dd, bUnreach );
     Extra_StopManager( dd );
-    pNtk->pManGlob = NULL;
+//    pNtk->pManGlob = NULL;
 
     // make sure that everything is okay
-    if ( !Abc_NtkCheck( pNtk->pExdc ) )
+    if ( pNtk->pExdc && !Abc_NtkCheck( pNtk->pExdc ) )
     {
         printf( "Abc_NtkExtractSequentialDcs: The network check has failed.\n" );
         Abc_NtkDelete( pNtk->pExdc );
@@ -137,13 +137,15 @@ DdNode * Abc_NtkTransitionRelation( DdManager * dd, Abc_Ntk_t * pNtk, int fVerbo
     Abc_NtkForEachLatch( pNtk, pNode, i )
     {
         bVar  = Cudd_bddIthVar( dd, Abc_NtkCiNum(pNtk) + i );
-        bProd = Cudd_bddXnor( dd, bVar, pNtk->vFuncsGlob->pArray[i] );  Cudd_Ref( bProd );
+//        bProd = Cudd_bddXnor( dd, bVar, pNtk->vFuncsGlob->pArray[i] );  Cudd_Ref( bProd );
+        bProd = Cudd_bddXnor( dd, bVar, Abc_ObjGlobalBdd(Abc_ObjFanin0(pNode)) );  Cudd_Ref( bProd );
         bRel  = Cudd_bddAnd( dd, bTemp = bRel, bProd );                 Cudd_Ref( bRel );
         Cudd_RecursiveDeref( dd, bTemp ); 
         Cudd_RecursiveDeref( dd, bProd ); 
     }
     // free the global BDDs
-    Abc_NtkFreeGlobalBdds( pNtk );
+//    Abc_NtkFreeGlobalBdds( pNtk );
+    Abc_NtkFreeGlobalBdds( pNtk, 0 );
 
     // quantify the PI variables
     bInputs = Extra_bddComputeRangeCube( dd, 0, Abc_NtkPiNum(pNtk) );    Cudd_Ref( bInputs );
@@ -284,19 +286,19 @@ Abc_Ntk_t * Abc_NtkConstructExdc( DdManager * dd, Abc_Ntk_t * pNtk, DdNode * bUn
     int i;
 
     // start the new network
-    pNtkNew = Abc_NtkAlloc( ABC_NTK_LOGIC, ABC_FUNC_BDD );
-    pNtkNew->pName = util_strsav( "exdc" );
+    pNtkNew = Abc_NtkAlloc( ABC_NTK_LOGIC, ABC_FUNC_BDD, 1 );
+    pNtkNew->pName = Extra_UtilStrsav( "exdc" );
     pNtkNew->pSpec = NULL;
 
     // create PIs corresponding to LOs
-    Abc_NtkForEachLatch( pNtk, pNode, i )
-        Abc_NtkLogicStoreName( pNode->pCopy = Abc_NtkCreatePi(pNtkNew), Abc_ObjName(pNode) );
+    Abc_NtkForEachLatchOutput( pNtk, pNode, i )
+        Abc_ObjAssignName( pNode->pCopy = Abc_NtkCreatePi(pNtkNew), Abc_ObjName(pNode), NULL );
     // cannot ADD POs here because pLatch->pCopy point to the PIs
 
     // create a new node
     pNodeNew = Abc_NtkCreateNode(pNtkNew);
     // add the fanins corresponding to latch outputs
-    Abc_NtkForEachLatch( pNtk, pNode, i )
+    Abc_NtkForEachLatchOutput( pNtk, pNode, i )
         Abc_ObjAddFanin( pNodeNew, pNode->pCopy );
 
     // create the logic function
@@ -313,15 +315,15 @@ Abc_Ntk_t * Abc_NtkConstructExdc( DdManager * dd, Abc_Ntk_t * pNtk, DdNode * bUn
     // for each CO, create PO (skip POs equal to CIs because of name conflict)
     Abc_NtkForEachPo( pNtk, pNode, i )
         if ( !Abc_ObjIsCi(Abc_ObjFanin0(pNode)) )
-            Abc_NtkLogicStoreName( pNode->pCopy = Abc_NtkCreatePo(pNtkNew), Abc_ObjName(pNode) );
-    Abc_NtkForEachLatch( pNtk, pNode, i )
-        Abc_NtkLogicStoreName( pNode->pCopy = Abc_NtkCreatePo(pNtkNew), Abc_ObjNameSuffix(pNode, "_in") );
+            Abc_ObjAssignName( pNode->pCopy = Abc_NtkCreatePo(pNtkNew), Abc_ObjName(pNode), NULL );
+    Abc_NtkForEachLatchInput( pNtk, pNode, i )
+        Abc_ObjAssignName( pNode->pCopy = Abc_NtkCreatePo(pNtkNew), Abc_ObjName(pNode), NULL );
 
     // link to the POs of the network 
     Abc_NtkForEachPo( pNtk, pNode, i )
         if ( !Abc_ObjIsCi(Abc_ObjFanin0(pNode)) )
             Abc_ObjAddFanin( pNode->pCopy, pNodeNew );
-    Abc_NtkForEachLatch( pNtk, pNode, i )
+    Abc_NtkForEachLatchInput( pNtk, pNode, i )
         Abc_ObjAddFanin( pNode->pCopy, pNodeNew );
 
     // remove the extra nodes
@@ -331,8 +333,13 @@ Abc_Ntk_t * Abc_NtkConstructExdc( DdManager * dd, Abc_Ntk_t * pNtk, DdNode * bUn
     Abc_NtkLogicMakeSimpleCos( pNtkNew, 0 );
 
     // transform the network to the SOP representation
-    Abc_NtkBddToSop( pNtkNew );
+    if ( !Abc_NtkBddToSop( pNtkNew, 0 ) )
+    {
+        printf( "Abc_NtkConstructExdc(): Converting to SOPs has failed.\n" );
+        return NULL;
+    }
     return pNtkNew;
+//    return NULL;
 }
 
 ////////////////////////////////////////////////////////////////////////

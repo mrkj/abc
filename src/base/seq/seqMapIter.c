@@ -540,7 +540,7 @@ float Seq_MapCollectNode_rec( Abc_Obj_t * pAnd, float FiBest, Vec_Ptr_t * vMappi
     }
 
     // skip if this is a PI or a constant
-    if ( !Abc_NodeIsAigAnd(pAnd) )
+    if ( !Abc_AigNodeIsAnd(pAnd) )
     {
         if ( Abc_ObjIsPi(pAnd) && fCompl )
             return AreaInv;   
@@ -613,7 +613,7 @@ void Seq_MapCanonicizeTruthTables( Abc_Ntk_t * pNtk )
         if ( pList == NULL )
             continue;
         for ( pCut = pList->pNext; pCut; pCut = pCut->pNext )
-            Cut_TruthCanonicize( pCut );
+            Cut_TruthNCanonicize( pCut );
     }
 }
 

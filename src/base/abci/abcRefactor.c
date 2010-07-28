@@ -109,7 +109,10 @@ int Abc_NtkRefactor( Abc_Ntk_t * pNtk, int nNodeSizeMax, int nConeSizeMax, bool 
     {
         Extra_ProgressBarUpdate( pProgress, i, NULL );
         // skip the constant node
-        if ( Abc_NodeIsConst(pNode) )
+//        if ( Abc_NodeIsConst(pNode) )
+//            continue;
+        // skip persistant nodes
+        if ( Abc_NodeIsPersistant(pNode) )
             continue;
         // skip the nodes with many fanouts
         if ( Abc_ObjFanoutNum(pNode) > 1000 )
@@ -132,6 +135,10 @@ clk = clock();
         Dec_GraphUpdateNetwork( pNode, pFForm, fUpdateLevel, pManRef->nLastGain );
 pManRef->timeNtk += clock() - clk;
         Dec_GraphFree( pFForm );
+//    {
+//        extern int s_TotalChanges;
+//        s_TotalChanges++;
+//    }
     }
     Extra_ProgressBarStop( pProgress );
 pManRef->timeTotal = clock() - clkStart;
@@ -149,7 +156,7 @@ pManRef->timeTotal = clock() - clkStart;
     if ( fUpdateLevel )
         Abc_NtkStopReverseLevels( pNtk );
     else
-        Abc_NtkGetLevelNum( pNtk );
+        Abc_NtkLevel( pNtk );
     // check
     if ( !Abc_NtkCheck( pNtk ) )
     {

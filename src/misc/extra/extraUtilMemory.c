@@ -73,6 +73,9 @@ struct Extra_MmStep_t_
     Extra_MmFixed_t ** pMems;    // memory managers: 2^1 words, 2^2 words, etc
     int                nMapSize; // the size of the memory array
     Extra_MmFixed_t ** pMap;     // maps the number of bytes into its memory manager
+    int                nLargeChunksAlloc;  // the maximum number of large memory chunks 
+    int                nLargeChunks;       // the current number of large memory chunks 
+    void **            pLargeChunks;       // the allocated large memory chunks
 };
 
 /*---------------------------------------------------------------------------*/
@@ -257,7 +260,7 @@ void Extra_MmFixedRestart( Extra_MmFixed_t * p )
     int i;
     char * pTemp;
 
-    // delocate all chunks except the first one
+    // deallocate all chunks except the first one
     for ( i = 1; i < p->nChunks; i++ )
         free( p->pChunks[i] );
     p->nChunks = 1;
@@ -319,7 +322,7 @@ Extra_MmFlex_t * Extra_MmFlexStart()
     p->pCurrent      = NULL;
     p->pEnd          = NULL;
 
-    p->nChunkSize    = (1 << 12);
+    p->nChunkSize    = (1 << 10);
     p->nChunksAlloc  = 64;
     p->nChunks       = 0;
     p->pChunks       = ALLOC( char *, p->nChunksAlloc );
@@ -448,6 +451,7 @@ Extra_MmStep_t * Extra_MmStepStart( int nSteps )
     Extra_MmStep_t * p;
     int i, k;
     p = ALLOC( Extra_MmStep_t, 1 );
+    memset( p, 0, sizeof(Extra_MmStep_t) );
     p->nMems = nSteps;
     // start the fixed memory managers
     p->pMems = ALLOC( Extra_MmFixed_t *, p->nMems );
@@ -483,6 +487,12 @@ void Extra_MmStepStop( Extra_MmStep_t * p, int fVerbose )
     int i;
     for ( i = 0; i < p->nMems; i++ )
         Extra_MmFixedStop( p->pMems[i], fVerbose );
+//    if ( p->pLargeChunks ) 
+//    {
+//      for ( i = 0; i < p->nLargeChunks; i++ )
+//          free( p->pLargeChunks[i] );
+//      free( p->pLargeChunks );
+//    }
     free( p->pMems );
     free( p->pMap );
     free( p );
@@ -506,6 +516,17 @@ char * Extra_MmStepEntryFetch( Extra_MmStep_t * p, int nBytes )
     if ( nBytes > p->nMapSize )
     {
 //        printf( "Allocating %d bytes.\n", nBytes );
+/*
+        if ( p->nLargeChunks == p->nLargeChunksAlloc )
+        {
+            if ( p->nLargeChunksAlloc == 0 )
+                p->nLargeChunksAlloc = 5;
+            p->nLargeChunksAlloc *= 2;
+            p->pLargeChunks = REALLOC( char *, p->pLargeChunks, p->nLargeChunksAlloc ); 
+        }
+        p->pLargeChunks[ p->nLargeChunks++ ] = ALLOC( char, nBytes );
+        return p->pLargeChunks[ p->nLargeChunks - 1 ];
+*/
         return ALLOC( char, nBytes );
     }
     return Extra_MmFixedEntryFetch( p->pMap[nBytes] );

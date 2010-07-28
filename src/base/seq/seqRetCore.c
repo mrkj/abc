@@ -107,26 +107,32 @@ Abc_Ntk_t * Seq_NtkRetimeDerive( Abc_Ntk_t * pNtk, int fVerbose )
 
     // transform logic functions from BDD to SOP
     if ( fHasBdds = Abc_NtkIsBddLogic(pNtk) )
-        Abc_NtkBddToSop(pNtk);
+    {
+        if ( !Abc_NtkBddToSop(pNtk, 0) )
+        {
+            printf( "Seq_NtkRetimeDerive(): Converting to SOPs has failed.\n" );
+            return NULL;
+        }
+    }
 
     // start the network
-    pNtkNew = Abc_NtkAlloc( ABC_NTK_SEQ, ABC_FUNC_AIG );
+    pNtkNew = Abc_NtkAlloc( ABC_NTK_SEQ, ABC_FUNC_AIG, 1 );
     // duplicate the name and the spec
-    pNtkNew->pName = util_strsav(pNtk->pName);
-    pNtkNew->pSpec = util_strsav(pNtk->pSpec);
+    pNtkNew->pName = Extra_UtilStrsav(pNtk->pName);
+    pNtkNew->pSpec = Extra_UtilStrsav(pNtk->pSpec);
 
     // map the constant nodes
     Abc_NtkCleanCopy( pNtk );
     // clone the PIs/POs/latches
     Abc_NtkForEachPi( pNtk, pObj, i )
-        Abc_NtkDupObj( pNtkNew, pObj );
+        Abc_NtkDupObj( pNtkNew, pObj, 0 );
     Abc_NtkForEachPo( pNtk, pObj, i )
-        Abc_NtkDupObj( pNtkNew, pObj );
+        Abc_NtkDupObj( pNtkNew, pObj, 0 );
     // copy the names
     Abc_NtkForEachPi( pNtk, pObj, i )
-        Abc_NtkLogicStoreName( pObj->pCopy, Abc_ObjName(pObj) );
+        Abc_ObjAssignName( pObj->pCopy, Abc_ObjName(pObj), NULL );
     Abc_NtkForEachPo( pNtk, pObj, i )
-        Abc_NtkLogicStoreName( pObj->pCopy, Abc_ObjName(pObj) );
+        Abc_ObjAssignName( pObj->pCopy, Abc_ObjName(pObj), NULL );
 
     // create one AND for each logic node in the topological order
     vMapAnds = Abc_NtkDfs( pNtk, 0 );
@@ -134,7 +140,7 @@ Abc_Ntk_t * Seq_NtkRetimeDerive( Abc_Ntk_t * pNtk, int fVerbose )
     {
         if ( pObj->Id == 0 )
         {
-            pObj->pCopy = Abc_NtkConst1(pNtkNew);
+            pObj->pCopy = Abc_AigConst1(pNtkNew);
             continue;
         }
         pObj->pCopy = Abc_NtkCreateNode( pNtkNew );
@@ -269,9 +275,9 @@ Abc_Obj_t * Seq_NodeRetimeDerive( Abc_Ntk_t * pNtkNew, Abc_Obj_t * pRoot, char *
     if ( nFanins < 2 )
     {
         if ( Abc_SopIsConst1(pSop) )
-            pFanin = Abc_NtkConst1(pNtkNew);
+            pFanin = Abc_AigConst1(pNtkNew);
         else if ( Abc_SopIsConst0(pSop) )
-            pFanin = Abc_ObjNot( Abc_NtkConst1(pNtkNew) );
+            pFanin = Abc_ObjNot( Abc_AigConst1(pNtkNew) );
         else if ( Abc_SopIsBuf(pSop) )
             pFanin = Abc_ObjFanin0(pRoot)->pCopy;
         else if ( Abc_SopIsInv(pSop) )
@@ -321,7 +327,7 @@ Abc_Ntk_t * Seq_NtkRetimeReconstruct( Abc_Ntk_t * pNtkOld, Abc_Ntk_t * pNtkSeq )
     Abc_Seq_t * p = pNtkSeq->pManFunc;
     Seq_Lat_t * pRing0, * pRing1;
     Abc_Ntk_t * pNtkNew;
-    Abc_Obj_t * pObj, * pObjNew, * pFanin, * pFaninNew, * pMirror;
+    Abc_Obj_t * pObj, * pFanin, * pFaninNew, * pMirror;
     Vec_Ptr_t * vMirrors;
     int i, k;
 
@@ -336,8 +342,8 @@ Abc_Ntk_t * Seq_NtkRetimeReconstruct( Abc_Ntk_t * pNtkOld, Abc_Ntk_t * pNtkSeq )
     pNtkNew = Abc_NtkStartFrom( pNtkSeq, pNtkOld->ntkType, pNtkOld->ntkFunc );
 
     // transfer the pointers to the old network
-    if ( Abc_NtkConst1(pNtkOld) ) 
-        Abc_NtkConst1(pNtkOld)->pCopy = Abc_NtkConst1(pNtkNew);
+    if ( Abc_AigConst1(pNtkOld) ) 
+        Abc_AigConst1(pNtkOld)->pCopy = Abc_AigConst1(pNtkNew);
     Abc_NtkForEachPi( pNtkOld, pObj, i )
         pObj->pCopy = pObj->pNext->pCopy;
     Abc_NtkForEachPo( pNtkOld, pObj, i )
@@ -348,7 +354,7 @@ Abc_Ntk_t * Seq_NtkRetimeReconstruct( Abc_Ntk_t * pNtkOld, Abc_Ntk_t * pNtkSeq )
     Abc_NtkForEachNode( pNtkOld, pObj, i )
     {
         if ( i == 0 ) continue;
-        Abc_NtkDupObj( pNtkNew, pObj );
+        Abc_NtkDupObj( pNtkNew, pObj, 0 );
         pObj->pNext->pCopy = pObj->pCopy;
     }
     Abc_NtkForEachLatch( pNtkOld, pObj, i )
@@ -401,12 +407,8 @@ Abc_Ntk_t * Seq_NtkRetimeReconstruct( Abc_Ntk_t * pNtkOld, Abc_Ntk_t * pNtkSeq )
     Seq_NtkShareLatchesClean( pNtkSeq );
 
     // add the latches and their names
-    Abc_NtkAddDummyLatchNames( pNtkNew );
-    Abc_NtkForEachLatch( pNtkNew, pObjNew, i )
-    {
-        Vec_PtrPush( pNtkNew->vCis, pObjNew );
-        Vec_PtrPush( pNtkNew->vCos, pObjNew );
-    }
+    Abc_NtkAddDummyBoxNames( pNtkNew );
+    Abc_NtkOrderCisCos( pNtkNew );
     // fix the problem with complemented and duplicated CO edges
     Abc_NtkLogicMakeSimpleCos( pNtkNew, 1 );
     if ( !Abc_NtkCheck( pNtkNew ) )
@@ -431,7 +433,7 @@ Abc_Obj_t * Seq_EdgeReconstruct_rec( Abc_Obj_t * pGoal, Abc_Obj_t * pNode )
     Seq_Lat_t * pRing;
     Abc_Obj_t * pFanin, * pRes = NULL;
 
-    if ( !Abc_NodeIsAigAnd(pNode) )
+    if ( !Abc_AigNodeIsAnd(pNode) )
         return NULL;
 
     // consider the first fanin

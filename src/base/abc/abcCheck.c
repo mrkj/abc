@@ -20,7 +20,7 @@
 
 #include "abc.h"
 #include "main.h"
-#include "seq.h"
+//#include "seq.h"
 
 ////////////////////////////////////////////////////////////////////////
 ///                        DECLARATIONS                              ///
@@ -37,6 +37,8 @@ static bool Abc_NtkCheckLatch( Abc_Ntk_t * pNtk, Abc_Obj_t * pLatch );
 static bool Abc_NtkComparePis( Abc_Ntk_t * pNtk1, Abc_Ntk_t * pNtk2, int fComb );
 static bool Abc_NtkComparePos( Abc_Ntk_t * pNtk1, Abc_Ntk_t * pNtk2, int fComb );
 static bool Abc_NtkCompareLatches( Abc_Ntk_t * pNtk1, Abc_Ntk_t * pNtk2, int fComb );
+
+static int  Abc_NtkIsAcyclicHierarchy( Abc_Ntk_t * pNtk );
 
 ////////////////////////////////////////////////////////////////////////
 ///                     FUNCTION DEFINITIONS                         ///
@@ -90,12 +92,13 @@ bool Abc_NtkDoCheck( Abc_Ntk_t * pNtk )
     Abc_Obj_t * pObj, * pNet, * pNode;
     int i;
 
-    if ( !Abc_NtkIsNetlist(pNtk) && !Abc_NtkIsLogic(pNtk) && !Abc_NtkIsStrash(pNtk) && !Abc_NtkIsSeq(pNtk) )
+    // check network types
+    if ( !Abc_NtkIsNetlist(pNtk) && !Abc_NtkIsLogic(pNtk) && !Abc_NtkIsStrash(pNtk) )
     {
         fprintf( stdout, "NetworkCheck: Unknown network type.\n" );
         return 0;
     }
-    if ( !Abc_NtkHasSop(pNtk) && !Abc_NtkHasBdd(pNtk) && !Abc_NtkHasAig(pNtk) && !Abc_NtkHasMapping(pNtk) )
+    if ( !Abc_NtkHasSop(pNtk) && !Abc_NtkHasBdd(pNtk) && !Abc_NtkHasAig(pNtk) && !Abc_NtkHasMapping(pNtk) && !Abc_NtkHasBlackbox(pNtk) )
     {
         fprintf( stdout, "NetworkCheck: Unknown functionality type.\n" );
         return 0;
@@ -107,6 +110,22 @@ bool Abc_NtkDoCheck( Abc_Ntk_t * pNtk )
             fprintf( stdout, "NetworkCheck: The library of the mapped network is not the global library.\n" );
             return 0;
         }
+    }
+
+    // check CI/CO numbers
+    if ( Abc_NtkPiNum(pNtk) + Abc_NtkLatchNum(pNtk) != Abc_NtkCiNum(pNtk) )
+    {
+        fprintf( stdout, "NetworkCheck: Number of CIs does not match number of PIs and latches.\n" );
+        fprintf( stdout, "One possible reason is that latches are added twice:\n" );
+        fprintf( stdout, "in procedure Abc_NtkCreateObj() and in the user's code.\n" );
+        return 0;
+    }
+    if ( Abc_NtkPoNum(pNtk) + Abc_NtkAssertNum(pNtk) + Abc_NtkLatchNum(pNtk) != Abc_NtkCoNum(pNtk) )
+    {
+        fprintf( stdout, "NetworkCheck: Number of COs does not match number of POs, asserts, and latches.\n" );
+        fprintf( stdout, "One possible reason is that latches are added twice:\n" );
+        fprintf( stdout, "in procedure Abc_NtkCreateObj() and in the user's code.\n" );
+        return 0;
     }
 
     // check the names
@@ -148,13 +167,8 @@ bool Abc_NtkDoCheck( Abc_Ntk_t * pNtk )
     }
 
     // check the nodes
-    if ( Abc_NtkHasAig(pNtk) )
-    {
-        if ( Abc_NtkIsStrash(pNtk) ) 
-            Abc_AigCheck( pNtk->pManFunc );
-        else
-            Abc_NtkSeqCheck( pNtk );
-    }
+    if ( Abc_NtkIsStrash(pNtk) )
+        Abc_AigCheck( pNtk->pManFunc );
     else
     {
         Abc_NtkForEachNode( pNtk, pNode, i )
@@ -163,14 +177,13 @@ bool Abc_NtkDoCheck( Abc_Ntk_t * pNtk )
     }
 
     // check the latches
-    if ( !Abc_NtkIsSeq(pNtk) )
-        Abc_NtkForEachLatch( pNtk, pNode, i )
-            if ( !Abc_NtkCheckLatch( pNtk, pNode ) )
-                return 0;
+    Abc_NtkForEachLatch( pNtk, pNode, i )
+        if ( !Abc_NtkCheckLatch( pNtk, pNode ) )
+            return 0;
 
     // finally, check for combinational loops
 //  clk = clock();
-    if ( !Abc_NtkIsSeq( pNtk ) && !Abc_NtkIsAcyclic( pNtk ) )
+    if ( !Abc_NtkIsAcyclic( pNtk ) )
     {
         fprintf( stdout, "NetworkCheck: Network contains a combinational loop.\n" );
         return 0;
@@ -179,13 +192,27 @@ bool Abc_NtkDoCheck( Abc_Ntk_t * pNtk )
 
     // check the EXDC network if present
     if ( pNtk->pExdc )
+        Abc_NtkCheck( pNtk->pExdc );
+
+    // check the hierarchy
+    if ( Abc_NtkIsNetlist(pNtk) && pNtk->tName2Model )
     {
-//        if ( pNtk->Type != pNtk->pExdc->Type )
-//        {
-//            fprintf( stdout, "NetworkCheck: Network and its EXDC have different types.\n" );
-//            return 0;
-//        }
-        return Abc_NtkCheck( pNtk->pExdc );
+        stmm_generator * gen;
+        Abc_Ntk_t * pNtkTemp;
+        char * pName;
+        // check other networks
+        stmm_foreach_item( pNtk->tName2Model, gen, &pName, (char **)&pNtkTemp )
+        {
+            pNtkTemp->fHiePath = pNtkTemp->fHieVisited = 0;
+            if ( !Abc_NtkCheck( pNtkTemp ) )
+                return 0;
+        }
+        // check acyclic dependency of the models
+        if ( !Abc_NtkIsAcyclicHierarchy( pNtk ) )
+        {
+            fprintf( stdout, "NetworkCheck: Network hierarchical dependences contains a cycle.\n" );
+            return 0;
+        }
     }
     return 1;
 }
@@ -203,73 +230,62 @@ bool Abc_NtkDoCheck( Abc_Ntk_t * pNtk )
 ***********************************************************************/
 bool Abc_NtkCheckNames( Abc_Ntk_t * pNtk )
 {
-    stmm_generator * gen;
-    Abc_Obj_t * pNet, * pNet2, * pObj;
+    Abc_Obj_t * pObj;
+    Vec_Int_t * vNameIds;
     char * pName;
-    int i;
-
+    int i, NameId;
+/*
     if ( Abc_NtkIsNetlist(pNtk) )
     {
-        // check that the nets in the table are also in the network
-        stmm_foreach_item( pNtk->tName2Net, gen, &pName, (char**)&pNet )
+
+        // check that each net has a name
+        Abc_NtkForEachNet( pNtk, pObj, i )
         {
-            if ( pNet->pData != pName )
+            if ( Nm_ManFindNameById(pObj->pNtk->pManName, pObj->Id) )
             {
-                fprintf( stdout, "NetworkCheck: Net \"%s\" has different name compared to the one in the name table.\n", pNet->pData );
+                fprintf( stdout, "NetworkCheck: Net \"%s\" has different name in the name table and at the data pointer.\n", pObj->pData );
                 return 0;
             }
         }
-        // check that the nets with names are also in the table
-        Abc_NtkForEachNet( pNtk, pNet, i )
+    }
+    else
+*/
+    {
+        // check that each CI/CO has a name
+        Abc_NtkForEachCi( pNtk, pObj, i )
         {
-            if ( pNet->pData && !stmm_lookup( pNtk->tName2Net, pNet->pData, (char**)&pNet2 ) )
+            pObj = Abc_ObjFanout0Ntk(pObj);
+            if ( Nm_ManFindNameById(pObj->pNtk->pManName, pObj->Id) == NULL )
             {
-                fprintf( stdout, "NetworkCheck: Net \"%s\" is in the network but not in the name table.\n", pNet->pData );
+                fprintf( stdout, "NetworkCheck: CI with ID %d is in the network but not in the name table.\n", pObj->Id );
+                return 0;
+            }
+        }
+        Abc_NtkForEachCo( pNtk, pObj, i )
+        {
+            pObj = Abc_ObjFanin0Ntk(pObj);
+            if ( Nm_ManFindNameById(pObj->pNtk->pManName, pObj->Id) == NULL )
+            {
+                fprintf( stdout, "NetworkCheck: CO with ID %d is in the network but not in the name table.\n", pObj->Id );
                 return 0;
             }
         }
     }
 
-    // check PI/PO/latch names
-    Abc_NtkForEachPi( pNtk, pObj, i )
+    // return the array of all IDs, which have names
+    vNameIds = Nm_ManReturnNameIds( pNtk->pManName );
+    // make sure that these IDs correspond to live objects
+    Vec_IntForEachEntry( vNameIds, NameId, i )
     {
-        if ( !stmm_lookup( pNtk->tObj2Name, (char *)pObj, &pName ) )
+        if ( Vec_PtrEntry( pNtk->vObjs, NameId ) == NULL )
         {
-            fprintf( stdout, "NetworkCheck: PI \"%s\" is in the network but not in the name table.\n", Abc_ObjName(pObj) );
-            return 0;
-        }
-        if ( Abc_NtkIsNetlist(pNtk) && strcmp( Abc_ObjName(Abc_ObjFanout0(pObj)), pName ) )
-        {
-            fprintf( stdout, "NetworkCheck: PI \"%s\" has a different name compared to its net.\n", Abc_ObjName(pObj) );
+            Vec_IntFree( vNameIds );
+            pName = Nm_ManFindNameById(pObj->pNtk->pManName, NameId);
+            fprintf( stdout, "NetworkCheck: Object with ID %d is deleted but its name \"%s\" remains in the name table.\n", NameId, pName );
             return 0;
         }
     }
-    Abc_NtkForEachPo( pNtk, pObj, i )
-    {
-        if ( !stmm_lookup( pNtk->tObj2Name, (char *)pObj, &pName ) )
-        {
-            fprintf( stdout, "NetworkCheck: PO \"%s\" is in the network but not in the name table.\n", Abc_ObjName(pObj) );
-            return 0;
-        }
-        if ( Abc_NtkIsNetlist(pNtk) && strcmp( Abc_ObjName(Abc_ObjFanin0(pObj)), pName ) )
-        {
-            fprintf( stdout, "NetworkCheck: PO \"%s\" has a different name compared to its net.\n", Abc_ObjName(pObj) );
-            return 0;
-        }
-    }
-    Abc_NtkForEachLatch( pNtk, pObj, i )
-    {
-        if ( !stmm_lookup( pNtk->tObj2Name, (char *)pObj, &pName ) )
-        {
-            fprintf( stdout, "NetworkCheck: Latch \"%s\" is in the network but not in the name table.\n", Abc_ObjName(pObj) );
-            return 0;
-        }
-        if ( Abc_NtkIsNetlist(pNtk) && strcmp( Abc_ObjName(Abc_ObjFanout0(pObj)), pName ) )
-        {
-            fprintf( stdout, "NetworkCheck: Latch \"%s\" has a different name compared to its net.\n", Abc_ObjName(pObj) );
-            return 0;
-        }
-    }
+    Vec_IntFree( vNameIds );
     return 1;
 }
 
@@ -289,12 +305,6 @@ bool Abc_NtkCheckPis( Abc_Ntk_t * pNtk )
 {
     Abc_Obj_t * pObj;
     int i;
-
-    if ( Abc_NtkCiNum(pNtk) != Abc_NtkPiNum(pNtk) + Abc_NtkLatchNum(pNtk) )
-    {
-        fprintf( stdout, "NetworkCheck: Incorrect size of the PI array.\n" );
-        return 0;
-    }
 
     // check that PIs are indeed PIs
     Abc_NtkForEachPi( pNtk, pObj, i )
@@ -343,12 +353,6 @@ bool Abc_NtkCheckPos( Abc_Ntk_t * pNtk )
 {
     Abc_Obj_t * pObj;
     int i;
-
-    if ( Abc_NtkCoNum(pNtk) != Abc_NtkPoNum(pNtk) + Abc_NtkLatchNum(pNtk) )
-    {
-        fprintf( stdout, "NetworkCheck: Incorrect size of the PO array.\n" );
-        return 0;
-    }
 
     // check that POs are indeed POs
     Abc_NtkForEachPo( pNtk, pObj, i )
@@ -417,6 +421,10 @@ bool Abc_NtkCheckObj( Abc_Ntk_t * pNtk, Abc_Obj_t * pObj )
         fprintf( stdout, "NetworkCheck: Object \"%s\" has incorrect ID.\n", Abc_ObjName(pObj) );
         return 0;
     }
+
+    if ( !Abc_FrameIsFlagEnabled("checkfio") )
+        return Value;
+
     // go through the fanins of the object and make sure fanins have this object as a fanout
     Abc_ObjForEachFanin( pObj, pFanin, i )
     {
@@ -437,9 +445,6 @@ bool Abc_NtkCheckObj( Abc_Ntk_t * pNtk, Abc_Obj_t * pObj )
             Value = 0;
         }
     }
-
-    if ( !Abc_FrameIsFlagEnabled("checkfio") )
-        return Value;
 
     // make sure fanins are not duplicated
     for ( i = 0; i < pObj->vFanins.nSize; i++ )
@@ -535,7 +540,7 @@ bool Abc_NtkCheckNode( Abc_Ntk_t * pNtk, Abc_Obj_t * pNode )
             return 0;
         }
     }
-    else if ( !Abc_NtkHasMapping(pNtk) )
+    else if ( !Abc_NtkHasMapping(pNtk) && !Abc_NtkHasAig(pNtk) )
     {
         assert( 0 );
     }
@@ -556,15 +561,10 @@ bool Abc_NtkCheckNode( Abc_Ntk_t * pNtk, Abc_Obj_t * pNode )
 bool Abc_NtkCheckLatch( Abc_Ntk_t * pNtk, Abc_Obj_t * pLatch )
 {
     int Value = 1;
-    if ( pNtk->vLats->nSize != Abc_NtkLatchNum(pNtk) )
-    {
-        fprintf( stdout, "NetworkCheck: Incorrect size of the latch array.\n" );
-        return 0;
-    }
     // check whether the object is a latch
     if ( !Abc_ObjIsLatch(pLatch) )
     {
-        fprintf( stdout, "NodeCheck: Latch \"%s\" is in a latch list but has not latch label.\n", Abc_ObjName(pLatch) );
+        fprintf( stdout, "NodeCheck: Latch \"%s\" is in a latch list but is not a latch.\n", Abc_ObjName(pLatch) );
         Value = 0;
     }
     // make sure the latch has a reasonable return value
@@ -578,6 +578,33 @@ bool Abc_NtkCheckLatch( Abc_Ntk_t * pNtk, Abc_Obj_t * pLatch )
     if ( Abc_ObjFaninNum(pLatch) != 1 )
     {
         fprintf( stdout, "NodeCheck: Latch \"%s\" has wrong number (%d) of fanins.\n", Abc_ObjName(pLatch), Abc_ObjFaninNum(pLatch) );
+        Value = 0;
+    }
+    // make sure the latch has only one fanout
+    if ( Abc_ObjFanoutNum(pLatch) != 1 )
+    {
+        fprintf( stdout, "NodeCheck: Latch \"%s\" has wrong number (%d) of fanouts.\n", Abc_ObjName(pLatch), Abc_ObjFanoutNum(pLatch) );
+        Value = 0;
+    }
+    // make sure the latch input has only one fanin
+    if ( Abc_ObjFaninNum(Abc_ObjFanin0(pLatch)) != 1 )
+    {
+        fprintf( stdout, "NodeCheck: Input of latch \"%s\" has wrong number (%d) of fanins.\n", 
+            Abc_ObjName(Abc_ObjFanin0(pLatch)), Abc_ObjFaninNum(Abc_ObjFanin0(pLatch)) );
+        Value = 0;
+    }
+    // make sure the latch input has only one fanout
+    if ( Abc_ObjFanoutNum(Abc_ObjFanin0(pLatch)) != 1 )
+    {
+        fprintf( stdout, "NodeCheck: Input of latch \"%s\" has wrong number (%d) of fanouts.\n", 
+            Abc_ObjName(Abc_ObjFanin0(pLatch)), Abc_ObjFanoutNum(Abc_ObjFanin0(pLatch)) );
+        Value = 0;
+    }
+    // make sure the latch output has only one fanin
+    if ( Abc_ObjFaninNum(Abc_ObjFanout0(pLatch)) != 1 )
+    {
+        fprintf( stdout, "NodeCheck: Output of latch \"%s\" has wrong number (%d) of fanins.\n", 
+            Abc_ObjName(Abc_ObjFanout0(pLatch)), Abc_ObjFaninNum(Abc_ObjFanout0(pLatch)) );
         Value = 0;
     }
     return Value;
@@ -663,24 +690,26 @@ bool Abc_NtkComparePos( Abc_Ntk_t * pNtk1, Abc_Ntk_t * pNtk2, int fComb )
   SeeAlso     []
 
 ***********************************************************************/
-bool Abc_NtkCompareLatches( Abc_Ntk_t * pNtk1, Abc_Ntk_t * pNtk2, int fComb )
+bool Abc_NtkCompareBoxes( Abc_Ntk_t * pNtk1, Abc_Ntk_t * pNtk2, int fComb )
 {
     Abc_Obj_t * pObj1;
     int i;
+    assert( Abc_NtkHasOnlyLatchBoxes(pNtk1) );
+    assert( Abc_NtkHasOnlyLatchBoxes(pNtk2) );
     if ( !fComb )
         return 1;
-    if ( Abc_NtkLatchNum(pNtk1) != Abc_NtkLatchNum(pNtk2) )
+    if ( Abc_NtkBoxNum(pNtk1) != Abc_NtkBoxNum(pNtk2) )
     {
         printf( "Networks have different number of latches.\n" );
         return 0;
     }
     // for each PI of pNet1 find corresponding PI of pNet2 and reorder them
-    Abc_NtkForEachLatch( pNtk1, pObj1, i )
+    Abc_NtkForEachBox( pNtk1, pObj1, i )
     {
-        if ( strcmp( Abc_ObjName(pObj1), Abc_ObjName(Abc_NtkLatch(pNtk2,i)) ) != 0 )
+        if ( strcmp( Abc_ObjName(Abc_ObjFanout0(pObj1)), Abc_ObjName(Abc_ObjFanout0(Abc_NtkBox(pNtk2,i))) ) != 0 )
         {
-            printf( "Latch #%d is different in network 1 ( \"%s\") and in network 2 (\"%s\").\n", 
-                i, Abc_ObjName(pObj1), Abc_ObjName(Abc_NtkLatch(pNtk2,i)) );
+            printf( "Box #%d is different in network 1 ( \"%s\") and in network 2 (\"%s\").\n", 
+                i, Abc_ObjName(Abc_ObjFanout0(pObj1)), Abc_ObjName(Abc_ObjFanout0(Abc_NtkBox(pNtk2,i))) );
             return 0;
         }
     }
@@ -698,17 +727,78 @@ bool Abc_NtkCompareLatches( Abc_Ntk_t * pNtk1, Abc_Ntk_t * pNtk2, int fComb )
   SeeAlso     []
 
 ***********************************************************************/
-bool Abc_NtkCompareSignals( Abc_Ntk_t * pNtk1, Abc_Ntk_t * pNtk2, int fComb )
+bool Abc_NtkCompareSignals( Abc_Ntk_t * pNtk1, Abc_Ntk_t * pNtk2, int fOnlyPis, int fComb )
 {
     Abc_NtkOrderObjsByName( pNtk1, fComb );
     Abc_NtkOrderObjsByName( pNtk2, fComb );
-    if ( !Abc_NtkCompareLatches( pNtk1, pNtk2, fComb ) )
-        return 0;
     if ( !Abc_NtkComparePis( pNtk1, pNtk2, fComb ) )
         return 0;
-    if ( !Abc_NtkComparePos( pNtk1, pNtk2, fComb ) )
-        return 0;
+    if ( !fOnlyPis )
+    {
+        if ( !Abc_NtkCompareBoxes( pNtk1, pNtk2, fComb ) )
+            return 0;
+        if ( !Abc_NtkComparePos( pNtk1, pNtk2, fComb ) )
+            return 0;
+    }
     return 1;
+}
+
+
+/**Function*************************************************************
+
+  Synopsis    [Returns 0 if the network hierachy contains a cycle.]
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+int Abc_NtkIsAcyclicHierarchy_rec( Abc_Ntk_t * pNtk )
+{
+    Abc_Ntk_t * pNtkNext;
+    Abc_Obj_t * pObj;
+    int i;
+    // return if visited
+    if ( pNtk->fHieVisited )
+        return 1;
+    pNtk->fHieVisited = 1;
+    // return if black box
+    if ( Abc_NtkHasBlackbox(pNtk) )
+        return 1;
+    assert( Abc_NtkIsNetlist(pNtk) );
+    // go through all the children networks
+    Abc_NtkForEachBox( pNtk, pObj, i )
+    {
+        pNtkNext = pObj->pData;
+        assert( pNtkNext != NULL );
+        if ( pNtkNext->fHiePath )
+            return 0;
+        pNtk->fHiePath = 1;
+        if ( !Abc_NtkIsAcyclicHierarchy_rec( pNtkNext ) )
+            return 0;
+        pNtk->fHiePath = 0;
+    }
+    return 1;
+}
+
+/**Function*************************************************************
+
+  Synopsis    [Returns 0 if the network hierachy contains a cycle.]
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+int Abc_NtkIsAcyclicHierarchy( Abc_Ntk_t * pNtk )
+{
+    assert( Abc_NtkIsNetlist(pNtk) && pNtk->tName2Model );
+    pNtk->fHiePath = 1;
+    return Abc_NtkIsAcyclicHierarchy_rec( pNtk );
 }
 
 ////////////////////////////////////////////////////////////////////////

@@ -303,7 +303,7 @@ int Seq_NtkImplementRetimingBackward( Abc_Ntk_t * pNtk, Vec_Ptr_t * vMoves, int 
 
     // create the network for the initial state computation
     // start the table and the array of PO values
-    pNtkProb = Abc_NtkAlloc( ABC_NTK_LOGIC, ABC_FUNC_SOP );
+    pNtkProb = Abc_NtkAlloc( ABC_NTK_LOGIC, ABC_FUNC_SOP, 1 );
     tTable   = stmm_init_table( stmm_numcmp, stmm_numhash );
     vValues  = Vec_IntAlloc( 100 );
 
@@ -319,6 +319,7 @@ int Seq_NtkImplementRetimingBackward( Abc_Ntk_t * pNtk, Vec_Ptr_t * vMoves, int 
     // add the PI/PO names
     Abc_NtkAddDummyPiNames( pNtkProb );
     Abc_NtkAddDummyPoNames( pNtkProb );
+    Abc_NtkAddDummyAssertNames( pNtkProb );
 
     // make sure everything is okay with the network structure
     if ( !Abc_NtkDoCheck( pNtkProb ) )
@@ -343,7 +344,7 @@ int Seq_NtkImplementRetimingBackward( Abc_Ntk_t * pNtk, Vec_Ptr_t * vMoves, int 
     }
 
     // get the miter cone
-    pNtkMiter = Abc_NtkCreateCone( pNtkProb, pNtkProb->vCos, vValues );
+    pNtkMiter = Abc_NtkCreateTarget( pNtkProb, pNtkProb->vCos, vValues );
     Abc_NtkDelete( pNtkProb );
     Vec_IntFree( vValues );
 
@@ -351,12 +352,14 @@ int Seq_NtkImplementRetimingBackward( Abc_Ntk_t * pNtk, Vec_Ptr_t * vMoves, int 
     printf( "The number of ANDs in the AIG = %5d.\n", Abc_NtkNodeNum(pNtkMiter) );
 
     // transform the miter into a logic network for efficient CNF construction
-    pNtkCnf = Abc_NtkRenode( pNtkMiter, 0, 100, 1, 0, 0 );
-    Abc_NtkDelete( pNtkMiter );
+//    pNtkCnf = Abc_NtkRenode( pNtkMiter, 0, 100, 1, 0, 0 );
+//    Abc_NtkDelete( pNtkMiter );
+    pNtkCnf = pNtkMiter;
 
     // solve the miter
 clk = clock();
-    RetValue = Abc_NtkMiterSat( pNtkCnf, 30, 0 );
+//    RetValue = Abc_NtkMiterSat_OldAndRusty( pNtkCnf, 30, 0 );
+    RetValue = Abc_NtkMiterSat( pNtkCnf, (sint64)500000, (sint64)50000000, 0, 0, NULL, NULL );
 if ( fVerbose )
 if ( clock() - clk > 100 )
 {

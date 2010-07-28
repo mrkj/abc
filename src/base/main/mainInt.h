@@ -72,6 +72,7 @@ struct Abc_Frame_t_
     void *          pLibLut;     // the current LUT library
     void *          pLibGen;     // the current genlib
     void *          pLibSuper;   // the current supergate library
+    void *          pLibVer;     // the current Verilog library
 };
 
 ////////////////////////////////////////////////////////////////////////
@@ -102,8 +103,8 @@ extern void            Abc_UtilsPrintHello( Abc_Frame_t * pAbc );
 extern void            Abc_UtilsPrintUsage( Abc_Frame_t * pAbc, char * ProgName );
 extern void            Abc_UtilsSource( Abc_Frame_t * pAbc );
 
+#endif
+
 ////////////////////////////////////////////////////////////////////////
 ///                       END OF FILE                                ///
 ////////////////////////////////////////////////////////////////////////
-
-#endif

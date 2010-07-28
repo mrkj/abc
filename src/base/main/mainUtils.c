@@ -20,6 +20,10 @@
 
 #include "mainInt.h"
 
+#ifndef _WIN32
+#include "readline/readline.h"
+#endif
+
 ////////////////////////////////////////////////////////////////////////
 ///                        DECLARATIONS                              ///
 ////////////////////////////////////////////////////////////////////////
@@ -62,9 +66,18 @@ char * Abc_UtilsGetUsersInput( Abc_Frame_t * pAbc )
 {
     static char Buffer[1000], Prompt[1000];
     sprintf( Prompt, "abc %02d> ", pAbc->nSteps );
+#ifdef _WIN32
     fprintf( pAbc->Out, "%s", Prompt );
     fgets( Buffer, 999, stdin );
     return Buffer;
+#else
+    static char* line = NULL;
+    if (line != NULL) free(line);
+    line = readline(Prompt);  
+    if (line == NULL){ printf("***EOF***\n"); exit(0); }
+    add_history(line);
+    return line;
+#endif
 }
 
 /**Function*************************************************************
@@ -139,8 +152,8 @@ void Abc_UtilsSource( Abc_Frame_t * pAbc )
 
      // If .rc is present in both the home and current directories, then read
      // it from the home directory.  Otherwise, read it from wherever it's located.
-    sPath1 = util_file_search(".rc", "~/", "r");
-    sPath2 = util_file_search(".rc", ".",  "r");
+    sPath1 = Extra_UtilFileSearch(".rc", "~/", "r");
+    sPath2 = Extra_UtilFileSearch(".rc", ".",  "r");
   
     if ( sPath1 && sPath2 ) {
         /* ~/.rc == .rc : Source the file only once */

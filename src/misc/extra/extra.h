@@ -29,6 +29,10 @@
 #ifndef __EXTRA_H__
 #define __EXTRA_H__
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #ifdef _WIN32
 #define inline __inline // compatible with MS VS 6.0
 #endif
@@ -37,9 +41,15 @@
 /* Nested includes                                                           */
 /*---------------------------------------------------------------------------*/
 
+// this include should be the first one in the list
+// it is used to catch memory leaks on Windows
+#include "leaks.h"
+
+#include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
+#include <assert.h>
 #include <time.h>
-#include "util.h"
 #include "st.h"
 #include "cuddInt.h"
 
@@ -106,7 +116,35 @@ typedef unsigned long long uint64;
 /*     Various Utilities                                                     */
 /*===========================================================================*/
 
+/*=== extraBddAuto.c ========================================================*/
+
+extern DdNode *     Extra_bddSpaceFromFunctionFast( DdManager * dd, DdNode * bFunc );
+extern DdNode *     Extra_bddSpaceFromFunction( DdManager * dd, DdNode * bF, DdNode * bG );
+extern DdNode *      extraBddSpaceFromFunction( DdManager * dd, DdNode * bF, DdNode * bG );
+extern DdNode *     Extra_bddSpaceFromFunctionPos( DdManager * dd, DdNode * bFunc );
+extern DdNode *      extraBddSpaceFromFunctionPos( DdManager * dd, DdNode * bFunc );
+extern DdNode *     Extra_bddSpaceFromFunctionNeg( DdManager * dd, DdNode * bFunc );
+extern DdNode *      extraBddSpaceFromFunctionNeg( DdManager * dd, DdNode * bFunc );
+
+extern DdNode *     Extra_bddSpaceCanonVars( DdManager * dd, DdNode * bSpace );
+extern DdNode *      extraBddSpaceCanonVars( DdManager * dd, DdNode * bSpace );
+
+extern DdNode *     Extra_bddSpaceEquations( DdManager * dd, DdNode * bSpace );
+extern DdNode *     Extra_bddSpaceEquationsNeg( DdManager * dd, DdNode * bSpace );
+extern DdNode *      extraBddSpaceEquationsNeg( DdManager * dd, DdNode * bSpace );
+extern DdNode *     Extra_bddSpaceEquationsPos( DdManager * dd, DdNode * bSpace );
+extern DdNode *      extraBddSpaceEquationsPos( DdManager * dd, DdNode * bSpace );
+
+extern DdNode *     Extra_bddSpaceFromMatrixPos( DdManager * dd, DdNode * zA );
+extern DdNode *      extraBddSpaceFromMatrixPos( DdManager * dd, DdNode * zA );
+extern DdNode *     Extra_bddSpaceFromMatrixNeg( DdManager * dd, DdNode * zA );
+extern DdNode *      extraBddSpaceFromMatrixNeg( DdManager * dd, DdNode * zA );
+
+extern DdNode *     Extra_bddSpaceReduce( DdManager * dd, DdNode * bFunc, DdNode * bCanonVars );
+extern DdNode **    Extra_bddSpaceExorGates( DdManager * dd, DdNode * bFuncRed, DdNode * zEquations );
+
 /*=== extraBddMisc.c ========================================================*/
+
 extern DdNode *     Extra_TransferPermute( DdManager * ddSource, DdManager * ddDestination, DdNode * f, int * Permute );
 extern DdNode *     Extra_TransferLevelByLevel( DdManager * ddSource, DdManager * ddDestination, DdNode * f );
 extern DdNode *     Extra_bddRemapUp( DdManager * dd, DdNode * bF );
@@ -126,6 +164,11 @@ extern DdNode *     Extra_bddFindOneCube( DdManager * dd, DdNode * bF );
 extern DdNode *     Extra_bddGetOneCube( DdManager * dd, DdNode * bFunc );
 extern DdNode *     Extra_bddComputeRangeCube( DdManager * dd, int iStart, int iStop );
 extern DdNode *     Extra_bddBitsToCube( DdManager * dd, int Code, int CodeWidth, DdNode ** pbVars, int fMsbFirst );
+extern DdNode *     Extra_bddSupportNegativeCube( DdManager * dd, DdNode * f );
+extern int          Extra_bddIsVar( DdNode * bFunc );
+extern DdNode *     Extra_bddCreateAnd( DdManager * dd, int nVars );
+extern DdNode *     Extra_bddCreateOr( DdManager * dd, int nVars );
+extern DdNode *     Extra_bddCreateExor( DdManager * dd, int nVars );
 
 /*=== extraBddKmap.c ================================================================*/
 
@@ -185,6 +228,46 @@ extern DdNode *     extraZddTuplesFromBdd( DdManager * dd, DdNode * bVarsK, DdNo
 extern DdNode *    Extra_zddSelectOneSubset( DdManager * dd, DdNode * zS );
 extern DdNode *     extraZddSelectOneSubset( DdManager * dd, DdNode * zS );
 
+/*=== extraBddUnate.c =================================================================*/
+
+typedef struct Extra_UnateVar_t_  Extra_UnateVar_t;
+struct Extra_UnateVar_t_ {
+    unsigned    iVar : 30;  // index of the variable
+    unsigned    Pos  :  1;  // 1 if positive unate
+    unsigned    Neg  :  1;  // 1 if negative unate
+};
+
+typedef struct Extra_UnateInfo_t_  Extra_UnateInfo_t;
+struct Extra_UnateInfo_t_ {
+    int nVars;      // the number of variables in the support
+    int nVarsMax;   // the number of variables in the DD manager
+    int nUnate;     // the number of unate variables
+    Extra_UnateVar_t * pVars;    // the array of variables present in the support
+};
+
+/* allocates the data structure */
+extern Extra_UnateInfo_t *  Extra_UnateInfoAllocate( int nVars );
+/* deallocates the data structure */
+extern void        Extra_UnateInfoDissolve( Extra_UnateInfo_t * );
+/* print the contents the data structure */
+extern void        Extra_UnateInfoPrint( Extra_UnateInfo_t * );
+/* converts the ZDD into the Extra_SymmInfo_t structure */
+extern Extra_UnateInfo_t *  Extra_UnateInfoCreateFromZdd( DdManager * dd, DdNode * zUnate, DdNode * bVars );
+/* naive check of unateness of one variable */
+extern int         Extra_bddCheckUnateNaive( DdManager * dd, DdNode * bF, int iVar );
+
+/* computes the unateness information for the function */
+extern Extra_UnateInfo_t *  Extra_UnateComputeFast( DdManager * dd, DdNode * bFunc );
+extern Extra_UnateInfo_t *  Extra_UnateComputeSlow( DdManager * dd, DdNode * bFunc );
+
+/* computes the classical symmetry information as a ZDD */
+extern DdNode *    Extra_zddUnateInfoCompute( DdManager * dd, DdNode * bF, DdNode * bVars );
+extern DdNode *     extraZddUnateInfoCompute( DdManager * dd, DdNode * bF, DdNode * bVars );
+
+/* converts a set of variables into a set of singleton subsets */
+extern DdNode *    Extra_zddGetSingletonsBoth( DdManager * dd, DdNode * bVars );
+extern DdNode *     extraZddGetSingletonsBoth( DdManager * dd, DdNode * bVars );
+
 /*=== extraUtilBitMatrix.c ================================================================*/
 
 typedef struct Extra_BitMat_t_ Extra_BitMat_t;
@@ -208,7 +291,7 @@ extern int          Extra_BitMatrixIsClique( Extra_BitMat_t * p );
 /*=== extraUtilFile.c ========================================================*/
 
 extern char *       Extra_FileGetSimilarName( char * pFileNameWrong, char * pS1, char * pS2, char * pS3, char * pS4, char * pS5 );
-extern int          Extra_FileNameCheckExtension( char * FileName, char * Extension );
+extern char *       Extra_FileNameExtension( char * FileName );
 extern char *       Extra_FileNameAppend( char * pBase, char * pSuffix );
 extern char *       Extra_FileNameGeneric( char * FileName );
 extern int          Extra_FileSize( char * pFileName );
@@ -217,6 +300,8 @@ extern char *       Extra_TimeStamp();
 extern char *       Extra_StringAppend( char * pStrGiven, char * pStrAdd );
 extern unsigned     Extra_ReadBinary( char * Buffer );
 extern void         Extra_PrintBinary( FILE * pFile, unsigned Sign[], int nBits );
+extern int          Extra_ReadHexadecimal( unsigned Sign[], char * pString, int nVars );
+extern void         Extra_PrintHexadecimal( FILE * pFile, unsigned Sign[], int nVars );
 extern void         Extra_PrintHex( FILE * pFile, unsigned uTruth, int nVars );
 extern void         Extra_PrintSymbols( FILE * pFile, char Char, int nTimes, int fPrintNewLine );
 
@@ -259,7 +344,7 @@ extern int         Extra_MmStepReadMemUsage( Extra_MmStep_t * p );
 
 /*=== extraUtilMisc.c ========================================================*/
 
-/* finds the smallest integer larger of equal than the logarithm. */
+/* finds the smallest integer larger or equal than the logarithm */
 extern int         Extra_Base2Log( unsigned Num );
 extern int         Extra_Base2LogDouble( double Num );
 extern int         Extra_Base10Log( unsigned Num );
@@ -314,31 +399,178 @@ extern void        Extra_ProgressBarStop( ProgressBar * p );
 extern void        Extra_ProgressBarUpdate_int( ProgressBar * p, int nItemsCur, char * pString );
 
 static inline void Extra_ProgressBarUpdate( ProgressBar * p, int nItemsCur, char * pString ) 
-{  if ( nItemsCur < *((int*)p) ) return; Extra_ProgressBarUpdate_int(p, nItemsCur, pString); }
+{  if ( p && nItemsCur < *((int*)p) ) return; Extra_ProgressBarUpdate_int(p, nItemsCur, pString); }
 
-/*=== extraUtilIntVec.c ================================================================*/
+/*=== extraUtilTruth.c ================================================================*/
 
-typedef struct Extra_IntVec_t_    Extra_IntVec_t;
-extern Extra_IntVec_t * Extra_IntVecAlloc( int nCap );
-extern Extra_IntVec_t * Extra_IntVecAllocArray( int * pArray, int nSize );
-extern Extra_IntVec_t * Extra_IntVecAllocArrayCopy( int * pArray, int nSize );
-extern Extra_IntVec_t * Extra_IntVecDup( Extra_IntVec_t * pVec );
-extern Extra_IntVec_t * Extra_IntVecDupArray( Extra_IntVec_t * pVec );
-extern void        Extra_IntVecFree( Extra_IntVec_t * p );
-extern void        Extra_IntVecFill( Extra_IntVec_t * p, int nSize, int Entry );
-extern int *       Extra_IntVecReleaseArray( Extra_IntVec_t * p );
-extern int *       Extra_IntVecReadArray( Extra_IntVec_t * p );
-extern int         Extra_IntVecReadSize( Extra_IntVec_t * p );
-extern int         Extra_IntVecReadEntry( Extra_IntVec_t * p, int i );
-extern int         Extra_IntVecReadEntryLast( Extra_IntVec_t * p );
-extern void        Extra_IntVecWriteEntry( Extra_IntVec_t * p, int i, int Entry );
-extern void        Extra_IntVecGrow( Extra_IntVec_t * p, int nCapMin );
-extern void        Extra_IntVecShrink( Extra_IntVec_t * p, int nSizeNew );
-extern void        Extra_IntVecClear( Extra_IntVec_t * p );
-extern void        Extra_IntVecPush( Extra_IntVec_t * p, int Entry );
-extern int         Extra_IntVecPop( Extra_IntVec_t * p );
-extern void        Extra_IntVecSort( Extra_IntVec_t * p );
+static inline int   Extra_Float2Int( float Val )     { return *((int *)&Val);               }
+static inline float Extra_Int2Float( int Num )       { return *((float *)&Num);             }
+static inline int   Extra_BitWordNum( int nBits )    { return nBits/(8*sizeof(unsigned)) + ((nBits%(8*sizeof(unsigned))) > 0);  }
+static inline int   Extra_TruthWordNum( int nVars )  { return nVars <= 5 ? 1 : (1 << (nVars - 5)); }
+
+static inline void  Extra_TruthSetBit( unsigned * p, int Bit )   { p[Bit>>5] |= (1<<(Bit & 31));               }
+static inline void  Extra_TruthXorBit( unsigned * p, int Bit )   { p[Bit>>5] ^= (1<<(Bit & 31));               }
+static inline int   Extra_TruthHasBit( unsigned * p, int Bit )   { return (p[Bit>>5] & (1<<(Bit & 31))) > 0;   }
+
+static inline int Extra_WordCountOnes( unsigned uWord )
+{
+    uWord = (uWord & 0x55555555) + ((uWord>>1) & 0x55555555);
+    uWord = (uWord & 0x33333333) + ((uWord>>2) & 0x33333333);
+    uWord = (uWord & 0x0F0F0F0F) + ((uWord>>4) & 0x0F0F0F0F);
+    uWord = (uWord & 0x00FF00FF) + ((uWord>>8) & 0x00FF00FF);
+    return  (uWord & 0x0000FFFF) + (uWord>>16);
+}
+static inline int Extra_TruthCountOnes( unsigned * pIn, int nVars )
+{
+    int w, Counter = 0;
+    for ( w = Extra_TruthWordNum(nVars)-1; w >= 0; w-- )
+        Counter += Extra_WordCountOnes(pIn[w]);
+    return Counter;
+}
+static inline int Extra_TruthIsEqual( unsigned * pIn0, unsigned * pIn1, int nVars )
+{
+    int w;
+    for ( w = Extra_TruthWordNum(nVars)-1; w >= 0; w-- )
+        if ( pIn0[w] != pIn1[w] )
+            return 0;
+    return 1;
+}
+static inline int Extra_TruthIsConst0( unsigned * pIn, int nVars )
+{
+    int w;
+    for ( w = Extra_TruthWordNum(nVars)-1; w >= 0; w-- )
+        if ( pIn[w] )
+            return 0;
+    return 1;
+}
+static inline int Extra_TruthIsConst1( unsigned * pIn, int nVars )
+{
+    int w;
+    for ( w = Extra_TruthWordNum(nVars)-1; w >= 0; w-- )
+        if ( pIn[w] != ~(unsigned)0 )
+            return 0;
+    return 1;
+}
+static inline int Extra_TruthIsImply( unsigned * pIn1, unsigned * pIn2, int nVars )
+{
+    int w;
+    for ( w = Extra_TruthWordNum(nVars)-1; w >= 0; w-- )
+        if ( pIn1[w] & ~pIn2[w] )
+            return 0;
+    return 1;
+}
+static inline void Extra_TruthCopy( unsigned * pOut, unsigned * pIn, int nVars )
+{
+    int w;
+    for ( w = Extra_TruthWordNum(nVars)-1; w >= 0; w-- )
+        pOut[w] = pIn[w];
+}
+static inline void Extra_TruthClear( unsigned * pOut, int nVars )
+{
+    int w;
+    for ( w = Extra_TruthWordNum(nVars)-1; w >= 0; w-- )
+        pOut[w] = 0;
+}
+static inline void Extra_TruthFill( unsigned * pOut, int nVars )
+{
+    int w;
+    for ( w = Extra_TruthWordNum(nVars)-1; w >= 0; w-- )
+        pOut[w] = ~(unsigned)0;
+}
+static inline void Extra_TruthNot( unsigned * pOut, unsigned * pIn, int nVars )
+{
+    int w;
+    for ( w = Extra_TruthWordNum(nVars)-1; w >= 0; w-- )
+        pOut[w] = ~pIn[w];
+}
+static inline void Extra_TruthAnd( unsigned * pOut, unsigned * pIn0, unsigned * pIn1, int nVars )
+{
+    int w;
+    for ( w = Extra_TruthWordNum(nVars)-1; w >= 0; w-- )
+        pOut[w] = pIn0[w] & pIn1[w];
+}
+static inline void Extra_TruthOr( unsigned * pOut, unsigned * pIn0, unsigned * pIn1, int nVars )
+{
+    int w;
+    for ( w = Extra_TruthWordNum(nVars)-1; w >= 0; w-- )
+        pOut[w] = pIn0[w] | pIn1[w];
+}
+static inline void Extra_TruthSharp( unsigned * pOut, unsigned * pIn0, unsigned * pIn1, int nVars )
+{
+    int w;
+    for ( w = Extra_TruthWordNum(nVars)-1; w >= 0; w-- )
+        pOut[w] = pIn0[w] & ~pIn1[w];
+}
+static inline void Extra_TruthNand( unsigned * pOut, unsigned * pIn0, unsigned * pIn1, int nVars )
+{
+    int w;
+    for ( w = Extra_TruthWordNum(nVars)-1; w >= 0; w-- )
+        pOut[w] = ~(pIn0[w] & pIn1[w]);
+}
+
+extern void     Extra_TruthSwapAdjacentVars( unsigned * pOut, unsigned * pIn, int nVars, int Start );
+extern void     Extra_TruthStretch( unsigned * pOut, unsigned * pIn, int nVars, int nVarsAll, unsigned Phase );
+extern void     Extra_TruthShrink( unsigned * pOut, unsigned * pIn, int nVars, int nVarsAll, unsigned Phase );
+extern int      Extra_TruthVarInSupport( unsigned * pTruth, int nVars, int iVar );
+extern int      Extra_TruthSupportSize( unsigned * pTruth, int nVars );
+extern int      Extra_TruthSupport( unsigned * pTruth, int nVars );
+extern void     Extra_TruthCofactor0( unsigned * pTruth, int nVars, int iVar );
+extern void     Extra_TruthCofactor1( unsigned * pTruth, int nVars, int iVar );
+extern void     Extra_TruthExist( unsigned * pTruth, int nVars, int iVar );
+extern void     Extra_TruthForall( unsigned * pTruth, int nVars, int iVar );
+extern void     Extra_TruthMux( unsigned * pOut, unsigned * pCof0, unsigned * pCof1, int nVars, int iVar );
+extern void     Extra_TruthChangePhase( unsigned * pTruth, int nVars, int iVar );
+extern int      Extra_TruthMinCofSuppOverlap( unsigned * pTruth, int nVars, int * pVarMin );
+extern void     Extra_TruthCountOnesInCofs( unsigned * pTruth, int nVars, short * pStore );
+extern unsigned Extra_TruthHash( unsigned * pIn, int nWords );
+extern unsigned Extra_TruthSemiCanonicize( unsigned * pInOut, unsigned * pAux, int nVars, char * pCanonPerm, short * pStore );
+
+/*=== extraUtilUtil.c ================================================================*/
+
+#ifndef ABS
+#define ABS(a)			((a) < 0 ? -(a) : (a))
+#endif
+
+#ifndef MAX
+#define MAX(a,b)		((a) > (b) ? (a) : (b))
+#endif
+
+#ifndef MIN
+#define MIN(a,b)		((a) < (b) ? (a) : (b))
+#endif
+
+#ifndef ALLOC
+#define ALLOC(type, num)	 ((type *) malloc(sizeof(type) * (num)))
+#endif
+
+#ifndef FREE
+#define FREE(obj)		     ((obj) ? (free((char *) (obj)), (obj) = 0) : 0)
+#endif
+
+#ifndef REALLOC
+#define REALLOC(type, obj, num)	\
+        ((obj) ? ((type *) realloc((char *)(obj), sizeof(type) * (num))) : \
+	     ((type *) malloc(sizeof(type) * (num))))
+#endif
+
+
+extern long        Extra_CpuTime();
+extern int         Extra_GetSoftDataLimit();
+extern void        Extra_UtilGetoptReset();
+extern int         Extra_UtilGetopt( int argc, char *argv[], char *optstring );
+extern char *      Extra_UtilPrintTime( long t );
+extern char *      Extra_UtilStrsav( char *s );
+extern char *      Extra_UtilTildeExpand( char *fname );
+extern char *      Extra_UtilFileSearch( char *file, char *path, char *mode );
+extern void        (*Extra_UtilMMoutOfMemory)();
+
+extern char *      globalUtilOptarg;
+extern int         globalUtilOptind;
 
 /**AutomaticEnd***************************************************************/
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* __EXTRA_H__ */

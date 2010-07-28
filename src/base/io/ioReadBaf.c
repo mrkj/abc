@@ -30,7 +30,7 @@
 
 /**Function*************************************************************
 
-  Synopsis    [Writes the AIG in the binary format.]
+  Synopsis    [Reads the AIG in the binary format.]
 
   Description []
   
@@ -73,35 +73,42 @@ Abc_Ntk_t * Io_ReadBaf( char * pFileName, int fCheck )
     nAnds = atoi( pCur );     while ( *pCur++ );
 
     // allocate the empty AIG
-    pNtkNew = Abc_NtkAlloc( ABC_NTK_STRASH, ABC_FUNC_AIG );
-    pNtkNew->pName = util_strsav( pName );
-    pNtkNew->pSpec = util_strsav( pFileName );
+    pNtkNew = Abc_NtkAlloc( ABC_NTK_STRASH, ABC_FUNC_AIG, 1 );
+    pNtkNew->pName = Extra_UtilStrsav( pName );
+    pNtkNew->pSpec = Extra_UtilStrsav( pFileName );
 
     // prepare the array of nodes
     vNodes = Vec_PtrAlloc( 1 + nInputs + nLatches + nAnds );
-    Vec_PtrPush( vNodes, Abc_NtkConst1(pNtkNew) );
+    Vec_PtrPush( vNodes, Abc_AigConst1(pNtkNew) );
 
     // create the PIs
     for ( i = 0; i < nInputs; i++ )
     {
         pObj = Abc_NtkCreatePi(pNtkNew);    
-        Abc_NtkLogicStoreName( pObj, pCur );  while ( *pCur++ );
+        Abc_ObjAssignName( pObj, pCur, NULL );  while ( *pCur++ );
         Vec_PtrPush( vNodes, pObj );
     }
     // create the POs
     for ( i = 0; i < nOutputs; i++ )
     {
         pObj = Abc_NtkCreatePo(pNtkNew);   
-        Abc_NtkLogicStoreName( pObj, pCur );  while ( *pCur++ ); 
+        Abc_ObjAssignName( pObj, pCur, NULL );  while ( *pCur++ ); 
     }
     // create the latches
     for ( i = 0; i < nLatches; i++ )
     {
         pObj = Abc_NtkCreateLatch(pNtkNew);
-        Abc_NtkLogicStoreName( pObj, pCur );  while ( *pCur++ ); 
-        Vec_PtrPush( vNodes, pObj );
-        Vec_PtrPush( pNtkNew->vCis, pObj );
-        Vec_PtrPush( pNtkNew->vCos, pObj );
+        Abc_ObjAssignName( pObj, pCur, NULL );  while ( *pCur++ ); 
+
+        pNode0 = Abc_NtkCreateBi(pNtkNew);
+        Abc_ObjAssignName( pNode0, pCur, NULL );  while ( *pCur++ ); 
+
+        pNode1 = Abc_NtkCreateBo(pNtkNew);
+        Abc_ObjAssignName( pNode1, pCur, NULL );  while ( *pCur++ ); 
+        Vec_PtrPush( vNodes, pNode1 );
+
+        Abc_ObjAddFanin( pObj, pNode0 );
+        Abc_ObjAddFanin( pNode1, pObj );
     }
 
     // get the pointer to the beginning of the node array
@@ -131,9 +138,9 @@ Abc_Ntk_t * Io_ReadBaf( char * pFileName, int fCheck )
     Abc_NtkForEachCo( pNtkNew, pObj, i )
     {
         Num = pBufferNode[2*nAnds+i];
-        if ( Abc_ObjIsLatch(pObj) )
+        if ( Abc_ObjFanoutNum(pObj) > 0 && Abc_ObjIsLatch(Abc_ObjFanout0(pObj)) )
         {
-            Abc_ObjSetData( pObj, (void *)(Num & 3) );
+            Abc_ObjSetData( Abc_ObjFanout0(pObj), (void *)(Num & 3) );
             Num >>= 2;
         }
         pNode0 = Abc_ObjNotCond( Vec_PtrEntry(vNodes, Num >> 1), Num & 1 );
@@ -143,7 +150,7 @@ Abc_Ntk_t * Io_ReadBaf( char * pFileName, int fCheck )
     Vec_PtrFree( vNodes );
 
     // remove the extra nodes
-    Abc_AigCleanup( pNtkNew->pManFunc );
+//    Abc_AigCleanup( pNtkNew->pManFunc );
 
     // check the result
     if ( fCheck && !Abc_NtkCheckRead( pNtkNew ) )

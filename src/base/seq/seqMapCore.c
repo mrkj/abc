@@ -370,7 +370,7 @@ Abc_Ntk_t * Seq_NtkSeqMapMapped( Abc_Ntk_t * pNtk )
     Seq_Match_t * pMatch;
     Abc_Ntk_t * pNtkMap; 
     Vec_Ptr_t * vLeaves;
-    Abc_Obj_t * pObj, * pLatch, * pFaninNew;
+    Abc_Obj_t * pObj, * pFaninNew;
     Seq_Lat_t * pRing;
     int i;
 
@@ -412,12 +412,8 @@ Abc_Ntk_t * Seq_NtkSeqMapMapped( Abc_Ntk_t * pNtk )
     }
 
     // add the latches and their names
-    Abc_NtkAddDummyLatchNames( pNtkMap );
-    Abc_NtkForEachLatch( pNtkMap, pLatch, i )
-    {
-        Vec_PtrPush( pNtkMap->vCis, pLatch );
-        Vec_PtrPush( pNtkMap->vCos, pLatch );
-    }
+    Abc_NtkAddDummyBoxNames( pNtkMap );
+    Abc_NtkOrderCisCos( pNtkMap );
     // fix the problem with complemented and duplicated CO edges
     Abc_NtkLogicMakeSimpleCos( pNtkMap, 1 );
     // make the network minimum base
@@ -478,7 +474,7 @@ int Seq_MapMappingCount_rec( Abc_Ntk_t * pNtk, unsigned SeqEdge, Vec_Ptr_t * vLe
         if ( SeqEdge == (unsigned)pLeaf )
             return 0;
     // continue unfolding
-    assert( Abc_NodeIsAigAnd(pObj) );
+    assert( Abc_AigNodeIsAnd(pObj) );
     // get new sequential edges
     assert( Lag + Seq_ObjFaninL0(pObj) < 255 );
     assert( Lag + Seq_ObjFaninL1(pObj) < 255 );
@@ -523,7 +519,7 @@ Abc_Obj_t * Seq_MapMappingBuild_rec( Abc_Ntk_t * pNtkNew, Abc_Ntk_t * pNtk, unsi
                 return pObj->pCopy;
         }
     // continue unfolding
-    assert( Abc_NodeIsAigAnd(pObj) );
+    assert( Abc_AigNodeIsAnd(pObj) );
     // get new sequential edges
     assert( Lag + Seq_ObjFaninL0(pObj) < 255 );
     assert( Lag + Seq_ObjFaninL1(pObj) < 255 );
@@ -576,7 +572,7 @@ void Seq_MapMappingEdges_rec( Abc_Ntk_t * pNtk, unsigned SeqEdge, Abc_Obj_t * pP
         }
     }
     // continue unfolding
-    assert( Abc_NodeIsAigAnd(pObj) );
+    assert( Abc_AigNodeIsAnd(pObj) );
     // get new sequential edges
     assert( Lag + Seq_ObjFaninL0(pObj) < 255 );
     assert( Lag + Seq_ObjFaninL1(pObj) < 255 );
@@ -629,7 +625,7 @@ DdNode * Seq_MapMappingConnectBdd_rec( Abc_Ntk_t * pNtk, unsigned SeqEdge, Abc_O
         }
     }
     // continue unfolding
-    assert( Abc_NodeIsAigAnd(pObj) );
+    assert( Abc_AigNodeIsAnd(pObj) );
     // get new sequential edges
     assert( Lag + Seq_ObjFaninL0(pObj) < 255 );
     assert( Lag + Seq_ObjFaninL1(pObj) < 255 );

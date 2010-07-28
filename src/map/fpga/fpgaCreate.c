@@ -66,8 +66,9 @@ void            Fpga_ManSetChoiceNodeNum( Fpga_Man_t * p, int nChoiceNodes ) { p
 void            Fpga_ManSetChoiceNum( Fpga_Man_t * p, int nChoices )         { p->nChoices = nChoices;          }   
 void            Fpga_ManSetVerbose( Fpga_Man_t * p, int fVerbose )           { p->fVerbose = fVerbose;          }   
 void            Fpga_ManSetSwitching( Fpga_Man_t * p, int fSwitching )       { p->fSwitching = fSwitching;      }   
-void            Fpga_ManSetDelayTarget( Fpga_Man_t * p, float DelayTarget )  { p->DelayTarget = DelayTarget;    }   
+void            Fpga_ManSetLatchPaths( Fpga_Man_t * p, int fLatchPaths )     { p->fLatchPaths = fLatchPaths;    }   
 void            Fpga_ManSetLatchNum( Fpga_Man_t * p, int nLatches )          { p->nLatches = nLatches;          }   
+void            Fpga_ManSetDelayTarget( Fpga_Man_t * p, float DelayTarget )  { p->DelayTarget = DelayTarget;    }   
 void            Fpga_ManSetName( Fpga_Man_t * p, char * pFileName )          { p->pFileName = pFileName;        }   
 
 /**Function*************************************************************
@@ -96,6 +97,7 @@ int             Fpga_LibReadLutMax( Fpga_LutLib_t * pLib )  { return pLib->LutMa
 ***********************************************************************/
 char *          Fpga_NodeReadData0( Fpga_Node_t * p )                   { return p->pData0;    }
 Fpga_Node_t *   Fpga_NodeReadData1( Fpga_Node_t * p )                   { return p->pLevel;    }
+int             Fpga_NodeReadRefs( Fpga_Node_t * p )                    { return p->nRefs;     }
 int             Fpga_NodeReadNum( Fpga_Node_t * p )                     { return p->Num;       }
 int             Fpga_NodeReadLevel( Fpga_Node_t * p )                   { return Fpga_Regular(p)->Level;  }
 Fpga_Cut_t *    Fpga_NodeReadCuts( Fpga_Node_t * p )                    { return p->pCuts;     }

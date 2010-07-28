@@ -45,6 +45,8 @@ Cut_Man_t * Cut_ManStart( Cut_Params_t * pParams )
 {
     Cut_Man_t * p;
     int clk = clock();
+//    extern int nTruthDsd;
+//    nTruthDsd = 0;
     assert( pParams->nVarsMax >= 3 && pParams->nVarsMax <= CUT_SIZE_MAX );
     p = ALLOC( Cut_Man_t, 1 );
     memset( p, 0, sizeof(Cut_Man_t) );
@@ -61,22 +63,30 @@ Cut_Man_t * Cut_ManStart( Cut_Params_t * pParams )
         Vec_PtrFill( p->vCutsOld, pParams->nIdsMax, NULL );
         p->vCutsTemp = Vec_PtrAlloc( pParams->nCutSet );
         Vec_PtrFill( p->vCutsTemp, pParams->nCutSet, NULL );
+        if ( pParams->fTruth && pParams->nVarsMax > 5 )
+        {
+            pParams->fTruth = 0;
+            printf( "Skipping computation of truth tables for sequential cuts with more than 5 inputs.\n" );
+        }
     }
-    assert( !pParams->fTruth || pParams->nVarsMax <= 5 );
     // entry size
     p->EntrySize = sizeof(Cut_Cut_t) + pParams->nVarsMax * sizeof(int);
     if ( pParams->fTruth )
     {
-        if ( pParams->nVarsMax > 8 )
+        if ( pParams->nVarsMax > 14 )
         {
             pParams->fTruth = 0;
-            printf( "Skipping computation of truth table for more than 8 inputs.\n" );
+            printf( "Skipping computation of truth table for more than %d inputs.\n", 14 );
         }
         else
         {
             p->nTruthWords = Cut_TruthWords( pParams->nVarsMax );
             p->EntrySize += p->nTruthWords * sizeof(unsigned);
         }
+        p->puTemp[0] = ALLOC( unsigned, 4 * p->nTruthWords );
+        p->puTemp[1] = p->puTemp[0] + p->nTruthWords;
+        p->puTemp[2] = p->puTemp[1] + p->nTruthWords;
+        p->puTemp[3] = p->puTemp[2] + p->nTruthWords;
     }
     // enable cut computation recording
     if ( pParams->fRecord )
@@ -84,6 +94,13 @@ Cut_Man_t * Cut_ManStart( Cut_Params_t * pParams )
         p->vNodeCuts   = Vec_IntStart( pParams->nIdsMax );
         p->vNodeStarts = Vec_IntStart( pParams->nIdsMax );
         p->vCutPairs   = Vec_IntAlloc( 0 );
+    }
+    // allocate storage for delays
+    if ( pParams->fMap && !p->pParams->fSeq )
+    {
+        p->vDelays = Vec_IntStart( pParams->nIdsMax );
+        p->vDelays2 = Vec_IntStart( pParams->nIdsMax );
+        p->vCutsMax = Vec_PtrStart( pParams->nIdsMax );
     }
     // memory for cuts
     p->pMmCuts = Extra_MmFixedStart( p->EntrySize );
@@ -106,6 +123,9 @@ void Cut_ManStop( Cut_Man_t * p )
 {
     Cut_Cut_t * pCut;
     int i;
+//    extern int nTruthDsd;
+//    printf( "Decomposable cuts = %d.\n", nTruthDsd );
+
     Vec_PtrForEachEntry( p->vCutsNew, pCut, i )
         if ( pCut != NULL )
         {
@@ -117,9 +137,13 @@ void Cut_ManStop( Cut_Man_t * p )
     if ( p->vFanCounts )  Vec_IntFree( p->vFanCounts );
     if ( p->vTemp )       Vec_PtrFree( p->vTemp );
 
+    if ( p->vCutsMax )    Vec_PtrFree( p->vCutsMax );
+    if ( p->vDelays )     Vec_IntFree( p->vDelays );
+    if ( p->vDelays2 )    Vec_IntFree( p->vDelays2 );
     if ( p->vNodeCuts )   Vec_IntFree( p->vNodeCuts );
     if ( p->vNodeStarts ) Vec_IntFree( p->vNodeStarts );
     if ( p->vCutPairs )   Vec_IntFree( p->vCutPairs );
+    if ( p->puTemp[0] )   free( p->puTemp[0] );
 
     Extra_MmFixedStop( p->pMmCuts, 0 );
     free( p );
@@ -153,10 +177,21 @@ void Cut_ManPrintStats( Cut_Man_t * p )
     printf( "Cuts per node     = %8.1f\n", ((float)(p->nCutsCur-p->nCutsTriv))/p->nNodes );
     printf( "The cut size      = %8d bytes.\n", p->EntrySize );
     printf( "Peak memory       = %8.2f Mb.\n", (float)p->nCutsPeak * p->EntrySize / (1<<20) );
+    printf( "Total nodes       = %8d.\n", p->nNodes );
+    if ( p->pParams->fDag || p->pParams->fTree )
+    {
+    printf( "DAG nodes         = %8d.\n", p->nNodesDag );
+    printf( "Tree nodes        = %8d.\n", p->nNodes - p->nNodesDag );
+    }
+    printf( "Nodes w/o cuts    = %8d.\n", p->nNodesNoCuts );
+    if ( p->pParams->fMap && !p->pParams->fSeq )
+    printf( "Mapping delay     = %8d.\n", p->nDelayMin );
+
     PRT( "Merge ", p->timeMerge );
     PRT( "Union ", p->timeUnion );
     PRT( "Filter", p->timeFilter );
     PRT( "Truth ", p->timeTruth );
+    PRT( "Map   ", p->timeMap );
 //    printf( "Nodes = %d. Multi = %d.  Cuts = %d. Multi = %d.\n", 
 //        p->nNodes, p->nNodesMulti, p->nCutsCur-p->nCutsTriv, p->nCutsMulti );
 //    printf( "Count0 = %d. Count1 = %d. Count2 = %d.\n\n", p->Count0, p->Count1, p->Count2 );
@@ -215,9 +250,73 @@ void Cut_ManSetFanoutCounts( Cut_Man_t * p, Vec_Int_t * vFanCounts )
   SeeAlso     []
 
 ***********************************************************************/
+void Cut_ManSetNodeAttrs( Cut_Man_t * p, Vec_Int_t * vNodeAttrs )
+{
+    p->vNodeAttrs = vNodeAttrs;
+}
+
+/**Function*************************************************************
+
+  Synopsis    []
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
 int Cut_ManReadVarsMax( Cut_Man_t * p )
 {
     return p->pParams->nVarsMax;
+}
+
+/**Function*************************************************************
+
+  Synopsis    []
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+Cut_Params_t * Cut_ManReadParams( Cut_Man_t * p )
+{
+    return p->pParams;
+}
+
+/**Function*************************************************************
+
+  Synopsis    []
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+Vec_Int_t * Cut_ManReadNodeAttrs( Cut_Man_t * p )
+{
+    return p->vNodeAttrs;
+}
+
+/**Function*************************************************************
+
+  Synopsis    []
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+void Cut_ManIncrementDagNodes( Cut_Man_t * p )
+{
+    p->nNodesDag++;
 }
 
 ////////////////////////////////////////////////////////////////////////

@@ -21,6 +21,10 @@
 #ifndef __SEQ_H__
 #define __SEQ_H__
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 ////////////////////////////////////////////////////////////////////////
 ///                          INCLUDES                                ///
 ////////////////////////////////////////////////////////////////////////
@@ -60,6 +64,9 @@ extern int             Seq_NodeCompareLats( Abc_Obj_t * pObj1, int Edge1, Abc_Ob
 extern Abc_Seq_t *     Seq_Create( Abc_Ntk_t * pNtk );
 extern void            Seq_Resize( Abc_Seq_t * p, int nMaxId );
 extern void            Seq_Delete( Abc_Seq_t * p );
+/*=== seqMaxMeanCycle.c ======================================================*/
+extern float           Seq_NtkHoward( Abc_Ntk_t * pNtk, int fVerbose );
+extern void            Seq_NtkSkewForward( Abc_Ntk_t * pNtk, float period, int fMinimize );
 /*=== abcSeq.c ===============================================================*/
 extern Abc_Ntk_t *     Abc_NtkAigToSeq( Abc_Ntk_t * pNtk );
 extern Abc_Ntk_t *     Abc_NtkSeqToLogicSop( Abc_Ntk_t * pNtk );
@@ -82,9 +89,13 @@ extern int             Seq_MapComputeAreaFlows( Abc_Ntk_t * pNtk, int fVerbose )
 extern Vec_Ptr_t *     Seq_NtkReachNodes( Abc_Ntk_t * pNtk, int fFromPos );
 extern int             Seq_NtkCleanup( Abc_Ntk_t * pNtk, int fVerbose );
 
+#ifdef __cplusplus
+}
+#endif
+
+#endif
+
 ////////////////////////////////////////////////////////////////////////
 ///                       END OF FILE                                ///
 ////////////////////////////////////////////////////////////////////////
-
-#endif
 

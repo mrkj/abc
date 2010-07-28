@@ -24,9 +24,8 @@
 ////////////////////////////////////////////////////////////////////////
 
 #include <stdio.h>
-#include "util.h"
 #include "extra.h"
-//#include "vm.h"
+#include "extra.h"
 
 ////////////////////////////////////////////////////////////////////////
 ///                         PARAMETERS                               ///
@@ -50,7 +49,7 @@
 ////////////////////////////////////////////////////////////////////////
 
 // cube/list/cover/data
-typedef unsigned long              Mvc_CubeWord_t;
+typedef unsigned int               Mvc_CubeWord_t;
 typedef struct MvcCubeStruct       Mvc_Cube_t;
 typedef struct MvcListStruct       Mvc_List_t;
 typedef struct MvcCoverStruct      Mvc_Cover_t;
@@ -725,9 +724,9 @@ extern Mvc_Manager_t *  Mvc_ManagerAllocCube( int nWords );
 extern Mvc_Manager_t *  Mvc_ManagerFreeCover( Mvc_Cover_t * pCover );
 extern Mvc_Manager_t *  Mvc_ManagerFreeCube( Mvc_Cover_t * pCube, int nWords );
 
+#endif
+
 ////////////////////////////////////////////////////////////////////////
 ///                       END OF FILE                                ///
 ////////////////////////////////////////////////////////////////////////
-
-#endif
 

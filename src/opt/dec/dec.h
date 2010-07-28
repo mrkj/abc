@@ -21,6 +21,10 @@
 #ifndef __DEC_H__
 #define __DEC_H__
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 ////////////////////////////////////////////////////////////////////////
 ///                          INCLUDES                                ///
 ////////////////////////////////////////////////////////////////////////
@@ -47,11 +51,15 @@ struct Dec_Node_t_
     Dec_Edge_t        eEdge1;          // the right child of the node
     // other info
     void *            pFunc;           // the function of the node (BDD or AIG)
-    unsigned          Level    : 16;   // the level of this node in the global AIG
+    unsigned          Level    : 14;   // the level of this node in the global AIG
     // printing info 
     unsigned          fNodeOr  :  1;   // marks the original OR node
     unsigned          fCompl0  :  1;   // marks the original complemented edge
     unsigned          fCompl1  :  1;   // marks the original complemented edge
+    // latch info
+    unsigned          nLat0    :  5;   // the number of latches on the first edge
+    unsigned          nLat1    :  5;   // the number of latches on the second edge
+    unsigned          nLat2    :  5;   // the number of latches on the output edge
 };
 
 typedef struct Dec_Graph_t_ Dec_Graph_t;
@@ -628,24 +636,84 @@ static inline Dec_Edge_t Dec_GraphAddNodeOr( Dec_Graph_t * pGraph, Dec_Edge_t eE
   SeeAlso     []
 
 ***********************************************************************/
-static inline Dec_Edge_t Dec_GraphAddNodeXor( Dec_Graph_t * pGraph, Dec_Edge_t eEdge0, Dec_Edge_t eEdge1 )
+static inline Dec_Edge_t Dec_GraphAddNodeXor( Dec_Graph_t * pGraph, Dec_Edge_t eEdge0, Dec_Edge_t eEdge1, int Type )
 {
-    Dec_Edge_t eNode0, eNode1;
-    // derive the first AND
-    eEdge0.fCompl = !eEdge0.fCompl;
-    eNode0 = Dec_GraphAddNodeAnd( pGraph, eEdge0, eEdge1 );
-    eEdge0.fCompl = !eEdge0.fCompl;
-    // derive the second AND
-    eEdge1.fCompl = !eEdge1.fCompl;
-    eNode1 = Dec_GraphAddNodeAnd( pGraph, eEdge0, eEdge1 );
-    eEdge1.fCompl = !eEdge1.fCompl;
-    // derive the final OR
-    return Dec_GraphAddNodeOr( pGraph, eNode0, eNode1 );
+    Dec_Edge_t eNode0, eNode1, eNode;
+    if ( Type == 0 )
+    {
+        // derive the first AND
+        eEdge0.fCompl ^= 1;
+        eNode0 = Dec_GraphAddNodeAnd( pGraph, eEdge0, eEdge1 );
+        eEdge0.fCompl ^= 1;
+        // derive the second AND
+        eEdge1.fCompl ^= 1;
+        eNode1 = Dec_GraphAddNodeAnd( pGraph, eEdge0, eEdge1 );
+        // derive the final OR
+        eNode = Dec_GraphAddNodeOr( pGraph, eNode0, eNode1 );
+    }
+    else
+    {
+        // derive the first AND
+        eNode0 = Dec_GraphAddNodeAnd( pGraph, eEdge0, eEdge1 );
+        // derive the second AND
+        eEdge0.fCompl ^= 1;
+        eEdge1.fCompl ^= 1;
+        eNode1 = Dec_GraphAddNodeAnd( pGraph, eEdge0, eEdge1 );
+        // derive the final OR
+        eNode = Dec_GraphAddNodeOr( pGraph, eNode0, eNode1 );
+        eNode.fCompl ^= 1;
+    }
+    return eNode;
 }
+
+/**Function*************************************************************
+
+  Synopsis    [Creates an XOR node.]
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+static inline Dec_Edge_t Dec_GraphAddNodeMux( Dec_Graph_t * pGraph, Dec_Edge_t eEdgeC, Dec_Edge_t eEdgeT, Dec_Edge_t eEdgeE, int Type )
+{
+    Dec_Edge_t eNode0, eNode1, eNode;
+    if ( Type == 0 )
+    {
+        // derive the first AND
+        eNode0 = Dec_GraphAddNodeAnd( pGraph, eEdgeC, eEdgeT );
+        // derive the second AND
+        eEdgeC.fCompl ^= 1;
+        eNode1 = Dec_GraphAddNodeAnd( pGraph, eEdgeC, eEdgeE );
+        // derive the final OR
+        eNode = Dec_GraphAddNodeOr( pGraph, eNode0, eNode1 );
+    }
+    else
+    {
+        // complement the arguments
+        eEdgeT.fCompl ^= 1;
+        eEdgeE.fCompl ^= 1;
+        // derive the first AND
+        eNode0 = Dec_GraphAddNodeAnd( pGraph, eEdgeC, eEdgeT );
+        // derive the second AND
+        eEdgeC.fCompl ^= 1;
+        eNode1 = Dec_GraphAddNodeAnd( pGraph, eEdgeC, eEdgeE );
+        // derive the final OR
+        eNode = Dec_GraphAddNodeOr( pGraph, eNode0, eNode1 );
+        eNode.fCompl ^= 1;
+    }
+    return eNode;
+}
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif
 
 ////////////////////////////////////////////////////////////////////////
 ///                       END OF FILE                                ///
 ////////////////////////////////////////////////////////////////////////
-
-#endif
 

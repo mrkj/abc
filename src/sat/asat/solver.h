@@ -22,18 +22,25 @@ OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWA
 #ifndef solver_h
 #define solver_h
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #ifdef _WIN32
 #define inline __inline // compatible with MS VS 6.0
 #endif
 
 #include "solver_vec.h"
+#include "asatmem.h"
 
 //=================================================================================================
 // Simple types:
 
 //typedef int  bool;
+#ifndef __cplusplus
 #ifndef bool
 #define bool int
+#endif
 #endif
 
 typedef int                lit;
@@ -52,11 +59,14 @@ static const lbool l_Undef   =  0;
 static const lbool l_True    =  1;
 static const lbool l_False   = -1;
 
-static inline lit neg   (lit l) { return l ^ 1; }
-static inline lit toLit (int v) { return v + v; }
+static inline lit neg       (lit l)        { return l ^ 1; }
+static inline lit toLit     (int v)        { return v + v; }
+static inline lit toLitCond (int v, int c) { return v + v + (int)(c != 0); }
 
 //=================================================================================================
 // Public interface:
+
+typedef struct Asat_JMan_t_  Asat_JMan_t;
 
 struct solver_t;
 typedef struct solver_t solver;
@@ -66,16 +76,25 @@ extern void    solver_delete(solver* s);
 
 extern bool    solver_addclause(solver* s, lit* begin, lit* end);
 extern bool    solver_simplify(solver* s);
-extern int     solver_solve(solver* s, lit* begin, lit* end, int nSeconds);
+extern int     solver_solve(solver* s, lit* begin, lit* end, sint64 nConfLimit, sint64 nInsLimit);
 extern int *   solver_get_model( solver * p, int * pVars, int nVars );
 
 extern int     solver_nvars(solver* s);
 extern int     solver_nclauses(solver* s);
 
+
 // additional procedures
 extern void    Asat_SolverWriteDimacs( solver * pSat, char * pFileName,
                                        lit* assumptionsBegin, lit* assumptionsEnd,
                                        int incrementVars);
+extern void    Asat_SatPrintStats( FILE * pFile, solver * p );
+extern void    Asat_SolverSetPrefVars( solver * s, int * pPrefVars, int nPrefVars );
+extern void    Asat_SolverSetFactors( solver * s, float * pFactors );
+
+// J-frontier support
+extern Asat_JMan_t * Asat_JManStart( solver * pSat, void * vCircuit );
+extern void          Asat_JManStop(  solver * pSat );
+
 
 struct stats_t
 {
@@ -109,6 +128,7 @@ struct solver_t
 
     vec*     wlists;        // 
     double*  activity;      // A heuristic measurement of the activity of a variable.
+    float *  factors;       // the factor of variable activity
     lbool*   assigns;       // Current values of variables.
     int*     orderpos;      // Index in variable order.
     clause** reasons;       //
@@ -117,12 +137,12 @@ struct solver_t
 
     clause*  binary;        // A temporary binary clause
     lbool*   tags;          //
-    vec      tagged;        // (contains: var)
-    vec      stack;         // (contains: var)
+    veci     tagged;        // (contains: var)
+    veci     stack;         // (contains: var)
 
-    vec      order;         // Variable order. (heap) (contains: var)
-    vec      trail_lim;     // Separator indices for different decision levels in 'trail'. (contains: int)
-    vec      model;         // If problem is solved, this vector contains the model (contains: lbool).
+    veci     order;         // Variable order. (heap) (contains: var)
+    veci     trail_lim;     // Separator indices for different decision levels in 'trail'. (contains: int)
+    veci     model;         // If problem is solved, this vector contains the model (contains: lbool).
 
     int      root_level;    // Level of first proper decision.
     int      simpdb_assigns;// Number of top-level assignments at last 'simplifyDB()'.
@@ -131,7 +151,29 @@ struct solver_t
     double   progress_estimate;
     int      verbosity;     // Verbosity level. 0=silent, 1=some progress report, 2=everything
 
+    sint64   nConfLimit;    // external limit on the number of conflicts
+    sint64   nInsLimit;     // external limit on the number of implications
+
+    // the memory manager
+    Asat_MmStep_t *     pMem;
+
+    // J-frontier
+    Asat_JMan_t *       pJMan;
+
+    // for making decisions on some variables first
+    int      nPrefDecNum;
+    int *    pPrefVars;
+    int      nPrefVars;
+
+    // solver statistics
     stats    solver_stats;
+    int      timeTotal;
+    int      timeSelect;
+    int      timeUpdate;
 };
+ 
+#ifdef __cplusplus
+}
+#endif
 
 #endif

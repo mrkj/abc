@@ -52,8 +52,8 @@ static DdNode * extraTransferPermuteRecur( DdManager * ddS, DdManager * ddD, DdN
 static DdNode * extraTransferPermute( DdManager * ddS, DdManager * ddD, DdNode * f, int * Permute );
 
 // file "cuddUtils.c"
-static void ddSupportStep ARGS((DdNode *f, int *support));
-static void ddClearFlag ARGS((DdNode *f));
+static void ddSupportStep(DdNode *f, int *support);
+static void ddClearFlag(DdNode *f);
 
 /**AutomaticEnd***************************************************************/
 
@@ -718,6 +718,178 @@ DdNode * Extra_bddBitsToCube( DdManager * dd, int Code, int CodeWidth, DdNode **
 
     return bResult;
 }  /* end of Extra_bddBitsToCube */
+
+/**Function********************************************************************
+
+  Synopsis    [Finds the support as a negative polarity cube.]
+
+  Description [Finds the variables on which a DD depends. Returns a BDD 
+  consisting of the product of the variables in the negative polarity 
+  if successful; NULL otherwise.]
+
+  SideEffects [None]
+
+  SeeAlso     [Cudd_VectorSupport Cudd_Support]
+
+******************************************************************************/
+DdNode * Extra_bddSupportNegativeCube( DdManager * dd, DdNode * f )
+{
+	int *support;
+	DdNode *res, *tmp, *var;
+	int i, j;
+	int size;
+
+	/* Allocate and initialize support array for ddSupportStep. */
+	size = ddMax( dd->size, dd->sizeZ );
+	support = ALLOC( int, size );
+	if ( support == NULL )
+	{
+		dd->errorCode = CUDD_MEMORY_OUT;
+		return ( NULL );
+	}
+	for ( i = 0; i < size; i++ )
+	{
+		support[i] = 0;
+	}
+
+	/* Compute support and clean up markers. */
+	ddSupportStep( Cudd_Regular( f ), support );
+	ddClearFlag( Cudd_Regular( f ) );
+
+	/* Transform support from array to cube. */
+	do
+	{
+		dd->reordered = 0;
+		res = DD_ONE( dd );
+		cuddRef( res );
+		for ( j = size - 1; j >= 0; j-- )
+		{						/* for each level bottom-up */
+			i = ( j >= dd->size ) ? j : dd->invperm[j];
+			if ( support[i] == 1 )
+			{
+				var = cuddUniqueInter( dd, i, dd->one, Cudd_Not( dd->one ) );
+				//////////////////////////////////////////////////////////////////
+				var = Cudd_Not(var);
+				//////////////////////////////////////////////////////////////////
+				cuddRef( var );
+				tmp = cuddBddAndRecur( dd, res, var );
+				if ( tmp == NULL )
+				{
+					Cudd_RecursiveDeref( dd, res );
+					Cudd_RecursiveDeref( dd, var );
+					res = NULL;
+					break;
+				}
+				cuddRef( tmp );
+				Cudd_RecursiveDeref( dd, res );
+				Cudd_RecursiveDeref( dd, var );
+				res = tmp;
+			}
+		}
+	}
+	while ( dd->reordered == 1 );
+
+	FREE( support );
+	if ( res != NULL )
+		cuddDeref( res );
+	return ( res );
+
+}								/* end of Extra_SupportNeg */
+
+/**Function********************************************************************
+
+  Synopsis    [Returns 1 if the BDD is the BDD of elementary variable.]
+
+  Description []
+
+  SideEffects []
+
+  SeeAlso     []
+
+******************************************************************************/
+int Extra_bddIsVar( DdNode * bFunc )
+{
+    bFunc = Cudd_Regular( bFunc );
+    if ( cuddIsConstant(bFunc) )
+        return 0;
+    return cuddIsConstant( cuddT(bFunc) ) && cuddIsConstant( Cudd_Regular(cuddE(bFunc)) );
+}
+
+/**Function********************************************************************
+
+  Synopsis    [Creates AND composed of the first nVars of the manager.]
+
+  Description []
+
+  SideEffects []
+
+  SeeAlso     []
+
+******************************************************************************/
+DdNode * Extra_bddCreateAnd( DdManager * dd, int nVars )
+{
+    DdNode * bFunc, * bTemp;
+    int i;
+    bFunc = Cudd_ReadOne(dd); Cudd_Ref( bFunc );
+    for ( i = 0; i < nVars; i++ )
+    {
+        bFunc = Cudd_bddAnd( dd, bTemp = bFunc, Cudd_bddIthVar(dd,i) );  Cudd_Ref( bFunc );
+        Cudd_RecursiveDeref( dd, bTemp );
+    }
+    Cudd_Deref( bFunc );
+    return bFunc;
+}
+
+/**Function********************************************************************
+
+  Synopsis    [Creates OR composed of the first nVars of the manager.]
+
+  Description []
+
+  SideEffects []
+
+  SeeAlso     []
+
+******************************************************************************/
+DdNode * Extra_bddCreateOr( DdManager * dd, int nVars )
+{
+    DdNode * bFunc, * bTemp;
+    int i;
+    bFunc = Cudd_ReadLogicZero(dd); Cudd_Ref( bFunc );
+    for ( i = 0; i < nVars; i++ )
+    {
+        bFunc = Cudd_bddOr( dd, bTemp = bFunc, Cudd_bddIthVar(dd,i) );  Cudd_Ref( bFunc );
+        Cudd_RecursiveDeref( dd, bTemp );
+    }
+    Cudd_Deref( bFunc );
+    return bFunc;
+}
+
+/**Function********************************************************************
+
+  Synopsis    [Creates EXOR composed of the first nVars of the manager.]
+
+  Description []
+
+  SideEffects []
+
+  SeeAlso     []
+
+******************************************************************************/
+DdNode * Extra_bddCreateExor( DdManager * dd, int nVars )
+{
+    DdNode * bFunc, * bTemp;
+    int i;
+    bFunc = Cudd_ReadLogicZero(dd); Cudd_Ref( bFunc );
+    for ( i = 0; i < nVars; i++ )
+    {
+        bFunc = Cudd_bddXor( dd, bTemp = bFunc, Cudd_bddIthVar(dd,i) );  Cudd_Ref( bFunc );
+        Cudd_RecursiveDeref( dd, bTemp );
+    }
+    Cudd_Deref( bFunc );
+    return bFunc;
+}
+
 
 /*---------------------------------------------------------------------------*/
 /* Definition of internal functions                                          */

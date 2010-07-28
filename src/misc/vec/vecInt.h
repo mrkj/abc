@@ -326,6 +326,7 @@ static inline void Vec_IntAddToEntry( Vec_Int_t * p, int i, int Addition )
 ***********************************************************************/
 static inline int Vec_IntEntryLast( Vec_Int_t * p )
 {
+    assert( p->nSize > 0 );
     return p->pArray[p->nSize-1];
 }
 
@@ -345,6 +346,7 @@ static inline void Vec_IntGrow( Vec_Int_t * p, int nCapMin )
     if ( p->nCap >= nCapMin )
         return;
     p->pArray = REALLOC( int, p->pArray, nCapMin ); 
+    assert( p->pArray );
     p->nCap   = nCapMin;
 }
 
@@ -457,6 +459,33 @@ static inline void Vec_IntPush( Vec_Int_t * p, int Entry )
   SeeAlso     []
 
 ***********************************************************************/
+static inline void Vec_IntPushFirst( Vec_Int_t * p, int Entry )
+{
+    int i;
+    if ( p->nSize == p->nCap )
+    {
+        if ( p->nCap < 16 )
+            Vec_IntGrow( p, 16 );
+        else
+            Vec_IntGrow( p, 2 * p->nCap );
+    }
+    p->nSize++;
+    for ( i = p->nSize - 1; i >= 1; i-- )
+        p->pArray[i] = p->pArray[i-1];
+    p->pArray[0] = Entry;
+}
+
+/**Function*************************************************************
+
+  Synopsis    []
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
 static inline void Vec_IntPushMem( Extra_MmStep_t * pMemMan, Vec_Int_t * p, int Entry )
 {
     if ( p->nSize == p->nCap )
@@ -466,14 +495,18 @@ static inline void Vec_IntPushMem( Extra_MmStep_t * pMemMan, Vec_Int_t * p, int 
 
         if ( p->nSize == 0 )
             p->nCap = 1;
-        pArray = (int *)Extra_MmStepEntryFetch( pMemMan, p->nCap * 8 );
-//        pArray = ALLOC( int, p->nCap * 2 );
+        if ( pMemMan )
+            pArray = (int *)Extra_MmStepEntryFetch( pMemMan, p->nCap * 8 );
+        else
+            pArray = ALLOC( int, p->nCap * 2 );
         if ( p->pArray )
         {
             for ( i = 0; i < p->nSize; i++ )
                 pArray[i] = p->pArray[i];
-            Extra_MmStepEntryRecycle( pMemMan, (char *)p->pArray, p->nCap * 4 );
-//            free( p->pArray );
+            if ( pMemMan )
+                Extra_MmStepEntryRecycle( pMemMan, (char *)p->pArray, p->nCap * 4 );
+            else
+                free( p->pArray );
         }
         p->nCap *= 2;
         p->pArray = pArray;
@@ -483,7 +516,7 @@ static inline void Vec_IntPushMem( Extra_MmStep_t * pMemMan, Vec_Int_t * p, int 
 
 /**Function*************************************************************
 
-  Synopsis    []
+  Synopsis    [Inserts the entry while preserving the increasing order.]
 
   Description []
                
@@ -513,6 +546,27 @@ static inline void Vec_IntPushOrder( Vec_Int_t * p, int Entry )
 
 /**Function*************************************************************
 
+  Synopsis    [Inserts the entry while preserving the increasing order.]
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+static inline int Vec_IntPushUniqueOrder( Vec_Int_t * p, int Entry )
+{
+    int i;
+    for ( i = 0; i < p->nSize; i++ )
+        if ( p->pArray[i] == Entry )
+            return 1;
+    Vec_IntPushOrder( p, Entry );
+    return 0;
+}
+
+/**Function*************************************************************
+
   Synopsis    []
 
   Description []
@@ -530,6 +584,31 @@ static inline int Vec_IntPushUnique( Vec_Int_t * p, int Entry )
             return 1;
     Vec_IntPush( p, Entry );
     return 0;
+}
+
+/**Function*************************************************************
+
+  Synopsis    [Returns the pointer to the next nWords entries in the vector.]
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+static inline unsigned * Vec_IntFetch( Vec_Int_t * p, int nWords )
+{
+    if ( nWords == 0 )
+        return NULL;
+    assert( nWords > 0 );
+    p->nSize += nWords;
+    if ( p->nSize > p->nCap )
+    {
+//         Vec_IntGrow( p, 2 * p->nSize );
+        return NULL;
+    }
+    return ((unsigned *)p->pArray) + p->nSize - nWords;
 }
 
 /**Function*************************************************************
@@ -696,9 +775,9 @@ static inline void Vec_IntSortUnsigned( Vec_Int_t * p )
             (int (*)(const void *, const void *)) Vec_IntSortCompareUnsigned );
 }
 
+#endif
+
 ////////////////////////////////////////////////////////////////////////
 ///                       END OF FILE                                ///
 ////////////////////////////////////////////////////////////////////////
-
-#endif
 
