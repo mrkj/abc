@@ -18,7 +18,7 @@
 
 ***********************************************************************/
 
-#include "io.h"
+#include "ioAbc.h"
 
 ////////////////////////////////////////////////////////////////////////
 ///                        DECLARATIONS                              ///
@@ -51,6 +51,8 @@ Io_FileType_t Io_ReadFileType( char * pFileName )
         return IO_FILE_AIGER;
     if ( !strcmp( pExt, "baf" ) )
         return IO_FILE_BAF;
+    if ( !strcmp( pExt, "bblif" ) )
+        return IO_FILE_BBLIF;
     if ( !strcmp( pExt, "blif" ) )
         return IO_FILE_BLIF;
     if ( !strcmp( pExt, "bench" ) )
@@ -101,19 +103,21 @@ Abc_Ntk_t * Io_ReadNetlist( char * pFileName, Io_FileType_t FileType, int fCheck
     if ( pFile == NULL )
     {
         fprintf( stdout, "Cannot open input file \"%s\". ", pFileName );
-        if ( pFileName = Extra_FileGetSimilarName( pFileName, ".blif", ".bench", ".pla", ".baf", ".aig" ) )
+        if ( (pFileName = Extra_FileGetSimilarName( pFileName, ".blif", ".bench", ".pla", ".baf", ".aig" )) )
             fprintf( stdout, "Did you mean \"%s\"?", pFileName );
         fprintf( stdout, "\n" );
        return NULL;
     }
     fclose( pFile );
     // read the AIG
-    if ( FileType == IO_FILE_AIGER || FileType == IO_FILE_BAF )
+    if ( FileType == IO_FILE_AIGER || FileType == IO_FILE_BAF || FileType == IO_FILE_BBLIF )
     {
         if ( FileType == IO_FILE_AIGER )
             pNtk = Io_ReadAiger( pFileName, fCheck );
-        else // if ( FileType == IO_FILE_BAF )
+        else if ( FileType == IO_FILE_BAF )
             pNtk = Io_ReadBaf( pFileName, fCheck );
+        else // if ( FileType == IO_FILE_BBLIF )
+            pNtk = Io_ReadBblif( pFileName, fCheck );
         if ( pNtk == NULL )
         {
             fprintf( stdout, "Reading AIG from file has failed.\n" );
@@ -134,7 +138,7 @@ Abc_Ntk_t * Io_ReadNetlist( char * pFileName, Io_FileType_t FileType, int fCheck
     else if ( FileType == IO_FILE_EQN )
         pNtk = Io_ReadEqn( pFileName, fCheck );
     else if ( FileType == IO_FILE_PLA )
-        pNtk = Io_ReadPla( pFileName, fCheck );
+        pNtk = Io_ReadPla( pFileName, 0, fCheck );
     else if ( FileType == IO_FILE_VERILOG )
         pNtk = Io_ReadVerilog( pFileName, fCheck );
     else 
@@ -257,8 +261,8 @@ void Io_Write( Abc_Ntk_t * pNtk, char * pFileName, Io_FileType_t FileType )
             return;
         }
         if ( FileType == IO_FILE_AIGER )
-            Io_WriteAiger( pNtk, pFileName, 1 );
-        else // if ( FileType == IO_FILE_BAF )
+            Io_WriteAiger( pNtk, pFileName, 1, 0 );
+        else //if ( FileType == IO_FILE_BAF )
             Io_WriteBaf( pNtk, pFileName );
         return;
     }
@@ -276,6 +280,18 @@ void Io_Write( Abc_Ntk_t * pNtk, char * pFileName, Io_FileType_t FileType )
     if ( FileType == IO_FILE_GML )
     {
         Io_WriteGml( pNtk, pFileName );
+        return;
+    }
+    if ( FileType == IO_FILE_BBLIF )
+    {
+        if ( !Abc_NtkIsLogic(pNtk) )
+        {
+            fprintf( stdout, "Writing Binary BLIF is only possible for logic networks.\n" );
+            return;
+        }
+        if ( !Abc_NtkHasSop(pNtk) )
+            Abc_NtkToSop( pNtk, 0 );
+        Io_WriteBblif( pNtk, pFileName );
         return;
     }
 /*
@@ -299,7 +315,7 @@ void Io_Write( Abc_Ntk_t * pNtk, char * pFileName, Io_FileType_t FileType )
         {
             fprintf( stdout, "Latches are writen into the PLA file at PI/PO pairs.\n" );
             pNtkCopy = Abc_NtkDup( pNtk );
-            Abc_NtkMakeComb( pNtkCopy );
+            Abc_NtkMakeComb( pNtkCopy, 0 );
             pNtkTemp = Abc_NtkToNetlist( pNtk );
             Abc_NtkDelete( pNtkCopy );
         }
@@ -328,7 +344,7 @@ void Io_Write( Abc_Ntk_t * pNtk, char * pFileName, Io_FileType_t FileType )
     {
         if ( !Abc_NtkHasSop(pNtkTemp) && !Abc_NtkHasMapping(pNtkTemp) )
             Abc_NtkToSop( pNtkTemp, 0 );
-        Io_WriteBlif( pNtkTemp, pFileName, 1 );
+        Io_WriteBlif( pNtkTemp, pFileName, 1, 0, 0 );
     }
     else if ( FileType == IO_FILE_BLIFMV )
     {
@@ -338,6 +354,8 @@ void Io_Write( Abc_Ntk_t * pNtk, char * pFileName, Io_FileType_t FileType )
     }
     else if ( FileType == IO_FILE_BENCH )
         Io_WriteBench( pNtkTemp, pFileName );
+    else if ( FileType == IO_FILE_BOOK )
+        Io_WriteBook( pNtkTemp, pFileName );
     else if ( FileType == IO_FILE_PLA )
         Io_WritePla( pNtkTemp, pFileName );
     else if ( FileType == IO_FILE_EQN )
@@ -441,7 +459,7 @@ void Io_WriteHie( Abc_Ntk_t * pNtk, char * pBaseName, char * pFileName )
     {
         if ( !Abc_NtkHasSop(pNtkResult) && !Abc_NtkHasMapping(pNtkResult) )
             Abc_NtkToSop( pNtkResult, 0 );
-        Io_WriteBlif( pNtkResult, pFileName, 1 );
+        Io_WriteBlif( pNtkResult, pFileName, 1, 0, 0 );
     }
     else if ( Io_ReadFileType(pFileName) == IO_FILE_VERILOG )
     {
@@ -715,7 +733,7 @@ FILE * Io_FileOpen( const char * FileName, const char * PathVar, const char * Mo
     }
     else
     {
-        if ( c = Abc_FrameReadFlag( (char*)PathVar ) )
+        if ( (c = Abc_FrameReadFlag( (char*)PathVar )) )
         {
             char ActualFileName[4096];
             FILE * fp = 0;
@@ -731,11 +749,11 @@ FILE * Io_FileOpen( const char * FileName, const char * PathVar, const char * Mo
                 {
                     if ( fVerbose )
                     fprintf ( stdout, "Using file %s\n", ActualFileName );
-                    free( t );
+                    ABC_FREE( t );
                     return fp;
                 }
             }
-            free( t );
+            ABC_FREE( t );
             return 0;
         }
         else

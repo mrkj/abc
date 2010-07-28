@@ -51,7 +51,7 @@ char * Msat_FileRead( FILE * pFile )
     // move the file current reading position to the beginning
     rewind( pFile ); 
     // load the contents of the file into memory
-    pBuffer = ALLOC( char, nFileSize + 3 );
+    pBuffer = ABC_ALLOC( char, nFileSize + 3 );
     fread( pBuffer, nFileSize, 1, pFile );
     // terminate the string with '\0'
     pBuffer[ nFileSize + 0] = '\n';
@@ -196,8 +196,8 @@ static void Msat_ReadClause( char ** pIn, Msat_Solver_t * p, Msat_IntVec_t * pLi
 ***********************************************************************/
 static bool Msat_ReadDimacs( char * pText, Msat_Solver_t ** pS, bool fVerbose ) 
 {
-    Msat_Solver_t * p;
-    Msat_IntVec_t * pLits;
+    Msat_Solver_t * p = NULL; // Suppress "might be used uninitialized"
+    Msat_IntVec_t * pLits = NULL; // Suppress "might be used uninitialized"
     char * pIn = pText;
     int nVars, nClas;
     while ( 1 )
@@ -257,7 +257,7 @@ bool Msat_SolverParseDimacs( FILE * pFile, Msat_Solver_t ** p, int fVerbose )
     bool Value;
     pText = Msat_FileRead( pFile );
     Value = Msat_ReadDimacs( pText, p, fVerbose );
-    free( pText );
+    ABC_FREE( pText );
     return Value;
 }
 

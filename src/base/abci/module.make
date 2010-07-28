@@ -1,7 +1,9 @@
 SRC +=	src/base/abci/abc.c \
+	src/base/abci/abcAbc8.c \
 	src/base/abci/abcAttach.c \
 	src/base/abci/abcAuto.c \
 	src/base/abci/abcBalance.c \
+	src/base/abci/abcBidec.c \
 	src/base/abci/abcBmc.c \
 	src/base/abci/abcCas.c \
 	src/base/abci/abcClpBdd.c \
@@ -9,9 +11,10 @@ SRC +=	src/base/abci/abc.c \
 	src/base/abci/abcCut.c \
 	src/base/abci/abcDar.c \
 	src/base/abci/abcDebug.c \
+	src/base/abci/abcDprove2.c \
 	src/base/abci/abcDress.c \
+	src/base/abci/abcDress2.c \
 	src/base/abci/abcDsd.c \
-	src/base/abci/abcEspresso.c \
 	src/base/abci/abcExtract.c \
 	src/base/abci/abcFpga.c \
 	src/base/abci/abcFpgaFast.c \
@@ -20,9 +23,13 @@ SRC +=	src/base/abci/abc.c \
         src/base/abci/abcGen.c \
         src/base/abci/abcHaig.c \
 	src/base/abci/abcIf.c \
+	src/base/abci/abcIfMux.c \
         src/base/abci/abcIvy.c \
+	src/base/abci/abcLog.c \
 	src/base/abci/abcLut.c \
+	src/base/abci/abcLutmin.c \
 	src/base/abci/abcMap.c \
+	src/base/abci/abcMerge.c \
 	src/base/abci/abcMini.c \
 	src/base/abci/abcMiter.c \
 	src/base/abci/abcMulti.c \
@@ -34,8 +41,8 @@ SRC +=	src/base/abci/abc.c \
 	src/base/abci/abcProve.c \
 	src/base/abci/abcQbf.c \
 	src/base/abci/abcQuant.c \
-	src/base/abci/abcRec.c \
 	src/base/abci/abcReconv.c \
+	src/base/abci/abcReach.c \
 	src/base/abci/abcRefactor.c \
 	src/base/abci/abcRenode.c \
 	src/base/abci/abcReorder.c \
@@ -44,6 +51,9 @@ SRC +=	src/base/abci/abc.c \
 	src/base/abci/abcRewrite.c \
 	src/base/abci/abcRr.c \
 	src/base/abci/abcSat.c \
+	src/base/abci/abcScorr.c \
+	src/base/abci/abcSense.c \
+	src/base/abci/abcSpeedup.c \
 	src/base/abci/abcStrash.c \
 	src/base/abci/abcSweep.c \
 	src/base/abci/abcSymm.c \

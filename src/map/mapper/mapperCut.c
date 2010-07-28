@@ -151,7 +151,7 @@ void Map_MappingCuts( Map_Man_t * p )
         nCuts = Map_MappingCountAllCuts(p);
         printf( "Nodes = %6d.  Total %d-feasible cuts = %10d.  Per node = %.1f. ", 
                p->nNodes, p->nVarsMax, nCuts, ((float)nCuts)/p->nNodes );
-        PRT( "Time", clock() - clk );
+        ABC_PRT( "Time", clock() - clk );
     }
 
     // print the cuts for the first primary output
@@ -355,8 +355,8 @@ Map_Cut_t * Map_CutMergeLists( Map_Man_t * p, Map_CutTable_t * pTable,
 //            if ( p->nVarsMax == 5 )
 //            pCut->uTruth = Map_CutComputeTruth( p, pCut, pTemp1, pTemp2, fComp1, fComp2 );
             // add it to the corresponding list
-            pCut->pNext = pLists[pCut->nLeaves];
-            pLists[pCut->nLeaves] = pCut;
+            pCut->pNext = pLists[(int)pCut->nLeaves];
+            pLists[(int)pCut->nLeaves] = pCut;
             // count this cut and quit if limit is reached
             Counter++;
             if ( Counter == MAP_CUTS_MAX_COMPUTE )
@@ -389,8 +389,8 @@ Map_Cut_t * Map_CutMergeLists( Map_Man_t * p, Map_CutTable_t * pTable,
 //            if ( p->nVarsMax == 5 )
 //            pCut->uTruth = Map_CutComputeTruth( p, pCut, pTemp1, pTemp2, fComp1, fComp2 );
             // add it to the corresponding list
-            pCut->pNext = pLists[pCut->nLeaves];
-            pLists[pCut->nLeaves] = pCut;
+            pCut->pNext = pLists[(int)pCut->nLeaves];
+            pLists[(int)pCut->nLeaves] = pCut;
             // count this cut and quit if limit is reached
             Counter++;
             if ( Counter == MAP_CUTS_MAX_COMPUTE )
@@ -426,8 +426,8 @@ Map_Cut_t * Map_CutMergeLists( Map_Man_t * p, Map_CutTable_t * pTable,
 //            if ( p->nVarsMax == 5 )
 //            pCut->uTruth = Map_CutComputeTruth( p, pCut, pTemp1, pTemp2, fComp1, fComp2 );
             // add it to the corresponding list
-            pCut->pNext = pLists[pCut->nLeaves];
-            pLists[pCut->nLeaves] = pCut;
+            pCut->pNext = pLists[(int)pCut->nLeaves];
+            pLists[(int)pCut->nLeaves] = pCut;
             // count this cut and quit if limit is reached
             Counter++;
             if ( Counter == MAP_CUTS_MAX_COMPUTE )
@@ -493,8 +493,8 @@ Map_Cut_t * Map_CutMergeLists2( Map_Man_t * p, Map_CutTable_t * pTable,
             pCut->pOne = Map_CutNotCond( pTemp1, fComp1 );
             pCut->pTwo = Map_CutNotCond( pTemp2, fComp2 );
             // add it to the corresponding list
-            pCut->pNext = pLists[pCut->nLeaves];
-            pLists[pCut->nLeaves] = pCut;
+            pCut->pNext = pLists[(int)pCut->nLeaves];
+            pLists[(int)pCut->nLeaves] = pCut;
             // count this cut and quit if limit is reached
             Counter++;
             if ( Counter == MAP_CUTS_MAX_COMPUTE )
@@ -809,15 +809,15 @@ Map_CutTable_t * Map_CutTableStart( Map_Man_t * pMan )
 {
     Map_CutTable_t * p;
     // allocate the table
-    p = ALLOC( Map_CutTable_t, 1 );
+    p = ABC_ALLOC( Map_CutTable_t, 1 );
     memset( p, 0, sizeof(Map_CutTable_t) );
     p->nBins = Cudd_Prime( 10 * MAP_CUTS_MAX_COMPUTE );
-    p->pBins = ALLOC( Map_Cut_t *, p->nBins );
+    p->pBins = ABC_ALLOC( Map_Cut_t *, p->nBins );
     memset( p->pBins, 0, sizeof(Map_Cut_t *) * p->nBins );
-    p->pCuts = ALLOC( int, 2 * MAP_CUTS_MAX_COMPUTE );
-    p->pArray = ALLOC( Map_Cut_t *, 2 * MAP_CUTS_MAX_COMPUTE );
-    p->pCuts1 = ALLOC( Map_Cut_t *, 2 * MAP_CUTS_MAX_COMPUTE );
-    p->pCuts2 = ALLOC( Map_Cut_t *, 2 * MAP_CUTS_MAX_COMPUTE );
+    p->pCuts = ABC_ALLOC( int, 2 * MAP_CUTS_MAX_COMPUTE );
+    p->pArray = ABC_ALLOC( Map_Cut_t *, 2 * MAP_CUTS_MAX_COMPUTE );
+    p->pCuts1 = ABC_ALLOC( Map_Cut_t *, 2 * MAP_CUTS_MAX_COMPUTE );
+    p->pCuts2 = ABC_ALLOC( Map_Cut_t *, 2 * MAP_CUTS_MAX_COMPUTE );
     return p;
 }
 
@@ -834,12 +834,12 @@ Map_CutTable_t * Map_CutTableStart( Map_Man_t * pMan )
 ***********************************************************************/
 void Map_CutTableStop( Map_CutTable_t * p )
 {
-    free( p->pCuts1 );
-    free( p->pCuts2 );
-    free( p->pArray );
-    free( p->pBins );
-    free( p->pCuts );
-    free( p );
+    ABC_FREE( p->pCuts1 );
+    ABC_FREE( p->pCuts2 );
+    ABC_FREE( p->pArray );
+    ABC_FREE( p->pBins );
+    ABC_FREE( p->pCuts );
+    ABC_FREE( p );
 }
 
 /**Function*************************************************************

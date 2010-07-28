@@ -18,7 +18,7 @@
 
 ***********************************************************************/
 
-#include "io.h"
+#include "ioAbc.h"
 #include "main.h"
 #include "mio.h"
 
@@ -134,14 +134,6 @@ void Io_NtkWriteBlifMvOne( FILE * pFile, Abc_Ntk_t * pNtk )
     fprintf( pFile, ".outputs" );
     Io_NtkWriteBlifMvPos( pFile, pNtk );
     fprintf( pFile, "\n" );
-
-    // write the assertions
-    if ( Abc_NtkAssertNum(pNtk) )
-    {
-        fprintf( pFile, ".asserts" );
-        Io_NtkWriteBlifMvAsserts( pFile, pNtk );
-        fprintf( pFile, "\n" );
-    }
 
     // write the MV directives
     fprintf( pFile, "\n" );
@@ -286,46 +278,6 @@ void Io_NtkWriteBlifMvPos( FILE * pFile, Abc_Ntk_t * pNtk )
 
 /**Function*************************************************************
 
-  Synopsis    [Writes the assertion list.]
-
-  Description []
-               
-  SideEffects []
-
-  SeeAlso     []
-
-***********************************************************************/
-void Io_NtkWriteBlifMvAsserts( FILE * pFile, Abc_Ntk_t * pNtk )
-{
-    Abc_Obj_t * pTerm, * pNet;
-    int LineLength;
-    int AddedLength;
-    int NameCounter;
-    int i;
-
-    LineLength  = 8;
-    NameCounter = 0;
-
-    Abc_NtkForEachAssert( pNtk, pTerm, i )
-    {
-        pNet = Abc_ObjFanin0(pTerm);
-        // get the line length after this name is written
-        AddedLength = strlen(Abc_ObjName(pNet)) + 1;
-        if ( NameCounter && LineLength + AddedLength + 3 > IO_WRITE_LINE_LENGTH )
-        { // write the line extender
-            fprintf( pFile, " \\\n" );
-            // reset the line length
-            LineLength  = 0;
-            NameCounter = 0;
-        }
-        fprintf( pFile, " %s", Abc_ObjName(pNet) );
-        LineLength += AddedLength;
-        NameCounter++;
-    }
-}
-
-/**Function*************************************************************
-
   Synopsis    [Write the latch into a file.]
 
   Description []
@@ -341,7 +293,7 @@ void Io_NtkWriteBlifMvLatch( FILE * pFile, Abc_Obj_t * pLatch )
     int Reset;
     pNetLi = Abc_ObjFanin0( Abc_ObjFanin0(pLatch) );
     pNetLo = Abc_ObjFanout0( Abc_ObjFanout0(pLatch) );
-    Reset  = (int)Abc_ObjData( pLatch );
+    Reset  = (int)(ABC_PTRUINT_T)Abc_ObjData( pLatch );
     // write the latch line
     fprintf( pFile, ".latch" );
     fprintf( pFile, " %10s",    Abc_ObjName(pNetLi) );

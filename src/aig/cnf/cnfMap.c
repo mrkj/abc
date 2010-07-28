@@ -44,7 +44,8 @@ void Cnf_CutAssignAreaFlow( Cnf_Man_t * p, Dar_Cut_t * pCut, int * pAreaFlows )
     Aig_Obj_t * pLeaf;
     int i;
     pCut->Value = 0;
-    pCut->uSign = 100 * Cnf_CutSopCost( p, pCut );
+//    pCut->uSign = 100 * Cnf_CutSopCost( p, pCut );
+    pCut->uSign = 10 * Cnf_CutSopCost( p, pCut );
     Dar_CutForEachLeaf( p->pManAig, pCut, pLeaf, i )
     {
         pCut->Value += pLeaf->nRefs;
@@ -100,7 +101,7 @@ void Cnf_DeriveMapping( Cnf_Man_t * p )
     Dar_Cut_t * pCut, * pCutBest;
     int i, k, AreaFlow, * pAreaFlows;
     // allocate area flows
-    pAreaFlows = ALLOC( int, Aig_ManObjNumMax(p->pManAig) );
+    pAreaFlows = ABC_ALLOC( int, Aig_ManObjNumMax(p->pManAig) );
     memset( pAreaFlows, 0, sizeof(int) * Aig_ManObjNumMax(p->pManAig) );
     // visit the nodes in the topological order and update their best cuts
     vSuper = Vec_PtrAlloc( 100 );
@@ -122,7 +123,7 @@ void Cnf_DeriveMapping( Cnf_Man_t * p )
 //        Aig_ObjCollectSuper( pObj, vSuper );
         // get the area flow of this cut
 //        AreaFlow = Cnf_CutSuperAreaFlow( vSuper, pAreaFlows );
-        AreaFlow = AIG_INFINITY;
+        AreaFlow = ABC_INFINITY;
         if ( AreaFlow >= (int)pCutBest->uSign )
         {
             pAreaFlows[pObj->Id] = pCutBest->uSign;
@@ -135,7 +136,7 @@ void Cnf_DeriveMapping( Cnf_Man_t * p )
         }
     }
     Vec_PtrFree( vSuper );
-    free( pAreaFlows );
+    ABC_FREE( pAreaFlows );
 
 /*
     // compute the area of mapping

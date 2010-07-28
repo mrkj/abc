@@ -69,21 +69,45 @@ int Ioa_FileSize( char * pFileName )
 ***********************************************************************/
 char * Ioa_FileNameGeneric( char * FileName )
 {
-    char * pDot;
-    char * pUnd;
-    char * pRes;
-    
-    // find the generic name of the file
+    char * pDot, * pRes;
     pRes = Aig_UtilStrsav( FileName );
-    // find the pointer to the "." symbol in the file name
-//  pUnd = strstr( FileName, "_" );
-    pUnd = NULL;
-    pDot = strstr( FileName, "." );
-    if ( pUnd )
-        pRes[pUnd - FileName] = 0;
-    else if ( pDot )
-        pRes[pDot - FileName] = 0;
+    if ( (pDot = strrchr( pRes, '.' )) )
+        *pDot = 0;
     return pRes;
+}
+
+/**Function*************************************************************
+
+  Synopsis    [Returns the composite name of the file.]
+
+  Description []
+
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+char * Ioa_FileNameGenericAppend( char * pBase, char * pSuffix )
+{
+    static char Buffer[1000];
+    char * pDot;
+    if ( pBase == NULL )
+    {
+        strcpy( Buffer, pSuffix );
+        return Buffer;
+    }
+    strcpy( Buffer, pBase );
+    if ( (pDot = strrchr( Buffer, '.' )) )
+        *pDot = 0;
+    strcat( Buffer, pSuffix );
+    // find the last occurrance of slash
+    for ( pDot = Buffer + strlen(Buffer) - 1; pDot >= Buffer; pDot-- )    
+        if (!((*pDot >= '0' && *pDot <= '9') ||
+              (*pDot >= 'a' && *pDot <= 'z') ||
+              (*pDot >= 'A' && *pDot <= 'Z') || 
+               *pDot == '_' || *pDot == '.') )
+               break;
+    return pDot + 1;
 }
 
 /**Function*************************************************************

@@ -25,6 +25,7 @@
 ////////////////////////////////////////////////////////////////////////
 
 #define TSI_MAX_ROUNDS    1000
+#define TSI_ONE_SERIES     300
 
 #define AIG_XVS0   1
 #define AIG_XVS1   2
@@ -52,13 +53,13 @@ static inline int  Aig_XsimAnd( int Value0, int Value1 )
 }
 static inline int  Aig_XsimRand2()   
 {
-    return (rand() & 1) ? AIG_XVS1 : AIG_XVS0;
+    return (Aig_ManRandom(0) & 1) ? AIG_XVS1 : AIG_XVS0;
 }
 static inline int  Aig_XsimRand3()   
 {
     int RetValue;
     do { 
-        RetValue = rand() & 3; 
+        RetValue = Aig_ManRandom(0) & 3; 
     } while ( RetValue == 0 );
     return RetValue;
 }
@@ -125,14 +126,14 @@ static inline void       Aig_TsiSetNext( unsigned * pState, int nWords, unsigned
 Aig_Tsi_t * Aig_TsiStart( Aig_Man_t * pAig )
 {
     Aig_Tsi_t * p;
-    p = (Aig_Tsi_t *)malloc( sizeof(Aig_Tsi_t) );
+    p = ABC_ALLOC( Aig_Tsi_t, 1 );
     memset( p, 0, sizeof(Aig_Tsi_t) );
     p->pAig    = pAig;
     p->nWords  = Aig_BitWordNum( 2*Aig_ManRegNum(pAig) );
     p->vStates = Vec_PtrAlloc( 1000 );
     p->pMem    = Aig_MmFixedStart( sizeof(unsigned) * p->nWords + sizeof(unsigned *), 10000 );
     p->nBins   = Aig_PrimeCudd(TSI_MAX_ROUNDS/2);
-    p->pBins   = ALLOC( unsigned *, p->nBins );
+    p->pBins   = ABC_ALLOC( unsigned *, p->nBins );
     memset( p->pBins, 0, sizeof(unsigned *) * p->nBins );
     return p;
 }
@@ -152,8 +153,8 @@ void Aig_TsiStop( Aig_Tsi_t * p )
 {
     Aig_MmFixedStop( p->pMem, 0 );
     Vec_PtrFree( p->vStates );
-    free( p->pBins );
-    free( p );
+    ABC_FREE( p->pBins );
+    ABC_FREE( p );
 }
 
 /**Function*************************************************************
@@ -282,6 +283,51 @@ void Aig_TsiStatePrint( Aig_Tsi_t * p, unsigned * pState )
     printf( " (0=%5d, 1=%5d, x=%5d)\n", nZeros, nOnes, nDcs );
 }
 
+/**Function*************************************************************
+
+  Synopsis    [Count constant values in the state.]
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+int Aig_TsiStateCount( Aig_Tsi_t * p, unsigned * pState )
+{
+    Aig_Obj_t * pObjLi, * pObjLo;
+    int i, Value, nCounter = 0;
+    Aig_ManForEachLiLoSeq( p->pAig, pObjLi, pObjLo, i )
+    {
+        Value = (Aig_InfoHasBit( pState, 2 * i + 1 ) << 1) | Aig_InfoHasBit( pState, 2 * i );
+        nCounter += (Value == 1 || Value == 2);
+    }
+    return nCounter;
+}
+
+/**Function*************************************************************
+
+  Synopsis    [Count constant values in the state.]
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+void Aig_TsiStateOrAll( Aig_Tsi_t * pTsi, unsigned * pState )
+{
+    unsigned * pPrev;
+    int i, k;
+    Vec_PtrForEachEntry( pTsi->vStates, pPrev, i )
+    {
+        for ( k = 0; k < pTsi->nWords; k++ )
+            pState[k] |= pPrev[k];
+    }
+}
+
 
 /**Function*************************************************************
 
@@ -300,8 +346,8 @@ Vec_Ptr_t * Aig_ManTernarySimulate( Aig_Man_t * p, int fVerbose )
     Aig_Tsi_t * pTsi;
     Vec_Ptr_t * vMap;
     Aig_Obj_t * pObj, * pObjLi, * pObjLo;
-    unsigned * pState, * pPrev;
-    int i, k, f, fConstants, Value, nCounter;
+    unsigned * pState;//, * pPrev;
+    int i, f, fConstants, Value, nCounter, nRetired;
     // allocate the simulation manager
     pTsi = Aig_TsiStart( p );
     // initialize the values
@@ -323,21 +369,53 @@ Vec_Ptr_t * Aig_ManTernarySimulate( Aig_Man_t * p, int fVerbose )
             if ( Value & 2 )
                 Aig_InfoSetBit( pState, 2 * i + 1 );
         }
-//        Aig_TsiStatePrint( pTsi, pState );
+
+//        printf( "%d ", Aig_TsiStateCount(pTsi, pState) );
+//Aig_TsiStatePrint( pTsi, pState );
         // check if this state exists
         if ( Aig_TsiStateLookup( pTsi, pState, pTsi->nWords ) )
             break;
+//        nCounter = 0;
+//        Aig_ManForEachLiLoSeq( p, pObjLi, pObjLo, i )
+//            nCounter += (Aig_ObjGetXsim(pObjLo) == AIG_XVS0);
+//printf( "%d -> ", nCounter );
         // insert this state
         Aig_TsiStateInsert( pTsi, pState, pTsi->nWords );
         // simulate internal nodes
         Aig_ManForEachNode( p, pObj, i )
+        {
             Aig_ObjSetXsim( pObj, Aig_XsimAnd(Aig_ObjGetXsimFanin0(pObj), Aig_ObjGetXsimFanin1(pObj)) );
+//            printf( "%d %d    Id = %2d.  Value = %d.\n", 
+//                Aig_ObjGetXsimFanin0(pObj), Aig_ObjGetXsimFanin1(pObj),
+//                i, Aig_XsimAnd(Aig_ObjGetXsimFanin0(pObj), Aig_ObjGetXsimFanin1(pObj)) );
+        }
         // transfer the latch values
         Aig_ManForEachLiSeq( p, pObj, i )
             Aig_ObjSetXsim( pObj, Aig_ObjGetXsimFanin0(pObj) );
+        nCounter = 0;
+        nRetired = 0;
         Aig_ManForEachLiLoSeq( p, pObjLi, pObjLo, i )
-            Aig_ObjSetXsim( pObjLo, Aig_ObjGetXsim(pObjLi) );
+        {
+            if ( f < TSI_ONE_SERIES )
+                Aig_ObjSetXsim( pObjLo, Aig_ObjGetXsim(pObjLi) );
+            else
+            {
+                if ( Aig_ObjGetXsim(pObjLi) != Aig_ObjGetXsim(pObjLo) )
+                {
+                    Aig_ObjSetXsim( pObjLo, AIG_XVSX );
+                    nRetired++;
+                }
+            }
+            nCounter += (Aig_ObjGetXsim(pObjLo) == AIG_XVS0);
+        }
+//        if ( nRetired )
+//        printf( "Retired %d registers.\n", nRetired );
+
+//        if ( f && (f % 1000 == 0) )
+//            printf( "%d \n", f );
+//printf( "%d  ", nCounter );
     }
+//printf( "\n" );
     if ( f == TSI_MAX_ROUNDS )
     {
         printf( "Aig_ManTernarySimulate(): Did not reach a fixed point after %d iterations (not a bug).\n", TSI_MAX_ROUNDS );
@@ -346,11 +424,7 @@ Vec_Ptr_t * Aig_ManTernarySimulate( Aig_Man_t * p, int fVerbose )
     }
     // OR all the states
     pState = Vec_PtrEntry( pTsi->vStates, 0 );
-    Vec_PtrForEachEntry( pTsi->vStates, pPrev, i )
-    {
-        for ( k = 0; k < pTsi->nWords; k++ )
-            pState[k] |= pPrev[k];
-    }
+    Aig_TsiStateOrAll( pTsi, pState );
     // check if there are constants
     fConstants = 0;
     if ( 2*Aig_ManRegNum(p) == 32*pTsi->nWords )
@@ -417,14 +491,12 @@ Aig_Man_t * Aig_ManConstReduce( Aig_Man_t * p, int fVerbose )
     Vec_Ptr_t * vMap;
     while ( (vMap = Aig_ManTernarySimulate( p, fVerbose )) )
     {
-        if ( fVerbose )
-        printf( "RBeg = %5d. NBeg = %6d.   ", Aig_ManRegNum(p), Aig_ManNodeNum(p) );
         p = Aig_ManRemap( pTemp = p, vMap );
-        Aig_ManStop( pTemp );
         Vec_PtrFree( vMap );
         Aig_ManSeqCleanup( p );
         if ( fVerbose )
-        printf( "REnd = %5d. NEnd = %6d.  \n", Aig_ManRegNum(p), Aig_ManNodeNum(p) );
+            Aig_ManReportImprovement( pTemp, p );
+        Aig_ManStop( pTemp );
     }
     return p;
 }

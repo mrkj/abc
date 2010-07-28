@@ -98,7 +98,7 @@ char * Extra_FileGetSimilarName( char * pFileNameWrong, char * pS1, char * pS2, 
             }
         }
     }
-    FREE( pFileGen );
+    ABC_FREE( pFileGen );
     if ( pFile )
     {
         fclose( pFile );
@@ -160,21 +160,33 @@ char * Extra_FileNameAppend( char * pBase, char * pSuffix )
 ***********************************************************************/
 char * Extra_FileNameGeneric( char * FileName )
 {
-    char * pDot;
-    char * pUnd;
-    char * pRes;
-    
-    // find the generic name of the file
+    char * pDot, * pRes;
     pRes = Extra_UtilStrsav( FileName );
-    // find the pointer to the "." symbol in the file name
-//  pUnd = strstr( FileName, "_" );
-    pUnd = NULL;
-    pDot = strstr( FileName, "." );
-    if ( pUnd )
-        pRes[pUnd - FileName] = 0;
-    else if ( pDot )
-        pRes[pDot - FileName] = 0;
+    if ( (pDot = strrchr( pRes, '.' )) )
+        *pDot = 0;
     return pRes;
+}
+
+/**Function*************************************************************
+
+  Synopsis    [Returns the composite name of the file.]
+
+  Description []
+
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+char * Extra_FileNameGenericAppend( char * pBase, char * pSuffix )
+{
+    static char Buffer[1000];
+    char * pDot;
+    strcpy( Buffer, pBase );
+    if ( (pDot = strrchr( Buffer, '.' )) )
+        *pDot = 0;
+    strcat( Buffer, pSuffix );
+    return Buffer;
 }
 
 /**Function*************************************************************
@@ -226,12 +238,38 @@ char * Extra_FileRead( FILE * pFile )
     // move the file current reading position to the beginning
     rewind( pFile ); 
     // load the contents of the file into memory
-    pBuffer = ALLOC( char, nFileSize + 3 );
+    pBuffer = ABC_ALLOC( char, nFileSize + 3 );
     fread( pBuffer, nFileSize, 1, pFile );
     // terminate the string with '\0'
     pBuffer[ nFileSize + 0] = '\n';
     pBuffer[ nFileSize + 1] = '\0';
     return pBuffer;
+}
+
+/**Function*************************************************************
+
+  Synopsis    [Returns one if the file has a given extension.]
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+int Extra_FileIsType( char * pFileName, char * pS1, char * pS2, char * pS3 )
+{
+    int lenS, lenF = strlen(pFileName);
+    lenS = pS1 ? strlen(pS1) : 0;
+    if ( lenS && lenF > lenS && !strncmp( pFileName+lenF-lenS, pS1, lenS ) )
+        return 1;
+    lenS = pS2 ? strlen(pS2) : 0;
+    if ( lenS && lenF > lenS && !strncmp( pFileName+lenF-lenS, pS2, lenS ) )
+        return 1;
+    lenS = pS3 ? strlen(pS3) : 0;
+    if ( lenS && lenF > lenS && !strncmp( pFileName+lenF-lenS, pS3, lenS ) )
+        return 1;
+    return 0;
 }
 
 /**Function*************************************************************
@@ -413,7 +451,7 @@ void Extra_PrintHexadecimalString( char * pString, unsigned Sign[], int nVars )
   SeeAlso     []
 
 ***********************************************************************/
-void Extra_PrintHex( FILE * pFile, unsigned uTruth, int nVars )
+void Extra_PrintHex( FILE * pFile, unsigned * pTruth, int nVars )
 {
     int nMints, nDigits, Digit, k;
 
@@ -423,11 +461,11 @@ void Extra_PrintHex( FILE * pFile, unsigned uTruth, int nVars )
     nDigits = nMints / 4;
     for ( k = nDigits - 1; k >= 0; k-- )
     {
-        Digit = ((uTruth >> (k * 4)) & 15);
+        Digit = ((pTruth[k/8] >> (k * 4)) & 15);
         if ( Digit < 10 )
             fprintf( pFile, "%d", Digit );
         else
-            fprintf( pFile, "%c", 'a' + Digit-10 );
+            fprintf( pFile, "%c", 'A' + Digit-10 );
     }
 //    fprintf( pFile, "\n" );
 }
@@ -470,9 +508,9 @@ char * Extra_StringAppend( char * pStrGiven, char * pStrAdd )
     char * pTemp;
     if ( pStrGiven )
     {
-        pTemp = ALLOC( char, strlen(pStrGiven) + strlen(pStrAdd) + 2 );
+        pTemp = ABC_ALLOC( char, strlen(pStrGiven) + strlen(pStrAdd) + 2 );
         sprintf( pTemp, "%s%s", pStrGiven, pStrAdd );
-        free( pStrGiven );
+        ABC_FREE( pStrGiven );
     }
     else
         pTemp = Extra_UtilStrsav( pStrAdd );

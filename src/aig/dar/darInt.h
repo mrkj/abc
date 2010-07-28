@@ -21,10 +21,6 @@
 #ifndef __DAR_INT_H__
 #define __DAR_INT_H__
 
-#ifdef __cplusplus
-extern "C" {
-#endif 
-
 ////////////////////////////////////////////////////////////////////////
 ///                          INCLUDES                                ///
 ////////////////////////////////////////////////////////////////////////
@@ -43,6 +39,10 @@ extern "C" {
 ////////////////////////////////////////////////////////////////////////
 ///                         PARAMETERS                               ///
 ////////////////////////////////////////////////////////////////////////
+
+#ifdef __cplusplus
+extern "C" {
+#endif 
 
 ////////////////////////////////////////////////////////////////////////
 ///                         BASIC TYPES                              ///
@@ -72,6 +72,7 @@ struct Dar_Man_t_
     // various data members
     Aig_MmFixed_t *  pMemCuts;       // memory manager for cuts
     void *           pManCnf;        // CNF managers
+    Vec_Ptr_t *      vCutNodes;      // the nodes with cuts allocated
     // current rewriting step
     Vec_Ptr_t *      vLeavesBest;    // the best set of leaves
     int              OutBest;        // the best output (in the library)
@@ -130,10 +131,12 @@ static inline void         Dar_ObjSetCuts( Aig_Obj_t * pObj, Dar_Cut_t * pCuts )
 /*=== darBalance.c ========================================================*/
 /*=== darCore.c ===========================================================*/
 /*=== darCut.c ============================================================*/
-extern void            Dar_ManCutsStart( Dar_Man_t * p );
+extern void            Dar_ManCutsRestart( Dar_Man_t * p, Aig_Obj_t * pRoot );
 extern void            Dar_ManCutsFree( Dar_Man_t * p );
+extern Dar_Cut_t *     Dar_ObjPrepareCuts( Dar_Man_t * p, Aig_Obj_t * pObj );
 extern Dar_Cut_t *     Dar_ObjComputeCuts_rec( Dar_Man_t * p, Aig_Obj_t * pObj );
 extern Dar_Cut_t *     Dar_ObjComputeCuts( Dar_Man_t * p, Aig_Obj_t * pObj );
+extern void            Dar_ObjCutPrint( Aig_Man_t * p, Aig_Obj_t * pObj );
 /*=== darData.c ===========================================================*/
 extern Vec_Int_t *     Dar_LibReadNodes();
 extern Vec_Int_t *     Dar_LibReadOuts();
@@ -142,6 +145,7 @@ extern Vec_Int_t *     Dar_LibReadPrios();
 extern void            Dar_LibStart();
 extern void            Dar_LibStop();
 extern void            Dar_LibPrepare( int nSubgraphs );
+extern int             Dar_LibReturnClass( unsigned uTruth );
 extern void            Dar_LibReturnCanonicals( unsigned * pCanons );
 extern void            Dar_LibEval( Dar_Man_t * p, Aig_Obj_t * pRoot, Dar_Cut_t * pCut, int Required );
 extern Aig_Obj_t *     Dar_LibBuildBest( Dar_Man_t * p );

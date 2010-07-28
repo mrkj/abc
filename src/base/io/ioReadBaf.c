@@ -18,7 +18,7 @@
 
 ***********************************************************************/
 
-#include "io.h"
+#include "ioAbc.h"
 
 ////////////////////////////////////////////////////////////////////////
 ///                        DECLARATIONS                              ///
@@ -53,7 +53,7 @@ Abc_Ntk_t * Io_ReadBaf( char * pFileName, int fCheck )
     // read the file into the buffer
     nFileSize = Extra_FileSize( pFileName );
     pFile = fopen( pFileName, "rb" );
-    pContents = ALLOC( char, nFileSize );
+    pContents = ABC_ALLOC( char, nFileSize );
     fread( pContents, nFileSize, 1, pFile );
     fclose( pFile );
 
@@ -112,11 +112,11 @@ Abc_Ntk_t * Io_ReadBaf( char * pFileName, int fCheck )
     }
 
     // get the pointer to the beginning of the node array
-    pBufferNode = (int *)(pContents + (nFileSize - (2 * nAnds + nOutputs + nLatches) * sizeof(int)) );
+    pBufferNode = (unsigned *)(pContents + (nFileSize - (2 * nAnds + nOutputs + nLatches) * sizeof(int)) );
     // make sure we are at the place where the nodes begin
-    if ( pBufferNode != (int *)pCur )
+    if ( pBufferNode != (unsigned *)pCur )
     {
-        free( pContents );
+        ABC_FREE( pContents );
         Vec_PtrFree( vNodes );
         Abc_NtkDelete( pNtkNew );
         printf( "Warning: Internal reader error.\n" );
@@ -140,13 +140,13 @@ Abc_Ntk_t * Io_ReadBaf( char * pFileName, int fCheck )
         Num = pBufferNode[2*nAnds+i];
         if ( Abc_ObjFanoutNum(pObj) > 0 && Abc_ObjIsLatch(Abc_ObjFanout0(pObj)) )
         {
-            Abc_ObjSetData( Abc_ObjFanout0(pObj), (void *)(Num & 3) );
+            Abc_ObjSetData( Abc_ObjFanout0(pObj), (void *)(ABC_PTRINT_T)(Num & 3) );
             Num >>= 2;
         }
         pNode0 = Abc_ObjNotCond( Vec_PtrEntry(vNodes, Num >> 1), Num & 1 );
         Abc_ObjAddFanin( pObj, pNode0 );
     }
-    free( pContents );
+    ABC_FREE( pContents );
     Vec_PtrFree( vNodes );
 
     // remove the extra nodes

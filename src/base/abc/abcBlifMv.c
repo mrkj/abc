@@ -43,7 +43,7 @@ void Abc_NtkStartMvVars( Abc_Ntk_t * pNtk )
 {
     Vec_Att_t * pAttMan;
     assert( Abc_NtkMvVar(pNtk) == NULL );
-    pAttMan = Vec_AttAlloc( 0, Abc_NtkObjNumMax(pNtk) + 1, Extra_MmFlexStart(), Extra_MmFlexStop, NULL, NULL );
+    pAttMan = Vec_AttAlloc( Abc_NtkObjNumMax(pNtk) + 1, Extra_MmFlexStart(), (void(*)(void*))Extra_MmFlexStop, NULL, NULL );
     Vec_PtrWriteEntry( pNtk->vAttrs, VEC_ATTR_MVVAR, pAttMan );
 //printf( "allocing attr\n" );
 }
@@ -135,6 +135,7 @@ static inline int Abc_StringGetNumber( char ** ppStr )
 ***********************************************************************/
 int Abc_NodeStrashBlifMv( Abc_Ntk_t * pNtkNew, Abc_Obj_t * pObj )
 {
+    int fAddFreeVars = 1;
     char * pSop;
     Abc_Obj_t ** pValues, ** pValuesF, ** pValuesF2;
     Abc_Obj_t * pTemp, * pTemp2, * pFanin, * pFanin2, * pNet;
@@ -144,7 +145,7 @@ int Abc_NodeStrashBlifMv( Abc_Ntk_t * pNtkNew, Abc_Obj_t * pObj )
     assert( Abc_ObjIsNode(pObj) );
     pNet = Abc_ObjFanout0(pObj);
     nValues = Abc_ObjMvVarNum(pNet);
-    pValues = ALLOC( Abc_Obj_t *, nValues );
+    pValues = ABC_ALLOC( Abc_Obj_t *, nValues );
     for ( k = 0; k < nValues; k++ )
         pValues[k] = Abc_ObjNot( Abc_AigConst1(pNtkNew) );
 
@@ -162,9 +163,23 @@ int Abc_NodeStrashBlifMv( Abc_Ntk_t * pNtkNew, Abc_Obj_t * pObj )
         // skip space if present
         if ( *pSop == ' ' )
             pSop++;
-        Index = Abc_StringGetNumber( &pSop );
+        // assume don't-care constant to be zero
+        if ( *pSop == '-' )
+            Index = 0;
+        else
+            Index = Abc_StringGetNumber( &pSop );
         assert( Index < nValues );
-        pValues[Index] = Abc_AigConst1(pNtkNew);
+        ////////////////////////////////////////////
+        // adding free variables for binary ND-constants
+        if ( fAddFreeVars && nValues == 2 && *pSop == '-' )
+        {
+            pValues[1] = Abc_NtkCreatePi(pNtkNew);
+            pValues[0] = Abc_ObjNot( pValues[1] );
+            Abc_ObjAssignName( pValues[1], "free_var_", Abc_ObjName(pValues[1]) );
+        }
+        else
+            pValues[Index] = Abc_AigConst1(pNtkNew);
+        ////////////////////////////////////////////
         // save the values in the fanout net
         pNet->pCopy = (Abc_Obj_t *)pValues;
         return 1;
@@ -365,6 +380,7 @@ Abc_Ntk_t * Abc_NtkStrashBlifMv( Abc_Ntk_t * pNtk )
     Abc_Ntk_t * pNtkNew;
     Abc_Obj_t * pObj, * pTemp, * pBit, * pNet;
     int i, k, v, nValues, nValuesMax, nBits;
+    int nCount1, nCount2;
 
     assert( Abc_NtkIsNetlist(pNtk) );
     assert( Abc_NtkHasBlifMv(pNtk) );
@@ -380,7 +396,7 @@ Abc_Ntk_t * Abc_NtkStrashBlifMv( Abc_Ntk_t * pNtk )
             nValuesMax = nValues;
     }
     nBits = Extra_Base2Log( nValuesMax );
-    pBits = ALLOC( Abc_Obj_t *, nBits );
+    pBits = ABC_ALLOC( Abc_Obj_t *, nBits );
 
     // clean the node copy fields
     Abc_NtkCleanCopy( pNtk );
@@ -393,20 +409,48 @@ Abc_Ntk_t * Abc_NtkStrashBlifMv( Abc_Ntk_t * pNtk )
     pNtkNew->pName = Extra_UtilStrsav( pNtk->pName );
 //    pNtkNew->pSpec = Extra_UtilStrsav( pNtk->pName );
 
+    nCount1 = nCount2 = 0;
     // encode the CI nets
     Abc_NtkIncrementTravId( pNtk );
     if ( fUsePositional )
     {
         Abc_NtkForEachCi( pNtk, pObj, i )
         {
+            if ( !Abc_ObjIsPi(pObj) )
+                continue;
             pNet = Abc_ObjFanout0(pObj);
             nValues = Abc_ObjMvVarNum(pNet);
-            pValues = ALLOC( Abc_Obj_t *, nValues );
+            pValues = ABC_ALLOC( Abc_Obj_t *, nValues );
             // create PIs for the values
             for ( v = 0; v < nValues; v++ )
             {
                 pValues[v] = Abc_NtkCreatePi( pNtkNew );
-                Abc_NtkConvertAssignName( pValues[v], pNet, v );
+                if ( nValuesMax == 2 )
+                    Abc_ObjAssignName( pValues[v], Abc_ObjName(pNet), NULL );
+                else
+                    Abc_NtkConvertAssignName( pValues[v], pNet, v );
+            }
+            // save the values in the fanout net
+            pNet->pCopy = (Abc_Obj_t *)pValues;
+            // mark the net
+            Abc_NodeSetTravIdCurrent( pNet );
+        }
+        Abc_NtkForEachCi( pNtk, pObj, i )
+        {
+            if ( Abc_ObjIsPi(pObj) )
+                continue;
+            pNet = Abc_ObjFanout0(pObj);
+            nValues = Abc_ObjMvVarNum(pNet);
+            pValues = ABC_ALLOC( Abc_Obj_t *, nValues );
+            // create PIs for the values
+            for ( v = 0; v < nValues; v++ )
+            {
+                pValues[v] = Abc_NtkCreateBo( pNtkNew );
+                if ( nValuesMax == 2 )
+                    Abc_ObjAssignName( pValues[v], Abc_ObjName(pNet), NULL );
+                else
+                    Abc_NtkConvertAssignName( pValues[v], pNet, v );
+                nCount1++;
             }
             // save the values in the fanout net
             pNet->pCopy = (Abc_Obj_t *)pValues;
@@ -418,15 +462,53 @@ Abc_Ntk_t * Abc_NtkStrashBlifMv( Abc_Ntk_t * pNtk )
     {
         Abc_NtkForEachCi( pNtk, pObj, i )
         {
+            if ( !Abc_ObjIsPi(pObj) )
+                continue;
             pNet = Abc_ObjFanout0(pObj);
             nValues = Abc_ObjMvVarNum(pNet);
-            pValues = ALLOC( Abc_Obj_t *, nValues );
+            pValues = ABC_ALLOC( Abc_Obj_t *, nValues );
             // create PIs for the encoding bits
             nBits = Extra_Base2Log( nValues );
             for ( k = 0; k < nBits; k++ )
             {
                 pBits[k] = Abc_NtkCreatePi( pNtkNew );
-                Abc_NtkConvertAssignName( pBits[k], pNet, k );
+                if ( nValuesMax == 2 )
+                    Abc_ObjAssignName( pBits[k], Abc_ObjName(pNet), NULL );
+                else
+                    Abc_NtkConvertAssignName( pBits[k], pNet, k );
+            }
+            // encode the values
+            for ( v = 0; v < nValues; v++ )
+            {
+                pValues[v] = Abc_AigConst1(pNtkNew);
+                for ( k = 0; k < nBits; k++ )
+                {
+                    pBit = Abc_ObjNotCond( pBits[k], (v&(1<<k)) == 0 );
+                    pValues[v] = Abc_AigAnd( pNtkNew->pManFunc, pValues[v], pBit );
+                }
+            }
+            // save the values in the fanout net
+            pNet->pCopy = (Abc_Obj_t *)pValues;
+            // mark the net
+            Abc_NodeSetTravIdCurrent( pNet );
+        }
+        Abc_NtkForEachCi( pNtk, pObj, i )
+        {
+            if ( Abc_ObjIsPi(pObj) )
+                continue;
+            pNet = Abc_ObjFanout0(pObj);
+            nValues = Abc_ObjMvVarNum(pNet);
+            pValues = ABC_ALLOC( Abc_Obj_t *, nValues );
+            // create PIs for the encoding bits
+            nBits = Extra_Base2Log( nValues );
+            for ( k = 0; k < nBits; k++ )
+            {
+                pBits[k] = Abc_NtkCreateBo( pNtkNew );
+                if ( nValuesMax == 2 )
+                    Abc_ObjAssignName( pBits[k], Abc_ObjName(pNet), NULL );
+                else
+                    Abc_NtkConvertAssignName( pBits[k], pNet, k );
+                nCount1++;
             }
             // encode the values
             for ( v = 0; v < nValues; v++ )
@@ -459,30 +541,59 @@ Abc_Ntk_t * Abc_NtkStrashBlifMv( Abc_Ntk_t * pNtk )
     {
         Abc_NtkForEachCo( pNtk, pObj, i )
         {
+            if ( !Abc_ObjIsPo(pObj) )
+                continue;
             pNet = Abc_ObjFanin0(pObj);
             // skip marked nets
-            if ( Abc_NodeIsTravIdCurrent(pNet) )
-                continue;
-            Abc_NodeSetTravIdCurrent( pNet );
+//            if ( Abc_NodeIsTravIdCurrent(pNet) )
+//                continue;
+//            Abc_NodeSetTravIdCurrent( pNet );
             nValues = Abc_ObjMvVarNum(pNet);
             pValues = (Abc_Obj_t **)pNet->pCopy;
             for ( v = 0; v < nValues; v++ )
             {
                 pTemp = Abc_NtkCreatePo( pNtkNew );
                 Abc_ObjAddFanin( pTemp, pValues[v] );
-                Abc_NtkConvertAssignName( pTemp, pNet, v );
+                if ( nValuesMax == 2 )
+                    Abc_ObjAssignName( pTemp, Abc_ObjName(pNet), NULL );
+                else
+                    Abc_NtkConvertAssignName( pTemp, pNet, v );
+            }
+        }
+        Abc_NtkForEachCo( pNtk, pObj, i )
+        {
+            if ( Abc_ObjIsPo(pObj) )
+                continue;
+            pNet = Abc_ObjFanin0(pObj);
+            // skip marked nets
+//            if ( Abc_NodeIsTravIdCurrent(pNet) )
+//                continue;
+//            Abc_NodeSetTravIdCurrent( pNet );
+            nValues = Abc_ObjMvVarNum(pNet);
+            pValues = (Abc_Obj_t **)pNet->pCopy;
+            for ( v = 0; v < nValues; v++ )
+            {
+                pTemp = Abc_NtkCreateBi( pNtkNew );
+                Abc_ObjAddFanin( pTemp, pValues[v] );
+                if ( nValuesMax == 2 )
+                    Abc_ObjAssignName( pTemp, Abc_ObjName(pNet), NULL );
+                else
+                    Abc_NtkConvertAssignName( pTemp, pNet, v );
+                nCount2++;
             }
         }
     }
-    else
+    else // if ( fPositional == 0 )
     {
         Abc_NtkForEachCo( pNtk, pObj, i )
         {
+            if ( !Abc_ObjIsPo(pObj) )
+                continue;
             pNet = Abc_ObjFanin0(pObj);
             // skip marked nets
-            if ( Abc_NodeIsTravIdCurrent(pNet) )
-                continue;
-            Abc_NodeSetTravIdCurrent( pNet );
+//            if ( Abc_NodeIsTravIdCurrent(pNet) )
+//                continue;
+//            Abc_NodeSetTravIdCurrent( pNet );
             nValues = Abc_ObjMvVarNum(pNet);
             pValues = (Abc_Obj_t **)pNet->pCopy;
             nBits = Extra_Base2Log( nValues );
@@ -494,16 +605,89 @@ Abc_Ntk_t * Abc_NtkStrashBlifMv( Abc_Ntk_t * pNtk )
                         pBit = Abc_AigOr( pNtkNew->pManFunc, pBit, pValues[v] );
                 pTemp = Abc_NtkCreatePo( pNtkNew );
                 Abc_ObjAddFanin( pTemp, pBit );
-                Abc_NtkConvertAssignName( pTemp, pNet, k );
+                if ( nValuesMax == 2 )
+                    Abc_ObjAssignName( pTemp, Abc_ObjName(pNet), NULL );
+                else
+                    Abc_NtkConvertAssignName( pTemp, pNet, k );
+            }
+        }
+        Abc_NtkForEachCo( pNtk, pObj, i )
+        {
+            if ( Abc_ObjIsPo(pObj) )
+                continue;
+            pNet = Abc_ObjFanin0(pObj);
+            // skip marked nets
+//            if ( Abc_NodeIsTravIdCurrent(pNet) )
+//                continue;
+//            Abc_NodeSetTravIdCurrent( pNet );
+            nValues = Abc_ObjMvVarNum(pNet);
+            pValues = (Abc_Obj_t **)pNet->pCopy;
+            nBits = Extra_Base2Log( nValues );
+            for ( k = 0; k < nBits; k++ )
+            {
+                pBit = Abc_ObjNot( Abc_AigConst1(pNtkNew) );
+                for ( v = 0; v < nValues; v++ )
+                    if ( v & (1<<k) )
+                        pBit = Abc_AigOr( pNtkNew->pManFunc, pBit, pValues[v] );
+                pTemp = Abc_NtkCreateBi( pNtkNew );
+                Abc_ObjAddFanin( pTemp, pBit );
+                if ( nValuesMax == 2 )
+                    Abc_ObjAssignName( pTemp, Abc_ObjName(pNet), NULL );
+                else
+                    Abc_NtkConvertAssignName( pTemp, pNet, k );
+                nCount2++;
             }
         }
     }
 
+    if ( Abc_NtkLatchNum(pNtk) )
+    {
+        Vec_Ptr_t * vTemp;
+        Abc_Obj_t * pLatch, * pObjLi, * pObjLo;
+        int i;
+        // move free vars to the front among the PIs
+        vTemp = Vec_PtrAlloc( Vec_PtrSize(pNtkNew->vPis) );
+        Abc_NtkForEachPi( pNtkNew, pObj, i )
+            if ( strncmp( Abc_ObjName(pObj), "free_var_", 9 ) == 0 )
+                Vec_PtrPush( vTemp, pObj );
+        Abc_NtkForEachPi( pNtkNew, pObj, i )
+            if ( strncmp( Abc_ObjName(pObj), "free_var_", 9 ) != 0 )
+                Vec_PtrPush( vTemp, pObj );
+        assert( Vec_PtrSize(vTemp) == Vec_PtrSize(pNtkNew->vPis) );
+        Vec_PtrFree( pNtkNew->vPis );
+        pNtkNew->vPis = vTemp;
+        // move free vars to the front among the CIs
+        vTemp = Vec_PtrAlloc( Vec_PtrSize(pNtkNew->vCis) );
+        Abc_NtkForEachCi( pNtkNew, pObj, i )
+            if ( strncmp( Abc_ObjName(pObj), "free_var_", 9 ) == 0 )
+                Vec_PtrPush( vTemp, pObj );
+        Abc_NtkForEachCi( pNtkNew, pObj, i )
+            if ( strncmp( Abc_ObjName(pObj), "free_var_", 9 ) != 0 )
+                Vec_PtrPush( vTemp, pObj );
+        assert( Vec_PtrSize(vTemp) == Vec_PtrSize(pNtkNew->vCis) );
+        Vec_PtrFree( pNtkNew->vCis );
+        pNtkNew->vCis = vTemp;
+        // create registers
+        assert( nCount1 == nCount2 );
+        for ( i = 0; i < nCount1; i++ )
+        {
+            // create latch
+            pLatch = Abc_NtkCreateLatch( pNtkNew );
+            Abc_LatchSetInit0( pLatch );
+            Abc_ObjAssignName( pLatch, Abc_ObjName(pLatch), NULL );
+            // connect
+            pObjLi = Abc_NtkCo( pNtkNew, Abc_NtkCoNum(pNtkNew)-nCount1+i );
+            pObjLo = Abc_NtkCi( pNtkNew, Abc_NtkCiNum(pNtkNew)-nCount1+i );
+            Abc_ObjAddFanin( pLatch, pObjLi );
+            Abc_ObjAddFanin( pObjLo, pLatch );
+        }
+    }
+
     // cleanup
-    free( pBits );
+    ABC_FREE( pBits );
     Abc_NtkForEachObj( pNtk, pObj, i )
         if ( pObj->pCopy )
-            free( pObj->pCopy );
+            ABC_FREE( pObj->pCopy );
 
     // remove dangling nodes
     i = Abc_AigCleanup(pNtkNew->pManFunc);
@@ -844,7 +1028,7 @@ char * Abc_NodeConvertSopToMvSop( int nVars, Vec_Int_t * vSop0, Vec_Int_t * vSop
     if ( Vec_IntSize(vSop0) == 0 || Vec_IntSize(vSop1) == 0 )
     {
         // (temporary) create a tautology cube
-        pMvSop = ALLOC( char, nVars + 3 );
+        pMvSop = ABC_ALLOC( char, nVars + 3 );
         for ( k = 0; k < nVars; k++ )
             pMvSop[k] = '-';
         pMvSop[nVars] = '0' + (int)(Vec_IntSize(vSop1) > 0);
@@ -859,7 +1043,7 @@ char * Abc_NodeConvertSopToMvSop( int nVars, Vec_Int_t * vSop0, Vec_Int_t * vSop
     // and the string is zero-terminated)
     nSize = nCubes * (nVars + 2) + 1; 
     // allocate memory
-    pMvSop = pCur = ALLOC( char, nSize );
+    pMvSop = pCur = ABC_ALLOC( char, nSize );
     // fill in the negative polarity cubes
     Vec_IntForEachEntry( vSop0, uCube, i )
     {
@@ -948,7 +1132,7 @@ int Abc_NodeEvalMvCost( int nVars, Vec_Int_t * vSop0, Vec_Int_t * vSop1 )
     int * pVarValues;
     int i, RetValue;
     // collect the input and output values (currently, they are binary)
-    pVarValues = ALLOC( int, nVars + 1 );
+    pVarValues = ABC_ALLOC( int, nVars + 1 );
     for ( i = 0; i <= nVars; i++ )
         pVarValues[i] = 2;
     // prepare MV-SOP for evaluation
@@ -958,8 +1142,8 @@ int Abc_NodeEvalMvCost( int nVars, Vec_Int_t * vSop0, Vec_Int_t * vSop1 )
     // get the result of internal cost evaluation
     RetValue = Abc_NodeEvalMvCostInternal( nVars, pVarValues, pMvSop );
     // cleanup
-    free( pVarValues );
-    free( pMvSop );
+    ABC_FREE( pVarValues );
+    ABC_FREE( pMvSop );
     return RetValue;
 }
 

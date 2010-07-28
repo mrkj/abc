@@ -119,7 +119,7 @@ Cudd_DumpBlif(
     int		i;
 
     /* Build a bit array with the support of f. */
-    sorted = ALLOC(int,nvars);
+    sorted = ABC_ALLOC(int,nvars);
     if (sorted == NULL) {
 	dd->errorCode = CUDD_MEMORY_OUT;
 	goto failure;
@@ -157,7 +157,7 @@ Cudd_DumpBlif(
             if (retval == EOF) goto failure;
         }
     }
-    FREE(sorted);
+    ABC_FREE(sorted);
     sorted = NULL;
 
     /* Write the .output line. */
@@ -184,7 +184,7 @@ Cudd_DumpBlif(
     return(1);
 
 failure:
-    if (sorted != NULL) FREE(sorted);
+    if (sorted != NULL) ABC_FREE(sorted);
     if (support != NULL) Cudd_RecursiveDeref(dd,support);
     return(0);
 
@@ -325,7 +325,7 @@ Cudd_DumpDot(
     long	refAddr, diff, mask;
 
     /* Build a bit array with the support of f. */
-    sorted = ALLOC(int,nvars);
+    sorted = ABC_ALLOC(int,nvars);
     if (sorted == NULL) {
 	dd->errorCode = CUDD_MEMORY_OUT;
 	goto failure;
@@ -549,11 +549,11 @@ Cudd_DumpDot(
     if (retval == EOF) goto failure;
 
     st_free_table(visited);
-    FREE(sorted);
+    ABC_FREE(sorted);
     return(1);
 
 failure:
-    if (sorted != NULL) FREE(sorted);
+    if (sorted != NULL) ABC_FREE(sorted);
     if (support != NULL) Cudd_RecursiveDeref(dd,support);
     if (visited != NULL) st_free_table(visited);
     return(0);
@@ -750,7 +750,7 @@ Cudd_DumpDDcal(
     st_free_table(visited);
 
     /* Build a bit array with the support of f. */
-    sorted = ALLOC(int,nvars);
+    sorted = ABC_ALLOC(int,nvars);
     if (sorted == NULL) {
 	dd->errorCode = CUDD_MEMORY_OUT;
 	goto failure;
@@ -780,7 +780,7 @@ Cudd_DumpDDcal(
 	retval = fprintf(fp,"%s", i == nvars - 1 ? "\n" : " * ");
 	if (retval == EOF) goto failure;
     }
-    FREE(sorted);
+    ABC_FREE(sorted);
     sorted = NULL;
 
     /* Initialize symbol table for visited nodes. */
@@ -822,7 +822,7 @@ Cudd_DumpDDcal(
     return(1);
 
 failure:
-    if (sorted != NULL) FREE(sorted);
+    if (sorted != NULL) ABC_FREE(sorted);
     if (support != NULL) Cudd_RecursiveDeref(dd,support);
     if (visited != NULL) st_free_table(visited);
     return(0);

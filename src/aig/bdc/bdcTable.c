@@ -30,36 +30,6 @@
 
 /**Function*************************************************************
 
-  Synopsis    [Minimizes the support of the ISF.]
-
-  Description []
-               
-  SideEffects []
-
-  SeeAlso     []
-
-***********************************************************************/
-void Bdc_SuppMinimize( Bdc_Man_t * p, Bdc_Isf_t * pIsf )
-{
-    int v;
-    // go through the support variables
-    for ( v = 0; v < p->nVars; v++ )
-    {
-        if ( (pIsf->uSupp & (1 << v)) == 0 )
-            continue;
-        Kit_TruthExistNew( p->puTemp1, pIsf->puOn, p->nVars, v );
-        Kit_TruthExistNew( p->puTemp2, pIsf->puOff, p->nVars, v );
-        if ( !Kit_TruthIsDisjoint( p->puTemp1, p->puTemp2, p->nVars ) )
-            continue;
-        // remove the variable
-        Kit_TruthCopy( pIsf->puOn, p->puTemp1, p->nVars );
-        Kit_TruthCopy( pIsf->puOff, p->puTemp2, p->nVars );
-        pIsf->uSupp &= ~(1 << v);
-    }
-}
-
-/**Function*************************************************************
-
   Synopsis    [Checks containment of the function in the ISF.]
 
   Description []
@@ -72,7 +42,7 @@ void Bdc_SuppMinimize( Bdc_Man_t * p, Bdc_Isf_t * pIsf )
 int Bdc_TableCheckContainment( Bdc_Man_t * p, Bdc_Isf_t * pIsf, unsigned * puTruth )
 {
     return Kit_TruthIsImply( pIsf->puOn, puTruth, p->nVars ) &&
-         Kit_TruthIsDisjoint( pIsf->puOff, puTruth, p->nVars );
+         Kit_TruthIsDisjoint( puTruth, pIsf->puOff, p->nVars );
 }
 
 /**Function*************************************************************
@@ -88,10 +58,29 @@ int Bdc_TableCheckContainment( Bdc_Man_t * p, Bdc_Isf_t * pIsf, unsigned * puTru
 ***********************************************************************/
 Bdc_Fun_t * Bdc_TableLookup( Bdc_Man_t * p, Bdc_Isf_t * pIsf )
 {
+    int fDisableCache = 0;
     Bdc_Fun_t * pFunc;
+    if ( fDisableCache && Kit_WordCountOnes(pIsf->uSupp) > 1 )
+        return NULL;
+    if ( pIsf->uSupp == 0 )
+    {
+        assert( p->pTable[pIsf->uSupp] == p->pNodes );
+        if ( Kit_TruthIsConst1( pIsf->puOn, p->nVars ) )
+            return p->pNodes;
+        assert( Kit_TruthIsConst1( pIsf->puOff, p->nVars ) );
+        return Bdc_Not(p->pNodes);
+    }
     for ( pFunc = p->pTable[pIsf->uSupp]; pFunc; pFunc = pFunc->pNext )
         if ( Bdc_TableCheckContainment( p, pIsf, pFunc->puFunc ) )
              return pFunc;
+    Bdc_IsfNot( pIsf );
+    for ( pFunc = p->pTable[pIsf->uSupp]; pFunc; pFunc = pFunc->pNext )
+        if ( Bdc_TableCheckContainment( p, pIsf, pFunc->puFunc ) )
+        {
+            Bdc_IsfNot( pIsf );
+            return Bdc_Not(pFunc);
+        }
+    Bdc_IsfNot( pIsf );
     return NULL;
 }
 

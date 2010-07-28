@@ -74,12 +74,12 @@ struct Vec_Flt_t_
 static inline Vec_Flt_t * Vec_FltAlloc( int nCap )
 {
     Vec_Flt_t * p;
-    p = ALLOC( Vec_Flt_t, 1 );
+    p = ABC_ALLOC( Vec_Flt_t, 1 );
     if ( nCap > 0 && nCap < 16 )
         nCap = 16;
     p->nSize  = 0;
     p->nCap   = nCap;
-    p->pArray = p->nCap? ALLOC( float, p->nCap ) : NULL;
+    p->pArray = p->nCap? ABC_ALLOC( float, p->nCap ) : NULL;
     return p;
 }
 
@@ -117,7 +117,7 @@ static inline Vec_Flt_t * Vec_FltStart( int nSize )
 static inline Vec_Flt_t * Vec_FltAllocArray( float * pArray, int nSize )
 {
     Vec_Flt_t * p;
-    p = ALLOC( Vec_Flt_t, 1 );
+    p = ABC_ALLOC( Vec_Flt_t, 1 );
     p->nSize  = nSize;
     p->nCap   = nSize;
     p->pArray = pArray;
@@ -138,10 +138,10 @@ static inline Vec_Flt_t * Vec_FltAllocArray( float * pArray, int nSize )
 static inline Vec_Flt_t * Vec_FltAllocArrayCopy( float * pArray, int nSize )
 {
     Vec_Flt_t * p;
-    p = ALLOC( Vec_Flt_t, 1 );
+    p = ABC_ALLOC( Vec_Flt_t, 1 );
     p->nSize  = nSize;
     p->nCap   = nSize;
-    p->pArray = ALLOC( float, nSize );
+    p->pArray = ABC_ALLOC( float, nSize );
     memcpy( p->pArray, pArray, sizeof(float) * nSize );
     return p;
 }
@@ -160,10 +160,10 @@ static inline Vec_Flt_t * Vec_FltAllocArrayCopy( float * pArray, int nSize )
 static inline Vec_Flt_t * Vec_FltDup( Vec_Flt_t * pVec )
 {
     Vec_Flt_t * p;
-    p = ALLOC( Vec_Flt_t, 1 );
+    p = ABC_ALLOC( Vec_Flt_t, 1 );
     p->nSize  = pVec->nSize;
     p->nCap   = pVec->nCap;
-    p->pArray = p->nCap? ALLOC( float, p->nCap ) : NULL;
+    p->pArray = p->nCap? ABC_ALLOC( float, p->nCap ) : NULL;
     memcpy( p->pArray, pVec->pArray, sizeof(float) * pVec->nSize );
     return p;
 }
@@ -182,7 +182,7 @@ static inline Vec_Flt_t * Vec_FltDup( Vec_Flt_t * pVec )
 static inline Vec_Flt_t * Vec_FltDupArray( Vec_Flt_t * pVec )
 {
     Vec_Flt_t * p;
-    p = ALLOC( Vec_Flt_t, 1 );
+    p = ABC_ALLOC( Vec_Flt_t, 1 );
     p->nSize  = pVec->nSize;
     p->nCap   = pVec->nCap;
     p->pArray = pVec->pArray;
@@ -205,8 +205,27 @@ static inline Vec_Flt_t * Vec_FltDupArray( Vec_Flt_t * pVec )
 ***********************************************************************/
 static inline void Vec_FltFree( Vec_Flt_t * p )
 {
-    FREE( p->pArray );
-    FREE( p );
+    ABC_FREE( p->pArray );
+    ABC_FREE( p );
+}
+
+/**Function*************************************************************
+
+  Synopsis    []
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+static inline void Vec_FltFreeP( Vec_Flt_t ** p )
+{
+    if ( *p == NULL )
+        return;
+    ABC_FREE( (*p)->pArray );
+    ABC_FREE( (*p) );
 }
 
 /**Function*************************************************************
@@ -343,7 +362,7 @@ static inline void Vec_FltGrow( Vec_Flt_t * p, int nCapMin )
 {
     if ( p->nCap >= nCapMin )
         return;
-    p->pArray = REALLOC( float, p->pArray, nCapMin ); 
+    p->pArray = ABC_REALLOC( float, p->pArray, nCapMin ); 
     p->nCap   = nCapMin;
 }
 
@@ -378,14 +397,18 @@ static inline void Vec_FltFill( Vec_Flt_t * p, int nSize, float Entry )
   SeeAlso     []
 
 ***********************************************************************/
-static inline void Vec_FltFillExtra( Vec_Flt_t * p, int nSize, float Entry )
+static inline void Vec_FltFillExtra( Vec_Flt_t * p, int nSize, float Fill )
 {
     int i;
-    if ( p->nSize >= nSize )
+    if ( nSize <= p->nSize )
         return;
-    Vec_FltGrow( p, nSize );
+    assert( nSize > p->nSize );
+    if ( nSize < 2 * p->nSize )
+        Vec_FltGrow( p, 2 * nSize );
+    else
+        Vec_FltGrow( p, nSize );
     for ( i = p->nSize; i < nSize; i++ )
-        p->pArray[i] = Entry;
+        p->pArray[i] = Fill;
     p->nSize = nSize;
 }
 
@@ -570,7 +593,7 @@ static inline int Vec_FltRemove( Vec_Flt_t * p, float Entry )
   SeeAlso     []
 
 ***********************************************************************/
-static inline int Vec_FltSortCompare1( float * pp1, float * pp2 )
+static int Vec_FltSortCompare1( float * pp1, float * pp2 )
 {
     // for some reason commenting out lines (as shown) led to crashing of the release version
     if ( *pp1 < *pp2 )
@@ -591,7 +614,7 @@ static inline int Vec_FltSortCompare1( float * pp1, float * pp2 )
   SeeAlso     []
 
 ***********************************************************************/
-static inline int Vec_FltSortCompare2( float * pp1, float * pp2 )
+static int Vec_FltSortCompare2( float * pp1, float * pp2 )
 {
     // for some reason commenting out lines (as shown) led to crashing of the release version
     if ( *pp1 > *pp2 )

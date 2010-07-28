@@ -30,6 +30,47 @@
 
 /**Function*************************************************************
 
+  Synopsis    [Prints one cut.]
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+void Dar_CutPrint( Dar_Cut_t * pCut )
+{
+    unsigned i;
+    printf( "{" );
+    for ( i = 0; i < pCut->nLeaves; i++ )
+        printf( " %d", pCut->pLeaves[i] );
+    printf( " }\n" );
+}
+
+/**Function*************************************************************
+
+  Synopsis    [Prints one cut.]
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+void Dar_ObjCutPrint( Aig_Man_t * p, Aig_Obj_t * pObj )
+{
+    Dar_Cut_t * pCut;
+    int i;
+    printf( "Cuts for node %d:\n", pObj->Id );
+    Dar_ObjForEachCut( pObj, pCut, i )
+        Dar_CutPrint( pCut );
+//    printf( "\n" );
+}
+
+/**Function*************************************************************
+
   Synopsis    [Returns the number of 1s in the machine word.]
 
   Description []
@@ -479,7 +520,7 @@ static inline int Dar_CutSuppMinimize( Dar_Cut_t * pCut )
     unsigned uPhase = 0, uTruth = 0xFFFF & pCut->uTruth;
     int i, k, nLeaves;
     assert( pCut->fUsed );
-    // compute the truth support of the cut's function
+    // compute the support of the cut's function
     nLeaves = pCut->nLeaves;
     for ( i = 0; i < (int)pCut->nLeaves; i++ )
         if ( (uTruth & uMasks[i][0]) == ((uTruth & uMasks[i][1]) >> (1 << i)) )
@@ -544,9 +585,11 @@ Dar_Cut_t * Dar_ObjPrepareCuts( Dar_Man_t * p, Aig_Obj_t * pObj )
     pObj->nCuts = p->pPars->nCutsMax;
     // create the cutset of the node
     pCutSet = (Dar_Cut_t *)Aig_MmFixedEntryFetch( p->pMemCuts );
+    memset( pCutSet, 0, p->pPars->nCutsMax * sizeof(Dar_Cut_t) );
     Dar_ObjSetCuts( pObj, pCutSet );
-    Dar_ObjForEachCut( pObj, pCut, i )
+    Dar_ObjForEachCutAll( pObj, pCut, i )
         pCut->fUsed = 0;
+    Vec_PtrPush( p->vCutNodes, pObj );
     // add unit cut if needed
     pCut = pCutSet;
     pCut->fUsed = 1;
@@ -564,6 +607,8 @@ Dar_Cut_t * Dar_ObjPrepareCuts( Dar_Man_t * p, Aig_Obj_t * pObj )
         pCut->uTruth = 0xAAAA;
     }
     pCut->Value = Dar_CutFindValue( p, pCut );
+    if ( p->nCutMemUsed < Aig_MmFixedReadMemUsage(p->pMemCuts)/(1<<20) )
+        p->nCutMemUsed = Aig_MmFixedReadMemUsage(p->pMemCuts)/(1<<20);
     return pCutSet;
 }
 
@@ -578,15 +623,17 @@ Dar_Cut_t * Dar_ObjPrepareCuts( Dar_Man_t * p, Aig_Obj_t * pObj )
   SeeAlso     []
 
 ***********************************************************************/
-void Dar_ManCutsStart( Dar_Man_t * p )
+void Dar_ManCutsRestart( Dar_Man_t * p, Aig_Obj_t * pRoot )
 {
     Aig_Obj_t * pObj;
     int i;
-    Aig_ManCleanData( p->pAig );
+    Dar_ObjSetCuts( Aig_ManConst1(p->pAig), NULL );
+    Vec_PtrForEachEntry( p->vCutNodes, pObj, i )
+        if ( !Aig_ObjIsNone(pObj) )
+            Dar_ObjSetCuts( pObj, NULL );
+    Vec_PtrClear( p->vCutNodes );
     Aig_MmFixedRestart( p->pMemCuts );
     Dar_ObjPrepareCuts( p, Aig_ManConst1(p->pAig) );
-    Aig_ManForEachPi( p->pAig, pObj, i )
-        Dar_ObjPrepareCuts( p, pObj );
 }
 
 /**Function*************************************************************
@@ -607,7 +654,7 @@ Dar_Cut_t * Dar_ObjComputeCuts( Dar_Man_t * p, Aig_Obj_t * pObj )
     Aig_Obj_t * pFaninR0 = Aig_Regular(pFanin0);
     Aig_Obj_t * pFaninR1 = Aig_Regular(pFanin1);
     Dar_Cut_t * pCutSet, * pCut0, * pCut1, * pCut;
-    int i, k, RetValue;
+    int i, k, RetValue; 
 
     assert( !Aig_IsComplement(pObj) );
     assert( Aig_ObjIsNode(pObj) );
@@ -684,6 +731,8 @@ Dar_Cut_t * Dar_ObjComputeCuts_rec( Dar_Man_t * p, Aig_Obj_t * pObj )
 {
     if ( Dar_ObjCuts(pObj) )
         return Dar_ObjCuts(pObj);
+    if ( Aig_ObjIsPi(pObj) )
+        return Dar_ObjPrepareCuts( p, pObj );
     if ( Aig_ObjIsBuf(pObj) )
         return Dar_ObjComputeCuts_rec( p, Aig_ObjFanin0(pObj) );
     Dar_ObjComputeCuts_rec( p, Aig_ObjFanin0(pObj) );

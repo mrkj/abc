@@ -44,7 +44,7 @@ static int s_MemoryPeak;
   The entries corresponding to the PI and objects with trivial covers are NULL.
   The number of extracted covers (not exceeding p->nNodesExt) is returned. 
   Two other things are important for the correct operation of this procedure:
-  (1) The input covers do not have duplicated fanins and are SCC-free. 
+  (1) The input covers do not have duplicated fanins and are SCC-ABC_FREE. 
   (2) The fanins array contains the numbers of the fanin objects.]
                
   SideEffects []
@@ -79,7 +79,7 @@ int Fxu_FastExtract( Fxu_Data_t * pData )
 		    Weight1 = Fxu_HeapSingleReadMaxWeight( p->pHeapSingle );
             if ( pData->fVerbose )
                 printf( "Div %5d : Best single = %5d.\r", Counter++, Weight1 );
-            if ( Weight1 > 0 || Weight1 == 0 && pData->fUse0 )
+            if ( Weight1 > 0 || (Weight1 == 0 && pData->fUse0) )
 			    Fxu_UpdateSingle( p );
             else
                 break;
@@ -94,7 +94,7 @@ int Fxu_FastExtract( Fxu_Data_t * pData )
 		    Weight2 = Fxu_HeapDoubleReadMaxWeight( p->pHeapDouble );
             if ( pData->fVerbose )
                 printf( "Div %5d : Best double = %5d.\r", Counter++, Weight2 );
-            if ( Weight2 > 0 || Weight2 == 0 && pData->fUse0 )
+            if ( Weight2 > 0 || (Weight2 == 0 && pData->fUse0) )
 			    Fxu_UpdateDouble( p );
             else
                 break;
@@ -115,14 +115,14 @@ int Fxu_FastExtract( Fxu_Data_t * pData )
 
             if ( Weight1 >= Weight2 )
             {
-                if ( Weight1 > 0 || Weight1 == 0 && pData->fUse0 )
+                if ( Weight1 > 0 || (Weight1 == 0 && pData->fUse0) )
 			        Fxu_UpdateSingle( p );
                 else
                     break;
             }
             else
             {
-                if ( Weight2 > 0 || Weight2 == 0 && pData->fUse0 )
+                if ( Weight2 > 0 || (Weight2 == 0 && pData->fUse0) )
 			        Fxu_UpdateDouble( p );
                 else
                     break;
@@ -144,7 +144,7 @@ int Fxu_FastExtract( Fxu_Data_t * pData )
                 printf( "Div %5d : Best double = %5d. Best single = %5d. Best complement = %5d.\r", 
                     Counter++, Weight2, Weight1, Weight3 );
 
-            if ( Weight3 > 0 || Weight3 == 0 && pData->fUse0 )
+            if ( Weight3 > 0 || (Weight3 == 0 && pData->fUse0) )
                 Fxu_Update( p, pSingle, pDouble );
             else
                 break;
@@ -225,7 +225,7 @@ char * Fxu_MemFetch( Fxu_Matrix * p, int nBytes )
     s_MemoryTotal += nBytes;
     if ( s_MemoryPeak < s_MemoryTotal )
         s_MemoryPeak = s_MemoryTotal;
-//    return malloc( nBytes );
+//    return ABC_ALLOC( char, nBytes );
     return Extra_MmFixedEntryFetch( p->pMemMan );
 }
 
@@ -243,7 +243,7 @@ char * Fxu_MemFetch( Fxu_Matrix * p, int nBytes )
 void Fxu_MemRecycle( Fxu_Matrix * p, char * pItem, int nBytes )
 {
     s_MemoryTotal -= nBytes;
-//    free( pItem );
+//    ABC_FREE( pItem );
     Extra_MmFixedEntryRecycle( p->pMemMan, pItem );
 }
 

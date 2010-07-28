@@ -70,9 +70,27 @@ char * Abc_ObjAssignName( Abc_Obj_t * pObj, char * pName, char * pSuffix )
 
 /**Function*************************************************************
 
-  Synopsis    [Gets the long name of the node.]
+  Synopsis    [Appends name to the prefix]
 
-  Description [This name is the output net's name.]
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+char * Abc_ObjNamePrefix( Abc_Obj_t * pObj, char * pPrefix )
+{
+    static char Buffer[2000];
+    sprintf( Buffer, "%s%s", pPrefix, Abc_ObjName(pObj) );
+    return Buffer;
+}
+
+/**Function*************************************************************
+
+  Synopsis    [Appends suffic to the name.]
+
+  Description []
                
   SideEffects []
 
@@ -81,7 +99,7 @@ char * Abc_ObjAssignName( Abc_Obj_t * pObj, char * pName, char * pSuffix )
 ***********************************************************************/
 char * Abc_ObjNameSuffix( Abc_Obj_t * pObj, char * pSuffix )
 {
-    static char Buffer[500];
+    static char Buffer[2000];
     sprintf( Buffer, "%s%s", Abc_ObjName(pObj), pSuffix );
     return Buffer;
 }
@@ -99,7 +117,7 @@ char * Abc_ObjNameSuffix( Abc_Obj_t * pObj, char * pSuffix )
 ***********************************************************************/
 char * Abc_ObjNameDummy( char * pPrefix, int Num, int nDigits )
 {
-    static char Buffer[100];
+    static char Buffer[2000];
     sprintf( Buffer, "%s%0*d", pPrefix, nDigits, Num );
     return Buffer;
 }
@@ -122,7 +140,6 @@ void Abc_NtkTrasferNames( Abc_Ntk_t * pNtk, Abc_Ntk_t * pNtkNew )
     assert( Abc_NtkPiNum(pNtk) == Abc_NtkPiNum(pNtkNew) );
     assert( Abc_NtkPoNum(pNtk) == Abc_NtkPoNum(pNtkNew) );
     assert( Abc_NtkBoxNum(pNtk) == Abc_NtkBoxNum(pNtkNew) );
-    assert( Abc_NtkAssertNum(pNtk) == Abc_NtkAssertNum(pNtkNew) );
     assert( Nm_ManNumEntries(pNtk->pManName) > 0 );
     assert( Nm_ManNumEntries(pNtkNew->pManName) == 0 );
     // copy the CI/CO/box names
@@ -151,7 +168,6 @@ void Abc_NtkTrasferNamesNoLatches( Abc_Ntk_t * pNtk, Abc_Ntk_t * pNtkNew )
     int i;
     assert( Abc_NtkPiNum(pNtk) == Abc_NtkPiNum(pNtkNew) );
     assert( Abc_NtkPoNum(pNtk) == Abc_NtkPoNum(pNtkNew) );
-    assert( Abc_NtkAssertNum(pNtk) == Abc_NtkAssertNum(pNtkNew) );
     assert( Nm_ManNumEntries(pNtk->pManName) > 0 );
     assert( Nm_ManNumEntries(pNtkNew->pManName) == 0 );
     // copy the CI/CO/box name and skip latches and theirs inputs/outputs
@@ -241,7 +257,7 @@ void Abc_NodeFreeNames( Vec_Ptr_t * vNames )
     if ( vNames == NULL )
         return;
     for ( i = 0; i < vNames->nSize; i++ )
-        free( vNames->pArray[i] );
+        ABC_FREE( vNames->pArray[i] );
     Vec_PtrFree( vNames );
 }
 
@@ -263,13 +279,13 @@ char ** Abc_NtkCollectCioNames( Abc_Ntk_t * pNtk, int fCollectCos )
     int i;
     if ( fCollectCos )
     {
-        ppNames = ALLOC( char *, Abc_NtkCoNum(pNtk) );
+        ppNames = ABC_ALLOC( char *, Abc_NtkCoNum(pNtk) );
         Abc_NtkForEachCo( pNtk, pObj, i )
             ppNames[i] = Abc_ObjName(pObj);
     }
     else
     {
-        ppNames = ALLOC( char *, Abc_NtkCiNum(pNtk) );
+        ppNames = ABC_ALLOC( char *, Abc_NtkCiNum(pNtk) );
         Abc_NtkForEachCi( pNtk, pObj, i )
             ppNames[i] = Abc_ObjName(pObj);
     }
@@ -312,7 +328,6 @@ void Abc_NtkOrderObjsByName( Abc_Ntk_t * pNtk, int fComb )
 {
     Abc_Obj_t * pObj;
     int i;
-    assert( Abc_NtkAssertNum(pNtk) == 0 );
     assert( Abc_NtkHasOnlyLatchBoxes(pNtk) );
     // temporarily store the names in the copy field
     Abc_NtkForEachPi( pNtk, pObj, i )
@@ -392,37 +407,51 @@ void Abc_NtkAddDummyPoNames( Abc_Ntk_t * pNtk )
   SeeAlso     []
 
 ***********************************************************************/
-void Abc_NtkAddDummyAssertNames( Abc_Ntk_t * pNtk )
-{
-    Abc_Obj_t * pObj;
-    int nDigits, i;
-    nDigits = Extra_Base10Log( Abc_NtkAssertNum(pNtk) );
-    Abc_NtkForEachAssert( pNtk, pObj, i )
-        Abc_ObjAssignName( pObj, Abc_ObjNameDummy("a", i, nDigits), NULL );
-}
-
-/**Function*************************************************************
-
-  Synopsis    [Adds dummy names.]
-
-  Description []
-               
-  SideEffects []
-
-  SeeAlso     []
-
-***********************************************************************/
 void Abc_NtkAddDummyBoxNames( Abc_Ntk_t * pNtk )
 {
+    char * pName, PrefLi[100], PrefLo[100];
     Abc_Obj_t * pObj;
-    int nDigits, i;
+    int nDigits, i, k, CountCur, CountMax = 0;
+    // if PIs/POs already have nodes with what looks like latch names
+    // we need to add different prefix for the new latches
+    Abc_NtkForEachPi( pNtk, pObj, i )
+    {
+        CountCur = 0;
+        pName = Abc_ObjName(pObj);
+        for ( k = 0; pName[k]; k++ )
+            if ( pName[k] == 'l' )
+                CountCur++;
+            else
+                break;
+        CountMax = ABC_MAX( CountMax, CountCur );
+    }
+    Abc_NtkForEachPo( pNtk, pObj, i )
+    {
+        CountCur = 0;
+        pName = Abc_ObjName(pObj);
+        for ( k = 0; pName[k]; k++ )
+            if ( pName[k] == 'l' )
+                CountCur++;
+            else
+                break;
+        CountMax = ABC_MAX( CountMax, CountCur );
+    }
+//printf( "CountMax = %d\n", CountMax );
+    assert( CountMax < 100-2 );
+    for ( i = 0; i <= CountMax; i++ )
+        PrefLi[i] = PrefLo[i] = 'l';
+    PrefLi[i] = 'i';
+    PrefLo[i] = 'o';
+    PrefLi[i+1] = 0;
+    PrefLo[i+1] = 0;
+    // create latch names
     assert( !Abc_NtkIsNetlist(pNtk) );
     nDigits = Extra_Base10Log( Abc_NtkLatchNum(pNtk) );
     Abc_NtkForEachLatch( pNtk, pObj, i )
     {
         Abc_ObjAssignName( pObj, Abc_ObjNameDummy("l", i, nDigits), NULL );
-        Abc_ObjAssignName( Abc_ObjFanin0(pObj),  Abc_ObjNameDummy("li", i, nDigits), NULL );
-        Abc_ObjAssignName( Abc_ObjFanout0(pObj), Abc_ObjNameDummy("lo", i, nDigits), NULL );
+        Abc_ObjAssignName( Abc_ObjFanin0(pObj),  Abc_ObjNameDummy(PrefLi, i, nDigits), NULL );
+        Abc_ObjAssignName( Abc_ObjFanout0(pObj), Abc_ObjNameDummy(PrefLo, i, nDigits), NULL );
     }
 /*
     nDigits = Extra_Base10Log( Abc_NtkBlackboxNum(pNtk) );
@@ -456,7 +485,6 @@ void Abc_NtkShortNames( Abc_Ntk_t * pNtk )
     pNtk->pManName = Nm_ManCreate( Abc_NtkCiNum(pNtk) + Abc_NtkCoNum(pNtk) + Abc_NtkBoxNum(pNtk) );
     Abc_NtkAddDummyPiNames( pNtk );
     Abc_NtkAddDummyPoNames( pNtk );
-    Abc_NtkAddDummyAssertNames( pNtk );
     Abc_NtkAddDummyBoxNames( pNtk );
 }
 

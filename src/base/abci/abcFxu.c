@@ -54,9 +54,9 @@ bool Abc_NtkFastExtract( Abc_Ntk_t * pNtk, Fxu_Data_t * p )
 {
     assert( Abc_NtkIsLogic(pNtk) );
     // if the network is already in the SOP form, it may come from BLIF file
-    // and it may not be SCC-free, in which case FXU will not work correctly
+    // and it may not be SCC-ABC_FREE, in which case FXU will not work correctly
     if ( Abc_NtkIsSopLogic(pNtk) )
-    { // to make sure the SOPs are SCC-free
+    { // to make sure the SOPs are SCC-ABC_FREE
 //        Abc_NtkSopToBdd(pNtk);
 //        Abc_NtkBddToSop(pNtk);
     }
@@ -187,12 +187,12 @@ void Abc_NtkFxuFreeInfo( Fxu_Data_t * p )
     if ( p->vSopsNew   ) Vec_PtrFree( p->vSopsNew   );
     if ( p->vFanins    ) Vec_PtrFree( p->vFanins    );
     if ( p->vFaninsNew ) Vec_PtrFree( p->vFaninsNew );
-    FREE( p );
+    ABC_FREE( p );
 }
 
 /**Function*************************************************************
 
-  Synopsis    [Recostructs the network after FX.]
+  Synopsis    [Reconstructs the network after FX.]
 
   Description []
                

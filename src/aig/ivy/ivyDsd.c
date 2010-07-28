@@ -50,9 +50,13 @@ struct Ivy_Dec_t_
     unsigned  Fan5   : 4;   // fanin 5
 };
 
-static inline int        Ivy_DecToInt( Ivy_Dec_t Node )     { return *((int *)&Node);       }
-static inline Ivy_Dec_t  Ivy_IntToDec( int Node )           { return *((Ivy_Dec_t *)&Node); }
-static inline void       Ivy_DecClear( Ivy_Dec_t * pNode )  { *((int *)pNode) = 0;          }
+static inline int        Ivy_DecToInt( Ivy_Dec_t m )        { union { Ivy_Dec_t x; int y; } v; v.x = m; return v.y;  }
+static inline Ivy_Dec_t  Ivy_IntToDec( int m )              { union { Ivy_Dec_t x; int y; } v; v.y = m; return v.x;  }
+static inline void       Ivy_DecClear( Ivy_Dec_t * pNode )  { *pNode = Ivy_IntToDec(0);                              }
+
+//static inline int        Ivy_DecToInt( Ivy_Dec_t Node )     { return *((int *)&Node);       }
+//static inline Ivy_Dec_t  Ivy_IntToDec( int Node )           { return *((Ivy_Dec_t *)&Node); }
+//static inline void       Ivy_DecClear( Ivy_Dec_t * pNode )  { *((int *)pNode) = 0;          }
 
 
 static unsigned s_Masks[6][2] = {

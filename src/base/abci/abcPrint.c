@@ -22,7 +22,7 @@
 #include "dec.h"
 #include "main.h"
 #include "mio.h"
-//#include "seq.h"
+#include "aig.h"
 
 ////////////////////////////////////////////////////////////////////////
 ///                        DECLARATIONS                              ///
@@ -42,6 +42,112 @@ int s_ResynTime = 0;
 
 /**Function*************************************************************
 
+  Synopsis    [If the network is best, saves it in "best.blif" and returns 1.]
+
+  Description [If the networks are incomparable, saves the new network, 
+  returns its parameters in the internal parameter structure, and returns 1.
+  If the new network is not a logic network, quits without saving and returns 0.]
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+int Abc_NtkCompareAndSaveBest( Abc_Ntk_t * pNtk )
+{
+    extern void Io_Write( Abc_Ntk_t * pNtk, char * pFileName, Io_FileType_t FileType );
+    static struct ParStruct {
+        char * pName;  // name of the best saved network
+        int    Depth;  // depth of the best saved network
+        int    Flops;  // flops in the best saved network 
+        int    Nodes;  // nodes in the best saved network
+        int    nPis;   // the number of primary inputs
+        int    nPos;   // the number of primary outputs
+    } ParsNew, ParsBest = { 0 };
+    // free storage for the name
+    if ( pNtk == NULL )
+    {
+        ABC_FREE( ParsBest.pName );
+        return 0;
+    }
+    // quit if not a logic network
+    if ( !Abc_NtkIsLogic(pNtk) )
+        return 0;
+    // get the parameters
+    ParsNew.Depth = Abc_NtkLevel( pNtk );
+    ParsNew.Flops = Abc_NtkLatchNum( pNtk );
+    ParsNew.Nodes = Abc_NtkNodeNum( pNtk );
+    ParsNew.nPis  = Abc_NtkPiNum( pNtk );
+    ParsNew.nPos  = Abc_NtkPoNum( pNtk );
+    // reset the parameters if the network has the same name
+    if (  ParsBest.pName == NULL ||
+          strcmp(ParsBest.pName, pNtk->pName) ||
+          ParsBest.Depth >  ParsNew.Depth ||
+         (ParsBest.Depth == ParsNew.Depth && ParsBest.Flops >  ParsNew.Flops) ||
+         (ParsBest.Depth == ParsNew.Depth && ParsBest.Flops == ParsNew.Flops && ParsBest.Nodes >  ParsNew.Nodes) )
+    {
+        ABC_FREE( ParsBest.pName );
+        ParsBest.pName = Extra_UtilStrsav( pNtk->pName );
+        ParsBest.Depth = ParsNew.Depth; 
+        ParsBest.Flops = ParsNew.Flops; 
+        ParsBest.Nodes = ParsNew.Nodes; 
+        ParsBest.nPis  = ParsNew.nPis; 
+        ParsBest.nPos  = ParsNew.nPos;
+        // writ the network
+        Io_Write( pNtk, "best.blif", IO_FILE_BLIF );
+        return 1;
+    }
+    return 0;
+}
+
+/**Function*************************************************************
+
+  Synopsis    [Marks nodes for power-optimization.]
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+float Abc_NtkMfsTotalSwitching( Abc_Ntk_t * pNtk )
+{
+    extern Aig_Man_t * Abc_NtkToDar( Abc_Ntk_t * pNtk, int fExors, int fRegisters );
+    extern Vec_Int_t * Saig_ManComputeSwitchProbs( Aig_Man_t * p, int nFrames, int nPref, int fProbOne );
+    Vec_Int_t * vSwitching;
+    float * pSwitching;
+    Abc_Ntk_t * pNtkStr;
+    Aig_Man_t * pAig;
+    Aig_Obj_t * pObjAig;
+    Abc_Obj_t * pObjAbc, * pObjAbc2;
+    float Result = (float)0;
+    int i;
+    // strash the network
+    pNtkStr = Abc_NtkStrash( pNtk, 0, 1, 0 );
+    Abc_NtkForEachObj( pNtk, pObjAbc, i )
+        if ( Abc_ObjRegular(pObjAbc->pTemp)->Type == ABC_FUNC_NONE )
+            pObjAbc->pTemp = NULL;
+    // map network into an AIG
+    pAig = Abc_NtkToDar( pNtkStr, 0, (int)(Abc_NtkLatchNum(pNtk) > 0) );
+    vSwitching = Saig_ManComputeSwitchProbs( pAig, 48, 16, 0 );
+    pSwitching = (float *)vSwitching->pArray;
+    Abc_NtkForEachObj( pNtk, pObjAbc, i )
+    {
+        if ( (pObjAbc2 = Abc_ObjRegular(pObjAbc->pTemp)) && (pObjAig = Aig_Regular(pObjAbc2->pTemp)) )
+        {
+            Result += Abc_ObjFanoutNum(pObjAbc) * pSwitching[pObjAig->Id];
+//            printf( "%d = %.2f\n", i, Abc_ObjFanoutNum(pObjAbc) * pSwitching[pObjAig->Id] );
+        }
+    }
+    Vec_IntFree( vSwitching );
+    Aig_ManStop( pAig );
+    Abc_NtkDelete( pNtkStr );
+    return Result;
+}
+
+/**Function*************************************************************
+
   Synopsis    [Print the vital stats of the network.]
 
   Description []
@@ -51,42 +157,54 @@ int s_ResynTime = 0;
   SeeAlso     []
 
 ***********************************************************************/
-void Abc_NtkPrintStats( FILE * pFile, Abc_Ntk_t * pNtk, int fFactored )
+void Abc_NtkPrintStats( Abc_Ntk_t * pNtk, int fFactored, int fSaveBest, int fDumpResult, int fUseLutLib, int fPrintMuxes, int fPower, int fGlitch )
 {
+    FILE * pFile = stdout;
     int Num;
+    if ( fSaveBest )
+        Abc_NtkCompareAndSaveBest( pNtk );
+    if ( fDumpResult )
+    {
+        char Buffer[1000] = {0};
+        char * pNameGen = pNtk->pSpec? Extra_FileNameGeneric( pNtk->pSpec ) : "nameless_";
+        sprintf( Buffer, "%s_dump.blif", pNameGen );
+        Io_Write( pNtk, Buffer, IO_FILE_BLIF );
+        if ( pNtk->pSpec ) ABC_FREE( pNameGen );
+    }
 
 //    if ( Abc_NtkIsStrash(pNtk) )
 //        Abc_AigCountNext( pNtk->pManFunc );
 
     fprintf( pFile, "%-13s:",       pNtk->pName );
-    if ( Abc_NtkAssertNum(pNtk) )
-        fprintf( pFile, " i/o/a = %4d/%4d/%4d", Abc_NtkPiNum(pNtk), Abc_NtkPoNum(pNtk), Abc_NtkAssertNum(pNtk) );
-    else
-        fprintf( pFile, " i/o = %4d/%4d", Abc_NtkPiNum(pNtk), Abc_NtkPoNum(pNtk) );
-    fprintf( pFile, "  lat = %4d", Abc_NtkLatchNum(pNtk) );
+    fprintf( pFile, " i/o =%5d/%5d", Abc_NtkPiNum(pNtk), Abc_NtkPoNum(pNtk) );
+    if ( Abc_NtkConstrNum(pNtk) )
+        fprintf( pFile, "(c=%d)", Abc_NtkConstrNum(pNtk) );
+    fprintf( pFile, "  lat =%5d", Abc_NtkLatchNum(pNtk) );
     if ( Abc_NtkIsNetlist(pNtk) )
     {
-        fprintf( pFile, "  net = %5d", Abc_NtkNetNum(pNtk) );
-        fprintf( pFile, "  nd = %5d",  Abc_NtkNodeNum(pNtk) );
-        fprintf( pFile, "  wbox = %3d", Abc_NtkWhiteboxNum(pNtk) );
-        fprintf( pFile, "  bbox = %3d", Abc_NtkBlackboxNum(pNtk) );
+        fprintf( pFile, "  net =%5d", Abc_NtkNetNum(pNtk) );
+        fprintf( pFile, "  nd =%5d",  Abc_NtkNodeNum(pNtk) );
+        fprintf( pFile, "  wbox =%3d", Abc_NtkWhiteboxNum(pNtk) );
+        fprintf( pFile, "  bbox =%3d", Abc_NtkBlackboxNum(pNtk) );
     }
     else if ( Abc_NtkIsStrash(pNtk) )
     {        
-        fprintf( pFile, "  and = %5d", Abc_NtkNodeNum(pNtk) );
-        if ( Num = Abc_NtkGetChoiceNum(pNtk) )
+        fprintf( pFile, "  and =%7d", Abc_NtkNodeNum(pNtk) );
+        if ( (Num = Abc_NtkGetChoiceNum(pNtk)) )
             fprintf( pFile, " (choice = %d)", Num );
-        if ( Num = Abc_NtkGetExorNum(pNtk) )
+        if ( fPrintMuxes )
+        {
+            extern int Abc_NtkCountMuxes( Abc_Ntk_t * pNtk );
+            Num = Abc_NtkGetExorNum(pNtk);
             fprintf( pFile, " (exor = %d)", Num );
-//        if ( Num2 = Abc_NtkGetMuxNum(pNtk) )
-//            fprintf( pFile, " (mux = %d)", Num2-Num );
-//        if ( Num2 )
-//            fprintf( pFile, " (other = %d)", Abc_NtkNodeNum(pNtk)-3*Num2 );
+            fprintf( pFile, " (mux = %d)", Abc_NtkCountMuxes(pNtk)-Num );
+            fprintf( pFile, " (pure and = %d)", Abc_NtkNodeNum(pNtk) - (Abc_NtkCountMuxes(pNtk) * 3) );
+        }
     }
     else 
     {
-        fprintf( pFile, "  nd = %5d", Abc_NtkNodeNum(pNtk) );
-        fprintf( pFile, "  net = %5d", Abc_NtkGetTotalFanins(pNtk) );
+        fprintf( pFile, "  nd =%6d", Abc_NtkNodeNum(pNtk) );
+        fprintf( pFile, "  edge =%7d", Abc_NtkGetTotalFanins(pNtk) );
     }
 
     if ( Abc_NtkIsStrash(pNtk) || Abc_NtkIsNetlist(pNtk) )
@@ -95,19 +213,19 @@ void Abc_NtkPrintStats( FILE * pFile, Abc_Ntk_t * pNtk, int fFactored )
     else if ( Abc_NtkHasSop(pNtk) )   
     {
 
-        fprintf( pFile, "  cube = %5d",  Abc_NtkGetCubeNum(pNtk) );
+        fprintf( pFile, "  cube =%6d",  Abc_NtkGetCubeNum(pNtk) );
 //        fprintf( pFile, "  lit(sop) = %5d",  Abc_NtkGetLitNum(pNtk) );
         if ( fFactored )
-            fprintf( pFile, "  lit(fac) = %5d",  Abc_NtkGetLitFactNum(pNtk) );
+            fprintf( pFile, "  lit(fac) =%6d",  Abc_NtkGetLitFactNum(pNtk) );
     }
     else if ( Abc_NtkHasAig(pNtk) )
-        fprintf( pFile, "  aig  = %5d",  Abc_NtkGetAigNodeNum(pNtk) );
+        fprintf( pFile, "  aig  =%6d",  Abc_NtkGetAigNodeNum(pNtk) );
     else if ( Abc_NtkHasBdd(pNtk) )
-        fprintf( pFile, "  bdd  = %5d",  Abc_NtkGetBddNodeNum(pNtk) );
+        fprintf( pFile, "  bdd  =%6d",  Abc_NtkGetBddNodeNum(pNtk) );
     else if ( Abc_NtkHasMapping(pNtk) )
     {
-        fprintf( pFile, "  area = %5.2f", Abc_NtkGetMappedArea(pNtk) );
-        fprintf( pFile, "  delay = %5.2f", Abc_NtkDelayTrace(pNtk) );
+        fprintf( pFile, "  area =%5.2f", Abc_NtkGetMappedArea(pNtk) );
+        fprintf( pFile, "  delay =%5.2f", Abc_NtkDelayTrace(pNtk) );
     }
     else if ( !Abc_NtkHasBlackbox(pNtk) )
     {
@@ -115,11 +233,32 @@ void Abc_NtkPrintStats( FILE * pFile, Abc_Ntk_t * pNtk, int fFactored )
     }
 
     if ( Abc_NtkIsStrash(pNtk) )
-        fprintf( pFile, "  lev = %3d", Abc_AigLevel(pNtk) );
+    {
+        extern int Abc_NtkGetMultiRefNum( Abc_Ntk_t * pNtk );
+        fprintf( pFile, "  lev =%3d", Abc_AigLevel(pNtk) );
+//        fprintf( pFile, "  ff = %5d", Abc_NtkNodeNum(pNtk) + 2 * (Abc_NtkCoNum(pNtk)+Abc_NtkGetMultiRefNum(pNtk)) );
+//        fprintf( pFile, "  var = %5d", Abc_NtkCiNum(pNtk) + Abc_NtkCoNum(pNtk)+Abc_NtkGetMultiRefNum(pNtk) );
+    }
     else 
-        fprintf( pFile, "  lev = %3d", Abc_NtkLevel(pNtk) );
-
+        fprintf( pFile, "  lev =%3d", Abc_NtkLevel(pNtk) );
+    if ( fUseLutLib && Abc_FrameReadLibLut() )
+        fprintf( pFile, "  delay =%5.2f", Abc_NtkDelayTraceLut(pNtk, 1) );
+    if ( fPower )
+        fprintf( pFile, "  power =%7.2f", Abc_NtkMfsTotalSwitching(pNtk) );
+    if ( fGlitch )
+    {
+        extern float Abc_NtkMfsTotalGlitching( Abc_Ntk_t * pNtk );
+        if ( Abc_NtkIsLogic(pNtk) && Abc_NtkGetFaninMax(pNtk) <= 6 )
+            fprintf( pFile, "  glitch =%7.2f %%", Abc_NtkMfsTotalGlitching(pNtk) );
+        else
+            printf( "\nCurrently computes glitching only for K-LUT networks with K <= 6." ); 
+    }
     fprintf( pFile, "\n" );
+
+    {
+//        extern int Abc_NtkPrintSubraphSizes( Abc_Ntk_t * pNtk );
+//        Abc_NtkPrintSubraphSizes( pNtk );
+    }
 
 //    Abc_NtkCrossCut( pNtk );
 
@@ -143,10 +282,12 @@ void Abc_NtkPrintStats( FILE * pFile, Abc_Ntk_t * pNtk, int fFactored )
     // print the statistic into a file
     {
         FILE * pTable;
-        pTable = fopen( "stats.txt", "a+" );
-        fprintf( pTable, "%s ",  pNtk->pSpec );
-        fprintf( pTable, "%.0f ", Abc_NtkGetMappedArea(pNtk) );
-        fprintf( pTable, "%.2f ", Abc_NtkDelayTrace(pNtk) );
+        pTable = fopen( "ucsb/stats.txt", "a+" );
+//        fprintf( pTable, "%s ",  pNtk->pSpec );
+        fprintf( pTable, "%d ",  Abc_NtkNodeNum(pNtk) );
+//        fprintf( pTable, "%d ",  Abc_NtkLevel(pNtk) );
+//        fprintf( pTable, "%.0f ", Abc_NtkGetMappedArea(pNtk) );
+//        fprintf( pTable, "%.2f ", Abc_NtkDelayTrace(pNtk) );
         fprintf( pTable, "\n" );
         fclose( pTable );
     }
@@ -181,25 +322,6 @@ void Abc_NtkPrintStats( FILE * pFile, Abc_Ntk_t * pNtk, int fFactored )
         extern int timeRetime;
         FILE * pTable;
         Counter++;
-        pTable = fopen( "a/ret__stats.txt", "a+" );
-        fprintf( pTable, "%s ", pNtk->pName );
-        fprintf( pTable, "%d ", Abc_NtkNodeNum(pNtk) );
-        fprintf( pTable, "%d ", Abc_NtkLatchNum(pNtk) );
-        fprintf( pTable, "%d ", Abc_NtkLevel(pNtk) );
-        fprintf( pTable, "%.2f ", (float)(timeRetime)/(float)(CLOCKS_PER_SEC) );
-        if ( Counter % 4 == 0 )
-            fprintf( pTable, "\n" );
-        fclose( pTable );
-    }
-*/
-
-/*
-    // print the statistic into a file
-    {
-        static int Counter = 0;
-        extern int timeRetime;
-        FILE * pTable;
-        Counter++;
         pTable = fopen( "d/stats.txt", "a+" );
         fprintf( pTable, "%s ", pNtk->pName );
 //        fprintf( pTable, "%d ", Abc_NtkPiNum(pNtk) );
@@ -210,7 +332,7 @@ void Abc_NtkPrintStats( FILE * pFile, Abc_Ntk_t * pNtk, int fFactored )
         fprintf( pTable, "\n" );
         fclose( pTable );
     }
-*/
+
 
 /*
     s_TotalNodes += Abc_NtkNodeNum(pNtk);
@@ -220,6 +342,8 @@ void Abc_NtkPrintStats( FILE * pFile, Abc_Ntk_t * pNtk, int fFactored )
 
 //    if ( Abc_NtkHasSop(pNtk) )
 //        printf( "The total number of cube pairs = %d.\n", Abc_NtkGetCubePairNum(pNtk) );
+   
+    fflush( stdout );
 }
 
 /**Function*************************************************************
@@ -322,11 +446,11 @@ void Abc_NtkPrintLatch( FILE * pFile, Abc_Ntk_t * pNtk )
                 Counter2++;
         }
     }
-    fprintf( pFile, "%-15s:  ", pNtk->pName );
-    fprintf( pFile, "Latch = %6d. No = %4d. Zero = %4d. One = %4d. DC = %4d.\n", 
-        Abc_NtkLatchNum(pNtk), InitNums[0], InitNums[1], InitNums[2], InitNums[3] );
-    fprintf( pFile, "Const fanin = %3d. DC init = %3d. Matching init = %3d. ", Counter0, Counter1, Counter2 );
-    fprintf( pFile, "Self-feed latches = %2d.\n", -1 ); //Abc_NtkCountSelfFeedLatches(pNtk) );
+//    fprintf( pFile, "%-15s:  ", pNtk->pName );
+    fprintf( pFile, "Total latches = %5d. Init0 = %d. Init1 = %d. InitDC = %d. Const data = %d.\n", 
+        Abc_NtkLatchNum(pNtk), InitNums[1], InitNums[2], InitNums[3], Counter0 );
+//    fprintf( pFile, "Const fanin = %3d. DC init = %3d. Matching init = %3d. ", Counter0, Counter1, Counter2 );
+//    fprintf( pFile, "Self-feed latches = %2d.\n", -1 ); //Abc_NtkCountSelfFeedLatches(pNtk) );
 }
 
 /**Function*************************************************************
@@ -398,6 +522,126 @@ void Abc_NtkPrintFanio( FILE * pFile, Abc_Ntk_t * pNtk )
 
 /**Function*************************************************************
 
+  Synopsis    [Prints the distribution of fanins/fanouts in the network.]
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+void Abc_NtkPrintFanioNew( FILE * pFile, Abc_Ntk_t * pNtk )
+{
+    char Buffer[100];
+    Abc_Obj_t * pNode;
+    Vec_Int_t * vFanins, * vFanouts;
+    int nFanins, nFanouts, nFaninsMax, nFanoutsMax, nFaninsAll, nFanoutsAll;
+    int i, k, nSizeMax;
+
+    // determine the largest fanin and fanout
+    nFaninsMax = nFanoutsMax = 0;
+    nFaninsAll = nFanoutsAll = 0;
+    Abc_NtkForEachNode( pNtk, pNode, i )
+    {
+        nFanins  = Abc_ObjFaninNum(pNode);
+        if ( Abc_NtkIsNetlist(pNtk) )
+            nFanouts = Abc_ObjFanoutNum( Abc_ObjFanout0(pNode) );
+        else
+            nFanouts = Abc_ObjFanoutNum(pNode);
+        nFaninsAll  += nFanins;
+        nFanoutsAll += nFanouts;
+        nFaninsMax   = ABC_MAX( nFaninsMax, nFanins );
+        nFanoutsMax  = ABC_MAX( nFanoutsMax, nFanouts );
+    }
+
+    // allocate storage for fanin/fanout numbers
+    nSizeMax = ABC_MAX( 10 * (Extra_Base10Log(nFaninsMax) + 1), 10 * (Extra_Base10Log(nFanoutsMax) + 1) );
+    vFanins  = Vec_IntStart( nSizeMax );
+    vFanouts = Vec_IntStart( nSizeMax );
+
+    // count the number of fanins and fanouts
+    Abc_NtkForEachNode( pNtk, pNode, i )
+    {
+        nFanins  = Abc_ObjFaninNum(pNode);
+        if ( Abc_NtkIsNetlist(pNtk) )
+            nFanouts = Abc_ObjFanoutNum( Abc_ObjFanout0(pNode) );
+        else
+            nFanouts = Abc_ObjFanoutNum(pNode);
+//            nFanouts = Abc_NodeMffcSize(pNode);
+
+        if ( nFanins < 10 )
+            Vec_IntAddToEntry( vFanins, nFanins, 1 );
+        else if ( nFanins < 100 )
+            Vec_IntAddToEntry( vFanins, 10 + nFanins/10, 1 );
+        else if ( nFanins < 1000 )
+            Vec_IntAddToEntry( vFanins, 20 + nFanins/100, 1 );
+        else if ( nFanins < 10000 )
+            Vec_IntAddToEntry( vFanins, 30 + nFanins/1000, 1 );
+        else if ( nFanins < 100000 )
+            Vec_IntAddToEntry( vFanins, 40 + nFanins/10000, 1 );
+        else if ( nFanins < 1000000 )
+            Vec_IntAddToEntry( vFanins, 50 + nFanins/100000, 1 );
+        else if ( nFanins < 10000000 )
+            Vec_IntAddToEntry( vFanins, 60 + nFanins/1000000, 1 );
+
+        if ( nFanouts < 10 )
+            Vec_IntAddToEntry( vFanouts, nFanouts, 1 );
+        else if ( nFanouts < 100 )
+            Vec_IntAddToEntry( vFanouts, 10 + nFanouts/10, 1 );
+        else if ( nFanouts < 1000 )
+            Vec_IntAddToEntry( vFanouts, 20 + nFanouts/100, 1 );
+        else if ( nFanouts < 10000 )
+            Vec_IntAddToEntry( vFanouts, 30 + nFanouts/1000, 1 );
+        else if ( nFanouts < 100000 )
+            Vec_IntAddToEntry( vFanouts, 40 + nFanouts/10000, 1 );
+        else if ( nFanouts < 1000000 )
+            Vec_IntAddToEntry( vFanouts, 50 + nFanouts/100000, 1 );
+        else if ( nFanouts < 10000000 )
+            Vec_IntAddToEntry( vFanouts, 60 + nFanouts/1000000, 1 );
+    }
+
+    fprintf( pFile, "The distribution of fanins and fanouts in the network:\n" );
+    fprintf( pFile, "         Number   Nodes with fanin  Nodes with fanout\n" );
+    for ( k = 0; k < nSizeMax; k++ )
+    {
+        if ( vFanins->pArray[k] == 0 && vFanouts->pArray[k] == 0 )
+            continue;
+        if ( k < 10 )
+            fprintf( pFile, "%15d : ", k );
+        else
+        {
+            sprintf( Buffer, "%d - %d", (int)pow(10, k/10) * (k%10), (int)pow(10, k/10) * (k%10+1) - 1 ); 
+            fprintf( pFile, "%15s : ", Buffer );
+        }
+        if ( vFanins->pArray[k] == 0 )
+            fprintf( pFile, "              " );
+        else
+            fprintf( pFile, "%12d  ", vFanins->pArray[k] );
+        fprintf( pFile, "    " );
+        if ( vFanouts->pArray[k] == 0 )
+            fprintf( pFile, "              " );
+        else
+            fprintf( pFile, "%12d  ", vFanouts->pArray[k] );
+        fprintf( pFile, "\n" );
+    }
+    Vec_IntFree( vFanins );
+    Vec_IntFree( vFanouts );
+
+    fprintf( pFile, "Fanins: Max = %d. Ave = %.2f.  Fanouts: Max = %d. Ave =  %.2f.\n", 
+        nFaninsMax,  1.0*nFaninsAll/Abc_NtkNodeNum(pNtk), 
+        nFanoutsMax, 1.0*nFanoutsAll/Abc_NtkNodeNum(pNtk)  );
+/*
+    Abc_NtkForEachCi( pNtk, pNode, i )
+    {
+        printf( "%d ", Abc_ObjFanoutNum(pNode) );
+    }
+    printf( "\n" );
+*/
+}
+
+/**Function*************************************************************
+
   Synopsis    [Prints the fanins/fanouts of a node.]
 
   Description []
@@ -443,9 +687,9 @@ void Abc_NtkPrintMffc( FILE * pFile, Abc_Ntk_t * pNtk )
 {
     Abc_Obj_t * pNode;
     int i;
-    extern void Abc_NodeMffsConeSuppPrint( Abc_Obj_t * pNode );
+    extern void Abc_NodeMffcConeSuppPrint( Abc_Obj_t * pNode );
     Abc_NtkForEachNode( pNtk, pNode, i )
-        Abc_NodeMffsConeSuppPrint( pNode );
+        Abc_NodeMffcConeSuppPrint( pNode );
 }
 
 /**Function*************************************************************
@@ -553,7 +797,7 @@ void Abc_NtkPrintLevel( FILE * pFile, Abc_Ntk_t * pNtk, int fProfile, int fListN
         DelayMax   = Abc_NtkDelayTrace( pNtk );
         DelayDelta = DelayMax/nIntervals;
         // collect outputs by delay
-        pLevelCounts = ALLOC( int, nIntervals );
+        pLevelCounts = ABC_ALLOC( int, nIntervals );
         memset( pLevelCounts, 0, sizeof(int) * nIntervals );
         Abc_NtkForEachCo( pNtk, pNode, i )
         {
@@ -572,7 +816,7 @@ void Abc_NtkPrintLevel( FILE * pFile, Abc_Ntk_t * pNtk, int fProfile, int fListN
             printf( "[%8.2f - %8.2f] :   COs = %4d.   %5.1f %%\n", 
                 DelayDelta * i, DelayDelta * (i+1), pLevelCounts[i], 100.0 * nOutsSum/nOutsTotal );
         }
-        free( pLevelCounts );
+        ABC_FREE( pLevelCounts );
         return;
     }
     else if ( fProfile )
@@ -587,7 +831,7 @@ void Abc_NtkPrintLevel( FILE * pFile, Abc_Ntk_t * pNtk, int fProfile, int fListN
         Abc_NtkForEachCo( pNtk, pNode, i )
             if ( LevelMax < (int)Abc_ObjFanin0(pNode)->Level )
                 LevelMax = Abc_ObjFanin0(pNode)->Level;
-        pLevelCounts = ALLOC( int, LevelMax + 1 );
+        pLevelCounts = ABC_ALLOC( int, LevelMax + 1 );
         memset( pLevelCounts, 0, sizeof(int) * (LevelMax + 1) );
         Abc_NtkForEachCo( pNtk, pNode, i )
             pLevelCounts[Abc_ObjFanin0(pNode)->Level]++;
@@ -600,7 +844,7 @@ void Abc_NtkPrintLevel( FILE * pFile, Abc_Ntk_t * pNtk, int fProfile, int fListN
                 nOutsSum += pLevelCounts[i];
                 printf( "Level = %4d.  COs = %4d.   %5.1f %%\n", i, pLevelCounts[i], 100.0 * nOutsSum/nOutsTotal );
             }
-        free( pLevelCounts );
+        ABC_FREE( pLevelCounts );
         return;
     }
     assert( Abc_NtkIsStrash(pNtk) );
@@ -710,32 +954,39 @@ void Abc_NtkPrintGates( Abc_Ntk_t * pNtk, int fUseLibrary )
 
     if ( fUseLibrary && Abc_NtkHasMapping(pNtk) )
     {
-        stmm_table * tTable;
-        stmm_generator * gen;
-        char * pName;
-        int * pCounter, Counter;
+        Mio_Gate_t ** ppGates;
         double Area, AreaTotal;
+        int Counter, nGates, i;
+
+        // clean value of all gates
+        nGates = Mio_LibraryReadGateNum( pNtk->pManFunc );
+        ppGates = Mio_LibraryReadGatesByName( pNtk->pManFunc );
+        for ( i = 0; i < nGates; i++ )
+            Mio_GateSetValue( ppGates[i], 0 );
 
         // count the gates by name
         CounterTotal = 0;
-        tTable = stmm_init_table(strcmp, stmm_strhash);
         Abc_NtkForEachNode( pNtk, pObj, i )
         {
             if ( i == 0 ) continue;
-            if ( !stmm_find_or_add( tTable, Mio_GateReadName(pObj->pData), (char ***)&pCounter ) )
-                *pCounter = 0;
-            (*pCounter)++;
+            Mio_GateSetValue( pObj->pData, 1 + Mio_GateReadValue(pObj->pData) );
             CounterTotal++;
         }
         // print the gates
         AreaTotal = Abc_NtkGetMappedArea(pNtk);
-        stmm_foreach_item( tTable, gen, (char **)&pName, (char **)&Counter )
+        for ( i = 0; i < nGates; i++ )
         {
-            Area = Counter * Mio_GateReadArea(Mio_LibraryReadGateByName(pNtk->pManFunc,pName));
-            printf( "%-12s = %8d   %10.2f    %6.2f %%\n", pName, Counter, Area, 100.0 * Area / AreaTotal );
+            Counter = Mio_GateReadValue( ppGates[i] );
+            if ( Counter == 0 )
+                continue;
+            Area = Counter * Mio_GateReadArea( ppGates[i] );
+            printf( "%-12s   Fanin = %2d   Instance = %8d   Area = %10.2f   %6.2f %%\n", 
+                Mio_GateReadName( ppGates[i] ), 
+                Mio_GateReadInputs( ppGates[i] ), 
+                Counter, Area, 100.0 * Area / AreaTotal );
         }
-        printf( "%-12s = %8d   %10.2f    %6.2f %%\n", "TOTAL", CounterTotal, AreaTotal, 100.0 );
-        stmm_free_table( tTable );
+        printf( "%-12s                Instance = %8d   Area = %10.2f   %6.2f %%\n", "TOTAL", 
+            CounterTotal, AreaTotal, 100.0 );
         return;
     }
 
@@ -743,7 +994,7 @@ void Abc_NtkPrintGates( Abc_Ntk_t * pNtk, int fUseLibrary )
         return;
 
     // transform logic functions from BDD to SOP
-    if ( fHasBdds = Abc_NtkIsBddLogic(pNtk) )
+    if ( (fHasBdds = Abc_NtkIsBddLogic(pNtk)) )
     {
         if ( !Abc_NtkBddToSop(pNtk, 0) )
         {
@@ -768,9 +1019,11 @@ void Abc_NtkPrintGates( Abc_Ntk_t * pNtk, int fUseLibrary )
             CountBuf++;
         else if ( Abc_SopIsInv(pSop) )
             CountInv++;
-        else if ( !Abc_SopIsComplement(pSop) && Abc_SopIsAndType(pSop) ||  Abc_SopIsComplement(pSop) && Abc_SopIsOrType(pSop) )
+        else if ( (!Abc_SopIsComplement(pSop) && Abc_SopIsAndType(pSop)) ||
+                  ( Abc_SopIsComplement(pSop) && Abc_SopIsOrType(pSop)) )
             CountAnd++;
-        else if (  Abc_SopIsComplement(pSop) && Abc_SopIsAndType(pSop) || !Abc_SopIsComplement(pSop) && Abc_SopIsOrType(pSop) )
+        else if ( ( Abc_SopIsComplement(pSop) && Abc_SopIsAndType(pSop)) ||
+                  (!Abc_SopIsComplement(pSop) && Abc_SopIsOrType(pSop)) )
             CountOr++;
         else
             CountOther++;
@@ -859,8 +1112,8 @@ void Abc_NtkPrintStrSupports( Abc_Ntk_t * pNtk )
     {
         vSupp  = Abc_NtkNodeSupport( pNtk, &pObj, 1 );
         vNodes = Abc_NtkDfsNodes( pNtk, &pObj, 1 );
-        printf( "%20s :  Cone = %5d.  Supp = %5d.\n", 
-            Abc_ObjName(pObj), vNodes->nSize, vSupp->nSize );
+        printf( "%5d  %20s :  Cone = %5d.  Supp = %5d.\n", 
+            i, Abc_ObjName(pObj), vNodes->nSize, vSupp->nSize );
         Vec_PtrFree( vNodes );
         Vec_PtrFree( vSupp );
     }
@@ -940,11 +1193,157 @@ void Abc_ObjPrint( FILE * pFile, Abc_Obj_t * pObj )
 */
     // print the logic function
     if ( Abc_ObjIsNode(pObj) && Abc_NtkIsSopLogic(pObj->pNtk) )
-        fprintf( pFile, " %s", pObj->pData );
+        fprintf( pFile, " %s", (char*)pObj->pData );
     else
         fprintf( pFile, "\n" );
 }
 
+
+/**Function*************************************************************
+
+  Synopsis    [Checks the status of the miter.]
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+void Abc_NtkPrintMiter( Abc_Ntk_t * pNtk )
+{
+    Abc_Obj_t * pObj, * pChild, * pConst1 = Abc_AigConst1(pNtk);
+    int i, iOut = -1, Time = clock();
+    int nUnsat = 0;
+    int nSat   = 0;
+    int nUndec = 0;
+    int nPis   = 0;
+    Abc_NtkForEachPi( pNtk, pObj, i )
+        nPis += (int)( Abc_ObjFanoutNum(pObj) > 0 );
+    Abc_NtkForEachPo( pNtk, pObj, i )
+    {
+        pChild = Abc_ObjChild0(pObj);
+        // check if the output is constant 0
+        if ( pChild == Abc_ObjNot(pConst1) )
+            nUnsat++;
+        // check if the output is constant 1
+        else if ( pChild == pConst1 )
+        {
+            nSat++;
+            if ( iOut == -1 )
+                iOut = i;
+        }
+        // check if the output is a primary input
+        else if ( Abc_ObjIsPi(Abc_ObjRegular(pChild)) )
+        {
+            nSat++;
+            if ( iOut == -1 )
+                iOut = i;
+        }
+    // check if the output is 1 for the 0000 pattern
+        else if ( Abc_ObjRegular(pChild)->fPhase != (unsigned)Abc_ObjIsComplement(pChild) )
+        {
+            nSat++;
+            if ( iOut == -1 )
+                iOut = i;
+        }
+        else
+            nUndec++;
+    }
+    printf( "Miter:  I =%6d", nPis );
+    printf( "  N =%7d", Abc_NtkNodeNum(pNtk) );
+    printf( "  ? =%7d", nUndec );
+    printf( "  U =%6d", nUnsat );
+    printf( "  S =%6d", nSat );
+    Time = clock() - Time;
+    printf(" %7.2f sec\n", (float)(Time)/(float)(CLOCKS_PER_SEC));
+    if ( iOut >= 0 )
+        printf( "The first satisfiable output is number %d (%d).\n", iOut, Abc_ObjName( Abc_NtkPo(pNtk, iOut) ) );
+}
+
+
+
+
+typedef struct Gli_Man_t_ Gli_Man_t;
+
+extern Gli_Man_t * Gli_ManAlloc( int nObjs, int nRegs, int nFanioPairs );
+extern void        Gli_ManStop( Gli_Man_t * p );
+extern int         Gli_ManCreateCi( Gli_Man_t * p, int nFanouts );
+extern int         Gli_ManCreateCo( Gli_Man_t * p, int iFanin );
+extern int         Gli_ManCreateNode( Gli_Man_t * p, Vec_Int_t * vFanins, int nFanouts, unsigned * puTruth );
+
+extern void        Gli_ManSwitchesAndGlitches( Gli_Man_t * p, int nPatterns, float PiTransProb, int fVerbose );
+extern int         Gli_ObjNumSwitches( Gli_Man_t * p, int iNode );
+extern int         Gli_ObjNumGlitches( Gli_Man_t * p, int iNode );
+
+/**Function*************************************************************
+
+  Synopsis    [Returns the percentable of increased power due to glitching.]
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+float Abc_NtkMfsTotalGlitching( Abc_Ntk_t * pNtk )
+{
+    int nSwitches, nGlitches;
+    Gli_Man_t * p;
+    Vec_Ptr_t * vNodes;
+    Vec_Int_t * vFanins, * vTruth;
+    Abc_Obj_t * pObj, * pFanin;
+    unsigned * puTruth;
+    int i, k;
+    assert( Abc_NtkIsLogic(pNtk) );
+    assert( Abc_NtkGetFaninMax(pNtk) <= 6 );
+    if ( Abc_NtkGetFaninMax(pNtk) > 6 )
+    {
+        printf( "Abc_NtkMfsTotalGlitching() This procedure works only for mapped networks with LUTs size up to 6 inputs.\n" );
+        return -1.0;
+    }
+    Abc_NtkToAig( pNtk );
+    vNodes = Abc_NtkDfs( pNtk, 0 );
+    vFanins = Vec_IntAlloc( 6 );
+    vTruth = Vec_IntAlloc( 1 << 12 );
+
+    // derive network for glitch computation
+    p = Gli_ManAlloc( Vec_PtrSize(vNodes) + Abc_NtkCiNum(pNtk) + Abc_NtkCoNum(pNtk), 
+        Abc_NtkLatchNum(pNtk), Abc_NtkGetTotalFanins(pNtk) + Abc_NtkCoNum(pNtk) );
+    Abc_NtkForEachObj( pNtk, pObj, i )
+        pObj->iTemp = -1;
+    Abc_NtkForEachCi( pNtk, pObj, i )
+        pObj->iTemp = Gli_ManCreateCi( p, Abc_ObjFanoutNum(pObj) );
+    Vec_PtrForEachEntry( vNodes, pObj, i )
+    {
+        Vec_IntClear( vFanins );
+        Abc_ObjForEachFanin( pObj, pFanin, k )
+            Vec_IntPush( vFanins, pFanin->iTemp );
+        puTruth = Hop_ManConvertAigToTruth( pNtk->pManFunc, pObj->pData, Abc_ObjFaninNum(pObj), vTruth, 0 );
+        pObj->iTemp = Gli_ManCreateNode( p, vFanins, Abc_ObjFanoutNum(pObj), puTruth );
+    }
+    Abc_NtkForEachCo( pNtk, pObj, i )
+        Gli_ManCreateCo( p, Abc_ObjFanin0(pObj)->iTemp );
+
+    // compute glitching
+    Gli_ManSwitchesAndGlitches( p, 4000, 1.0/8.0, 0 );
+
+    // compute the ratio
+    nSwitches = nGlitches = 0;
+    Abc_NtkForEachObj( pNtk, pObj, i )
+        if ( pObj->iTemp >= 0 )
+        {
+            nSwitches += Abc_ObjFanoutNum(pObj) * Gli_ObjNumSwitches(p, pObj->iTemp);
+            nGlitches += Abc_ObjFanoutNum(pObj) * Gli_ObjNumGlitches(p, pObj->iTemp);
+        }
+
+    Gli_ManStop( p );
+    Vec_PtrFree( vNodes );
+    Vec_IntFree( vTruth );
+    Vec_IntFree( vFanins );
+    return nSwitches ? 100.0*(nGlitches-nSwitches)/nSwitches : 0.0;
+}
 
 ////////////////////////////////////////////////////////////////////////
 ///                       END OF FILE                                ///

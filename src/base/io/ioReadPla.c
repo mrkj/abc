@@ -18,13 +18,13 @@
 
 ***********************************************************************/
 
-#include "io.h"
+#include "ioAbc.h"
 
 ////////////////////////////////////////////////////////////////////////
 ///                        DECLARATIONS                              ///
 ////////////////////////////////////////////////////////////////////////
 
-static Abc_Ntk_t * Io_ReadPlaNetwork( Extra_FileReader_t * p );
+static Abc_Ntk_t * Io_ReadPlaNetwork( Extra_FileReader_t * p, int fZeros );
 
 ////////////////////////////////////////////////////////////////////////
 ///                     FUNCTION DEFINITIONS                         ///
@@ -41,7 +41,7 @@ static Abc_Ntk_t * Io_ReadPlaNetwork( Extra_FileReader_t * p );
   SeeAlso     []
 
 ***********************************************************************/
-Abc_Ntk_t * Io_ReadPla( char * pFileName, int fCheck )
+Abc_Ntk_t * Io_ReadPla( char * pFileName, int fZeros, int fCheck )
 {
     Extra_FileReader_t * p;
     Abc_Ntk_t * pNtk;
@@ -52,7 +52,7 @@ Abc_Ntk_t * Io_ReadPla( char * pFileName, int fCheck )
         return NULL;
 
     // read the network
-    pNtk = Io_ReadPlaNetwork( p );
+    pNtk = Io_ReadPlaNetwork( p, fZeros );
     Extra_FileReaderFree( p );
     if ( pNtk == NULL )
         return NULL;
@@ -77,13 +77,13 @@ Abc_Ntk_t * Io_ReadPla( char * pFileName, int fCheck )
   SeeAlso     []
 
 ***********************************************************************/
-Abc_Ntk_t * Io_ReadPlaNetwork( Extra_FileReader_t * p )
+Abc_Ntk_t * Io_ReadPlaNetwork( Extra_FileReader_t * p, int fZeros )
 {
     ProgressBar * pProgress;
     Vec_Ptr_t * vTokens;
     Abc_Ntk_t * pNtk;
     Abc_Obj_t * pTermPi, * pTermPo, * pNode;
-    Vec_Str_t ** ppSops;
+    Vec_Str_t ** ppSops = NULL;
     char Buffer[100];
     int nInputs = -1, nOutputs = -1, nProducts = -1;
     char * pCubeIn, * pCubeOut;
@@ -95,7 +95,7 @@ Abc_Ntk_t * Io_ReadPlaNetwork( Extra_FileReader_t * p )
     // go through the lines of the file
     nCubes = 0;
     pProgress = Extra_ProgressBarStart( stdout, Extra_FileReaderGetFileSize(p) );
-    for ( iLine = 0; vTokens = Extra_FileReaderGetTokens(p); iLine++ )
+    for ( iLine = 0; (vTokens = Extra_FileReaderGetTokens(p)); iLine++ )
     {
         Extra_ProgressBarUpdate( pProgress, Extra_FileReaderGetCurPosition(p), NULL );
 
@@ -168,7 +168,7 @@ Abc_Ntk_t * Io_ReadPlaNetwork( Extra_FileReader_t * p )
             { // first time here
                 // create the PO drivers and add them
                 // start the SOP covers
-                ppSops = ALLOC( Vec_Str_t *, nOutputs );
+                ppSops = ABC_ALLOC( Vec_Str_t *, nOutputs );
                 Abc_NtkForEachPo( pNtk, pTermPo, i )
                 {
                     ppSops[i] = Vec_StrAlloc( 100 );
@@ -193,24 +193,38 @@ Abc_Ntk_t * Io_ReadPlaNetwork( Extra_FileReader_t * p )
             pCubeOut = vTokens->pArray[1];
             if ( strlen(pCubeIn) != (unsigned)nInputs )
             {
-                printf( "%s (line %d): Input cube length (%d) differs from the number of inputs (%d).\n", 
+                printf( "%s (line %d): Input cube length (%zu) differs from the number of inputs (%d).\n",
                     Extra_FileReaderGetFileName(p), iLine+1, strlen(pCubeIn), nInputs );
                 Abc_NtkDelete( pNtk );
                 return NULL;
             }
             if ( strlen(pCubeOut) != (unsigned)nOutputs )
             {
-                printf( "%s (line %d): Output cube length (%d) differs from the number of outputs (%d).\n", 
+                printf( "%s (line %d): Output cube length (%zu) differs from the number of outputs (%d).\n",
                     Extra_FileReaderGetFileName(p), iLine+1, strlen(pCubeOut), nOutputs );
                 Abc_NtkDelete( pNtk );
                 return NULL;
             }
-            for ( i = 0; i < nOutputs; i++ )
+            if ( fZeros )
             {
-                if ( pCubeOut[i] == '1' )
+                for ( i = 0; i < nOutputs; i++ )
                 {
-                    Vec_StrAppend( ppSops[i], pCubeIn );
-                    Vec_StrAppend( ppSops[i], " 1\n" );
+                    if ( pCubeOut[i] == '0' )
+                    {
+                        Vec_StrPrintStr( ppSops[i], pCubeIn );
+                        Vec_StrPrintStr( ppSops[i], " 1\n" );
+                    }
+                }
+            }
+            else
+            {
+                for ( i = 0; i < nOutputs; i++ )
+                {
+                    if ( pCubeOut[i] == '1' )
+                    {
+                        Vec_StrPrintStr( ppSops[i], pCubeIn );
+                        Vec_StrPrintStr( ppSops[i], " 1\n" );
+                    }
                 }
             }
             nCubes++;
@@ -236,7 +250,7 @@ Abc_Ntk_t * Io_ReadPlaNetwork( Extra_FileReader_t * p )
         pNode->pData = Abc_SopRegister( pNtk->pManFunc, ppSops[i]->pArray );
         Vec_StrFree( ppSops[i] );
     }
-    free( ppSops );
+    ABC_FREE( ppSops );
     Abc_NtkFinalizeRead( pNtk );
     return pNtk;
 }

@@ -45,7 +45,7 @@ void Lpk_IfManStart( Lpk_Man_t * p )
     If_Par_t * pPars;
     assert( p->pIfMan == NULL );
     // set defaults
-    pPars = ALLOC( If_Par_t, 1 );
+    pPars = ABC_ALLOC( If_Par_t, 1 );
     memset( pPars, 0, sizeof(If_Par_t) );
     // user-controlable paramters
     pPars->nLutSize    =  p->pPars->nLutSize;
@@ -53,6 +53,7 @@ void Lpk_IfManStart( Lpk_Man_t * p )
     pPars->nFlowIters  =  0; // 1
     pPars->nAreaIters  =  0; // 1 
     pPars->DelayTarget = -1;
+    pPars->Epsilon     =  (float)0.005;
     pPars->fPreprocess =  0;
     pPars->fArea       =  1;
     pPars->fFancy      =  0;
@@ -74,7 +75,7 @@ void Lpk_IfManStart( Lpk_Man_t * p )
     // start the mapping manager and set its parameters
     p->pIfMan = If_ManStart( pPars );
     If_ManSetupSetAll( p->pIfMan, 1000 );
-    p->pIfMan->pPars->pTimesArr = ALLOC( float, 32 );
+    p->pIfMan->pPars->pTimesArr = ABC_ALLOC( float, 32 );
 }
 
 /**Function*************************************************************
@@ -99,7 +100,7 @@ int Lpk_NodeHasChanged( Lpk_Man_t * p, int iNode )
     Vec_PtrForEachEntry( vNodes, pTemp, i )
     {
         // check if the node has changed
-        pTemp = Abc_NtkObj( p->pNtk, (int)pTemp );
+        pTemp = Abc_NtkObj( p->pNtk, (int)(ABC_PTRUINT_T)pTemp );
         if ( pTemp == NULL )
             return 1;
         // check if the number of fanouts has changed
@@ -232,7 +233,7 @@ p->timeMap += clock() - clk;
 ***********************************************************************/
 int Lpk_ResynthesizeNode( Lpk_Man_t * p )
 {
-    static int Count = 0;
+//    static int Count = 0;
     Kit_DsdNtk_t * pDsdNtk;
     Lpk_Cut_t * pCut;
     unsigned * pTruth;
@@ -340,7 +341,7 @@ void Lpk_ComputeSupports( Lpk_Man_t * p, Lpk_Cut_t * pCut, unsigned * pTruth )
     pTruthInv = Lpk_CutTruth( p, pCut, 1 );
     RetValue1 = Kit_CreateCloudFromTruth( p->pDsdMan->dd, pTruth, pCut->nLeaves, p->vBddDir );
     RetValue2 = Kit_CreateCloudFromTruth( p->pDsdMan->dd, pTruthInv, pCut->nLeaves, p->vBddInv );
-    if ( RetValue1 && RetValue2 )
+    if ( RetValue1 && RetValue2 && Vec_IntSize(p->vBddDir) > 1 && Vec_IntSize(p->vBddInv) > 1 )
         Kit_TruthCofSupports( p->vBddDir, p->vBddInv, pCut->nLeaves, p->vMemory, p->puSupps ); 
     else
         p->puSupps[0] = p->puSupps[1] = 0;
@@ -360,7 +361,7 @@ void Lpk_ComputeSupports( Lpk_Man_t * p, Lpk_Cut_t * pCut, unsigned * pTruth )
 ***********************************************************************/
 int Lpk_ResynthesizeNodeNew( Lpk_Man_t * p )
 {
-    static int Count = 0;
+//    static int Count = 0;
     Abc_Obj_t * pObjNew, * pLeaf;
     Lpk_Cut_t * pCut;
     unsigned * pTruth;
@@ -386,6 +387,10 @@ p->timeCuts += clock() - clk;
     p->nCutsUseful += p->nEvals;
     for ( i = 0; i < p->nEvals; i++ )
     {
+        if ( p->pObj->Id == 1478 )
+        {
+            int x = 0;
+        }
         // get the cut
         pCut = p->pCuts + p->pEvals[i];
         if ( p->pPars->fFirst && i == 1 )
@@ -446,10 +451,6 @@ p->timeTruth3 += clock() - clk;
 //            pFileName = Kit_TruthDumpToFile( pTruth, pCut->nLeaves, Count++ );
 //            printf( "Saved truth table in file \"%s\".\n", pFileName );
         }
-        if ( p->pObj->Id == 33 && i == 0 )
-        {
-            int x = 0;
-        }
 
         // update the network
         nNodesBef = Abc_NtkNodeNum(p->pNtk);
@@ -500,18 +501,23 @@ p->timeEval += clock() - clk;
 ***********************************************************************/
 int Lpk_Resynthesize( Abc_Ntk_t * pNtk, Lpk_Par_t * pPars )
 {
-    ProgressBar * pProgress;
+    ProgressBar * pProgress = NULL; // Suppress "might be used uninitialized"
     Lpk_Man_t * p;
     Abc_Obj_t * pObj;
     double Delta;
+//    int * pnFanouts, nObjMax;
     int i, Iter, nNodes, nNodesPrev, clk = clock();
     assert( Abc_NtkIsLogic(pNtk) );
-
+ 
     // sweep dangling nodes as a preprocessing step
     Abc_NtkSweep( pNtk, 0 );
 
     // get the number of inputs
     pPars->nLutSize = Abc_NtkGetFaninMax( pNtk );
+    if ( pPars->nLutSize > 6 )
+        pPars->nLutSize = 6;
+    if ( pPars->nLutSize < 3 )
+        pPars->nLutSize = 3;
     // adjust the number of crossbars based on LUT size
     if ( pPars->nVarsShared > pPars->nLutSize - 2 )
         pPars->nVarsShared = pPars->nLutSize - 2;
@@ -554,6 +560,14 @@ int Lpk_Resynthesize( Abc_Ntk_t * pNtk, Lpk_Par_t * pPars )
         p->nTotalNets = Abc_NtkGetTotalFanins(pNtk);
         p->nTotalNodes = Abc_NtkNodeNum(pNtk);
     }
+/*
+    // save the number of fanouts of all objects
+    nObjMax = Abc_NtkObjNumMax( pNtk );
+    pnFanouts = ABC_ALLOC( int, nObjMax );
+    memset( pnFanouts, 0, sizeof(int) * nObjMax );
+    Abc_NtkForEachObj( pNtk, pObj, i )
+        pnFanouts[pObj->Id] = Abc_ObjFanoutNum(pObj);
+*/
 
     // iterate over the network
     nNodesPrev = p->nNodesTotal;
@@ -604,6 +618,18 @@ int Lpk_Resynthesize( Abc_Ntk_t * pNtk, Lpk_Par_t * pPars )
             break;
     }
     Abc_NtkStopReverseLevels( pNtk );
+/*
+    // report the fanout changes
+    Abc_NtkForEachObj( pNtk, pObj, i )
+    {
+        if ( i >= nObjMax )
+            continue;
+        if ( Abc_ObjFanoutNum(pObj) - pnFanouts[pObj->Id] == 0 )
+            continue;
+        printf( "%d ", Abc_ObjFanoutNum(pObj) - pnFanouts[pObj->Id] );
+    }
+    printf( "\n" );
+*/
 
     if ( pPars->fVerbose )
     {
@@ -628,18 +654,18 @@ int Lpk_Resynthesize( Abc_Ntk_t * pNtk, Lpk_Par_t * pPars )
         p->timeTotal = clock() - clk;
         p->timeEval  = p->timeEval  - p->timeMap;
         p->timeOther = p->timeTotal - p->timeCuts - p->timeTruth - p->timeEval - p->timeMap;
-        PRTP( "Cuts  ", p->timeCuts,  p->timeTotal );
-        PRTP( "Truth ", p->timeTruth, p->timeTotal );
-        PRTP( "CSupps", p->timeSupps, p->timeTotal );
-        PRTP( "Eval  ", p->timeEval,  p->timeTotal );
-        PRTP( " MuxAn", p->timeEvalMuxAn, p->timeEval );
-        PRTP( " MuxSp", p->timeEvalMuxSp, p->timeEval );
-        PRTP( " DsdAn", p->timeEvalDsdAn, p->timeEval );
-        PRTP( " DsdSp", p->timeEvalDsdSp, p->timeEval );
-        PRTP( " Other", p->timeEval-p->timeEvalMuxAn-p->timeEvalMuxSp-p->timeEvalDsdAn-p->timeEvalDsdSp, p->timeEval );
-        PRTP( "Map   ", p->timeMap,   p->timeTotal );
-        PRTP( "Other ", p->timeOther, p->timeTotal );
-        PRTP( "TOTAL ", p->timeTotal, p->timeTotal );
+        ABC_PRTP( "Cuts  ", p->timeCuts,  p->timeTotal );
+        ABC_PRTP( "Truth ", p->timeTruth, p->timeTotal );
+        ABC_PRTP( "CSupps", p->timeSupps, p->timeTotal );
+        ABC_PRTP( "Eval  ", p->timeEval,  p->timeTotal );
+        ABC_PRTP( " MuxAn", p->timeEvalMuxAn, p->timeEval );
+        ABC_PRTP( " MuxSp", p->timeEvalMuxSp, p->timeEval );
+        ABC_PRTP( " DsdAn", p->timeEvalDsdAn, p->timeEval );
+        ABC_PRTP( " DsdSp", p->timeEvalDsdSp, p->timeEval );
+        ABC_PRTP( " Other", p->timeEval-p->timeEvalMuxAn-p->timeEvalMuxSp-p->timeEvalDsdAn-p->timeEvalDsdSp, p->timeEval );
+        ABC_PRTP( "Map   ", p->timeMap,   p->timeTotal );
+        ABC_PRTP( "Other ", p->timeOther, p->timeTotal );
+        ABC_PRTP( "TOTAL ", p->timeTotal, p->timeTotal );
     }
 
     Lpk_ManStop( p );

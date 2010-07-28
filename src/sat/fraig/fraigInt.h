@@ -23,13 +23,13 @@
 ///                          INCLUDES                                ///
 ////////////////////////////////////////////////////////////////////////
 
-//#include "leaks.h"       
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
 #include <time.h>
 
+#include "abc_global.h"
 #include "fraig.h"
 #include "msat.h"
 
@@ -68,10 +68,6 @@
 #define FRAIG_FULL                 (~((unsigned)0))
 #define FRAIG_NUM_WORDS(n)         (((n)>>5) + (((n)&31) > 0))
 
-// maximum/minimum operators
-#define FRAIG_MIN(a,b)             (((a) < (b))? (a) : (b))
-#define FRAIG_MAX(a,b)             (((a) > (b))? (a) : (b))
-
 // generating random unsigned (#define RAND_MAX 0x7fff)
 #define FRAIG_RANDOM_UNSIGNED   ((((unsigned)rand()) << 24) ^ (((unsigned)rand()) << 12) ^ ((unsigned)rand()))
 
@@ -86,34 +82,13 @@
 #define Fraig_NodeSetVarStr(p,i)     Fraig_BitStringSetBit(Fraig_Regular(p)->pSuppStr,i)
 #define Fraig_NodeHasVarStr(p,i)     Fraig_BitStringHasBit(Fraig_Regular(p)->pSuppStr,i)
 
-// copied from "util.h" for standaloneness
-#ifndef ALLOC
-#  define ALLOC(type, num)	\
-    ((type *) malloc(sizeof(type) * (num)))
-#endif 
-
-#ifndef REALLOC
-#  define REALLOC(type, obj, num)	\
-    (obj) ? ((type *) realloc((char *) obj, sizeof(type) * (num))) : \
-	    ((type *) malloc(sizeof(type) * (num)))
-#endif 
-
-#ifndef FREE
-#  define FREE(obj)		\
-    ((obj) ? (free((char *) (obj)), (obj) = 0) : 0)
-#endif 
-
 // copied from "extra.h" for stand-aloneness
 #define Fraig_PrintTime(a,t)      printf( "%s = ", (a) ); printf( "%6.2f sec\n", (float)(t)/(float)(CLOCKS_PER_SEC) )
 
-#define Fraig_HashKey2(a,b,TSIZE) (((unsigned)(a) + (unsigned)(b) * 12582917) % TSIZE)
+#define Fraig_HashKey2(a,b,TSIZE) (((ABC_PTRUINT_T)(a) + (ABC_PTRUINT_T)(b) * 12582917) % TSIZE)
 //#define Fraig_HashKey2(a,b,TSIZE) (( ((unsigned)(a)->Num * 19) ^ ((unsigned)(b)->Num * 1999) ) % TSIZE)
 //#define Fraig_HashKey2(a,b,TSIZE) ( ((unsigned)((a)->Num + (b)->Num) * ((a)->Num + (b)->Num + 1) / 2) % TSIZE)
 // the other two hash functions give bad distribution of hash chain lengths (not clear why)
-
-#ifndef PRT
-#define PRT(a,t)        printf( "%s = ", (a) ); printf( "%6.2f sec\n", (float)(t)/(float)(CLOCKS_PER_SEC) )
-#endif 
 
 ////////////////////////////////////////////////////////////////////////
 ///                    STRUCTURE DEFINITIONS                         ///
@@ -152,7 +127,7 @@ struct Fraig_ManStruct_t_
     int                   fTryProve;     // tries to solve the final miter
     int                   fVerbose;      // the verbosiness flag
     int                   fVerboseP;     // the verbosiness flag
-    sint64                nInspLimit;    // the inspection limit
+    ABC_INT64_T                nInspLimit;    // the inspection limit
 
     int                   nTravIds;      // the traversal counter
     int                   nTravIds2;     // the traversal counter

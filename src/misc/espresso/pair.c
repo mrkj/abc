@@ -117,7 +117,7 @@ bool adjust_labels;
 	cube.sparse[cube.num_binary_vars + var] = 0;
     FREE(paired);
 }
-
+
 pcover pairvar(A, pair)
 pcover A;
 ppair pair;
@@ -163,7 +163,8 @@ pcover A;
 bool paired[];
 {
     bool run;
-    int first_run, run_length, var, offset = 0;
+    int first_run = 0; // Suppress "might be used uninitialized"
+    int run_length, var, offset = 0;
 
     run = FALSE; run_length = 0;
     for(var = 0; var < cube.num_binary_vars; var++)
@@ -185,7 +186,7 @@ bool paired[];
 	A = sf_delcol(A, first_run-offset, run_length);
     return A;
 }
-
+
 /*
     find_optimal_pairing -- find which binary variables should be paired
     to maximally reduce the number of terms
@@ -255,14 +256,16 @@ int strategy;
     set_pair(PLA);
     EXEC_S(PLA->F=espresso(PLA->F,PLA->D,PLA->R),"ESPRESSO  ",PLA->F);
 }
-
+
 int **find_pairing_cost(PLA, strategy)
 pPLA PLA;
 int strategy;
 {
     int var1, var2, **cost_array;
-    int i, j, xnum_binary_vars, xnum_vars, *xpart_size, cost;
-    pcover T, Fsave, Dsave, Rsave;
+    int i, j;
+    int xnum_binary_vars = 0, xnum_vars = 0, *xpart_size = NULL, cost = 0; // Suppress "might be used uninitialized"
+    pcover T;
+    pcover Fsave = NULL, Dsave = NULL, Rsave = NULL; // Suppress "might be used uninitialized"
     pset mask;
 /*    char *s;*/
 
@@ -356,7 +359,7 @@ int strategy;
     PLA->pair = NULL;
     return cost_array;
 }
-
+
 static int best_cost;
 static int **cost_array;
 static ppair best_pair;
@@ -366,7 +369,7 @@ static pcover best_F, best_D, best_R;
 static int pair_minim_strategy;
 
 
-print_pair(pair)
+void print_pair(pair)
 ppair pair;
 {
     int i;
@@ -382,7 +385,9 @@ int greedy_best_cost(cost_array_local, pair_p)
 int **cost_array_local;
 ppair *pair_p;
 {
-    int i, j, besti, bestj, maxcost, total_cost;
+    int i, j;
+    int besti = 0, bestj = 0;
+    int maxcost, total_cost;
     pset cand;
     ppair pair;
 
@@ -437,7 +442,7 @@ int **cost_array_local;
 }
 
 
-int find_best_cost(pair)
+void find_best_cost(pair)
 register ppair pair;
 {
     register int i, cost;
@@ -454,7 +459,7 @@ register ppair pair;
 	print_pair(pair);
     }
 }
-
+
 /*
     pair_all: brute-force approach to try all possible pairings
 
@@ -464,7 +469,7 @@ register ppair pair;
 	4) for phase assignment
 */
 
-pair_all(PLA, pair_strategy)
+void pair_all(PLA, pair_strategy)
 pPLA PLA;
 int pair_strategy;
 {
@@ -507,7 +512,7 @@ int pair_strategy;
 /*
  *  minimize_pair -- called as each pair is generated
  */
-int minimize_pair(pair)
+void minimize_pair(pair)
 ppair pair;
 {
     pcover Fsave, Dsave, Rsave;
@@ -581,8 +586,8 @@ ppair pair;
     global_PLA->pair = NULL;
     global_PLA->phase = NULL;
 }
-
-generate_all_pairs(pair, n, candidate, action)
+
+void generate_all_pairs(pair, n, candidate, action)
 ppair pair;
 int n;
 pset candidate;
@@ -635,7 +640,7 @@ int (*action)();
     pair_free(recur_pair);
     set_free(recur_candidate);
 }
-
+
 ppair pair_new(n)
 register int n;
 {
@@ -666,7 +671,7 @@ register int n;
 }
 
 
-int pair_free(pair)
+void pair_free(pair)
 register ppair pair;
 {
     FREE(pair->var1);

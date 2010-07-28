@@ -155,7 +155,7 @@ void Kit_TruthSwapAdjacentVars2( unsigned * pIn, unsigned * pOut, int nVars, int
   of variables is nVars. The total number of variables in nVarsAll. The last argument
   (Phase) contains shows where the variables should go.]
                
-  SideEffects []
+  SideEffects [The input truth table is modified.]
 
   SeeAlso     []
 
@@ -187,9 +187,9 @@ void Kit_TruthStretch( unsigned * pOut, unsigned * pIn, int nVars, int nVarsAll,
 
   Description [The input and output truth tables are in pIn/pOut. The current number
   of variables is nVars. The total number of variables in nVarsAll. The last argument
-  (Phase) contains shows what variables should remain.]
+  (Phase) shows what variables should remain.]
                
-  SideEffects []
+  SideEffects [The input truth table is modified.]
 
   SeeAlso     []
 
@@ -215,6 +215,43 @@ void Kit_TruthShrink( unsigned * pOut, unsigned * pIn, int nVars, int nVarsAll, 
         Kit_TruthCopy( pOut, pIn, nVarsAll );
 }
 
+/**Function*************************************************************
+
+  Synopsis    [Implement give permutation.]
+
+  Description [The input and output truth tables are in pIn/pOut. 
+  The number of variables is nVars. Permutation is in pPerm.]
+               
+  SideEffects [The input truth table is modified.]
+
+  SeeAlso     []
+
+***********************************************************************/
+void Kit_TruthPermute( unsigned * pOut, unsigned * pIn, int nVars, char * pPerm, int fReturnIn )
+{
+    int * pTemp;
+    int i, Temp, fChange, Counter = 0;
+    do {
+        fChange = 0;
+        for ( i = 0; i < nVars-1; i++ )
+        {
+            assert( pPerm[i] != pPerm[i+1] );
+            if ( pPerm[i] <= pPerm[i+1] )
+                continue;
+            Counter++;
+            fChange = 1;
+
+            Temp = pPerm[i];
+            pPerm[i] = pPerm[i+1];
+            pPerm[i+1] = Temp;
+
+            Kit_TruthSwapAdjacentVars( pOut, pIn, nVars, i );
+            pTemp = pIn; pIn = pOut; pOut = pTemp;
+        }
+    } while ( fChange );
+    if ( fReturnIn ^ !(Counter & 1) )
+        Kit_TruthCopy( pOut, pIn, nVars );
+}
 
 /**Function*************************************************************
 
@@ -362,6 +399,57 @@ void Kit_TruthCofactor0( unsigned * pTruth, int nVars, int iVar )
             pTruth += 2*Step;
         }
         return;
+    }
+}
+
+/**Function*************************************************************
+
+  Synopsis    [Computes negative cofactor of the function.]
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+int Kit_TruthCofactor0Count( unsigned * pTruth, int nVars, int iVar )
+{
+    int nWords = Kit_TruthWordNum( nVars );
+    int i, k, Step, Counter = 0;
+
+    assert( iVar < nVars );
+    switch ( iVar )
+    {
+    case 0:
+        for ( i = 0; i < nWords; i++ )
+            Counter += Kit_WordCountOnes(pTruth[i] & 0x55555555);
+        return Counter;
+    case 1:
+        for ( i = 0; i < nWords; i++ )
+            Counter += Kit_WordCountOnes(pTruth[i] & 0x33333333);
+        return Counter;
+    case 2:
+        for ( i = 0; i < nWords; i++ )
+            Counter += Kit_WordCountOnes(pTruth[i] & 0x0F0F0F0F);
+        return Counter;
+    case 3:
+        for ( i = 0; i < nWords; i++ )
+            Counter += Kit_WordCountOnes(pTruth[i] & 0x00FF00FF);
+        return Counter;
+    case 4:
+        for ( i = 0; i < nWords; i++ )
+            Counter += Kit_WordCountOnes(pTruth[i] & 0x0000FFFF);
+        return Counter;
+    default:
+        Step = (1 << (iVar - 5));
+        for ( k = 0; k < nWords; k += 2*Step )
+        {
+            for ( i = 0; i < Step; i++ )
+                Counter += Kit_WordCountOnes(pTruth[i]);
+            pTruth += 2*Step;
+        }
+        return Counter;
     }
 }
 
@@ -517,6 +605,64 @@ void Kit_TruthCofactor1New( unsigned * pOut, unsigned * pIn, int nVars, int iVar
             pOut += 2*Step;
         }
         return;
+    }
+}
+
+/**Function*************************************************************
+
+  Synopsis    [Computes negative cofactor of the function.]
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+ 
+***********************************************************************/
+int Kit_TruthVarIsVacuous( unsigned * pOnset, unsigned * pOffset, int nVars, int iVar )
+{
+    int nWords = Kit_TruthWordNum( nVars );
+    int i, k, Step;
+
+    assert( iVar < nVars );
+    switch ( iVar )
+    {
+    case 0:
+        for ( i = 0; i < nWords; i++ )
+            if ( ((pOnset[i] & (pOffset[i] >> 1)) | (pOffset[i] & (pOnset[i] >> 1))) & 0x55555555 )
+                 return 0;
+        return 1;
+    case 1:
+        for ( i = 0; i < nWords; i++ )
+            if ( ((pOnset[i] & (pOffset[i] >> 2)) | (pOffset[i] & (pOnset[i] >> 2))) & 0x33333333 )
+                 return 0;
+            return 1;
+    case 2:
+        for ( i = 0; i < nWords; i++ )
+            if ( ((pOnset[i] & (pOffset[i] >> 4)) | (pOffset[i] & (pOnset[i] >> 4))) & 0x0F0F0F0F )
+                 return 0;
+        return 1;
+    case 3:
+        for ( i = 0; i < nWords; i++ )
+            if ( ((pOnset[i] & (pOffset[i] >> 8)) | (pOffset[i] & (pOnset[i] >> 8))) & 0x00FF00FF )
+                 return 0;
+        return 1;
+    case 4:
+        for ( i = 0; i < nWords; i++ )
+            if ( ((pOnset[i] & (pOffset[i] >> 16)) || (pOffset[i] & (pOnset[i] >> 16))) & 0x0000FFFF )
+                 return 0;
+        return 1;
+    default:
+        Step = (1 << (iVar - 5));
+        for ( k = 0; k < nWords; k += 2*Step )
+        {
+            for ( i = 0; i < Step; i++ )
+                if ( (pOnset[i] & pOffset[Step+i]) | (pOffset[i] & pOnset[Step+i]) )
+                     return 0;
+            pOnset += 2*Step;
+            pOffset += 2*Step;
+        }
+        return 1;
     }
 }
 
@@ -816,6 +962,77 @@ void Kit_TruthUniqueNew( unsigned * pRes, unsigned * pTruth, int nVars, int iVar
 
 /**Function*************************************************************
 
+  Synopsis    [Returns the number of minterms in the Boolean difference.]
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+int Kit_TruthBooleanDiffCount( unsigned * pTruth, int nVars, int iVar )
+{
+    int nWords = Kit_TruthWordNum( nVars );
+    int i, k, Step, Counter = 0;
+
+    assert( iVar < nVars );
+    switch ( iVar )
+    {
+    case 0:
+        for ( i = 0; i < nWords; i++ )
+            Counter += Kit_WordCountOnes( (pTruth[i] ^ (pTruth[i] >> 1)) & 0x55555555 );
+        return Counter;
+    case 1:
+        for ( i = 0; i < nWords; i++ )
+            Counter += Kit_WordCountOnes( (pTruth[i] ^ (pTruth[i] >> 2)) & 0x33333333 );
+        return Counter;
+    case 2:
+        for ( i = 0; i < nWords; i++ )
+            Counter += Kit_WordCountOnes( (pTruth[i] ^ (pTruth[i] >> 4)) & 0x0F0F0F0F );
+        return Counter;
+    case 3:
+        for ( i = 0; i < nWords; i++ )
+            Counter += Kit_WordCountOnes( (pTruth[i] ^ (pTruth[i] >> 8)) & 0x00FF00FF );
+        return Counter;
+    case 4:
+        for ( i = 0; i < nWords; i++ )
+            Counter += Kit_WordCountOnes( (pTruth[i] ^ (pTruth[i] >>16)) & 0x0000FFFF );
+        return Counter;
+    default:
+        Step = (1 << (iVar - 5));
+        for ( k = 0; k < nWords; k += 2*Step )
+        {
+            for ( i = 0; i < Step; i++ )
+                Counter += Kit_WordCountOnes( pTruth[i] ^ pTruth[Step+i] );
+            pTruth += 2*Step;
+        }
+        return Counter;
+    }
+}
+
+/**Function*************************************************************
+
+  Synopsis    [Returns the number of minterms in the Boolean difference.]
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+int Kit_TruthXorCount( unsigned * pTruth0, unsigned * pTruth1, int nVars )
+{
+    int nWords = Kit_TruthWordNum( nVars );
+    int i, Counter = 0;
+    for ( i = 0; i < nWords; i++ )
+        Counter += Kit_WordCountOnes( pTruth0[i] ^ pTruth1[i] );
+    return Counter;
+}
+
+/**Function*************************************************************
+
   Synopsis    [Universally quantifies the set of variables.]
 
   Description []
@@ -964,20 +1181,29 @@ void Kit_TruthMuxVarPhase( unsigned * pOut, unsigned * pCof0, unsigned * pCof1, 
   SeeAlso     []
 
 ***********************************************************************/
-int Kit_TruthVarsSymm( unsigned * pTruth, int nVars, int iVar0, int iVar1 )
+int Kit_TruthVarsSymm( unsigned * pTruth, int nVars, int iVar0, int iVar1, unsigned * pCof0, unsigned * pCof1 )
 {
-    static unsigned uTemp0[16], uTemp1[16];
-    assert( nVars <= 9 );
+    static unsigned uTemp0[32], uTemp1[32];
+    if ( pCof0 == NULL )
+    {
+        assert( nVars <= 10 );
+        pCof0 = uTemp0;
+    }
+    if ( pCof1 == NULL )
+    {
+        assert( nVars <= 10 );
+        pCof1 = uTemp1;
+    }
     // compute Cof01
-    Kit_TruthCopy( uTemp0, pTruth, nVars );
-    Kit_TruthCofactor0( uTemp0, nVars, iVar0 );
-    Kit_TruthCofactor1( uTemp0, nVars, iVar1 );
+    Kit_TruthCopy( pCof0, pTruth, nVars );
+    Kit_TruthCofactor0( pCof0, nVars, iVar0 );
+    Kit_TruthCofactor1( pCof0, nVars, iVar1 );
     // compute Cof10
-    Kit_TruthCopy( uTemp1, pTruth, nVars );
-    Kit_TruthCofactor1( uTemp1, nVars, iVar0 );
-    Kit_TruthCofactor0( uTemp1, nVars, iVar1 );
+    Kit_TruthCopy( pCof1, pTruth, nVars );
+    Kit_TruthCofactor1( pCof1, nVars, iVar0 );
+    Kit_TruthCofactor0( pCof1, nVars, iVar1 );
     // compare
-    return Kit_TruthIsEqual( uTemp0, uTemp1, nVars );
+    return Kit_TruthIsEqual( pCof0, pCof1, nVars );
 }
 
 /**Function*************************************************************
@@ -991,20 +1217,29 @@ int Kit_TruthVarsSymm( unsigned * pTruth, int nVars, int iVar0, int iVar1 )
   SeeAlso     []
 
 ***********************************************************************/
-int Kit_TruthVarsAntiSymm( unsigned * pTruth, int nVars, int iVar0, int iVar1 )
+int Kit_TruthVarsAntiSymm( unsigned * pTruth, int nVars, int iVar0, int iVar1, unsigned * pCof0, unsigned * pCof1 )
 {
-    static unsigned uTemp0[16], uTemp1[16];
-    assert( nVars <= 9 );
+    static unsigned uTemp0[32], uTemp1[32];
+    if ( pCof0 == NULL )
+    {
+        assert( nVars <= 10 );
+        pCof0 = uTemp0;
+    }
+    if ( pCof1 == NULL )
+    {
+        assert( nVars <= 10 );
+        pCof1 = uTemp1;
+    }
     // compute Cof00
-    Kit_TruthCopy( uTemp0, pTruth, nVars );
-    Kit_TruthCofactor0( uTemp0, nVars, iVar0 );
-    Kit_TruthCofactor0( uTemp0, nVars, iVar1 );
+    Kit_TruthCopy( pCof0, pTruth, nVars );
+    Kit_TruthCofactor0( pCof0, nVars, iVar0 );
+    Kit_TruthCofactor0( pCof0, nVars, iVar1 );
     // compute Cof11
-    Kit_TruthCopy( uTemp1, pTruth, nVars );
-    Kit_TruthCofactor1( uTemp1, nVars, iVar0 );
-    Kit_TruthCofactor1( uTemp1, nVars, iVar1 );
+    Kit_TruthCopy( pCof1, pTruth, nVars );
+    Kit_TruthCofactor1( pCof1, nVars, iVar0 );
+    Kit_TruthCofactor1( pCof1, nVars, iVar1 );
     // compare
-    return Kit_TruthIsEqual( uTemp0, uTemp1, nVars );
+    return Kit_TruthIsEqual( pCof0, pCof1, nVars );
 }
 
 /**Function*************************************************************
@@ -1233,6 +1468,60 @@ void Kit_TruthCountOnesInCofs( unsigned * pTruth, int nVars, short * pStore )
 
 /**Function*************************************************************
 
+  Synopsis    [Counts the number of 1's in each negative cofactor.]
+
+  Description [The resulting numbers are stored in the array of shorts, 
+  whose length is nVars. The number of 1's is counted in a different
+  space than the original function. For example, if the function depends 
+  on k variables, the cofactors are assumed to depend on k-1 variables.]
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+void Kit_TruthCountOnesInCofs0( unsigned * pTruth, int nVars, short * pStore )
+{
+    int nWords = Kit_TruthWordNum( nVars );
+    int i, k, Counter;
+    memset( pStore, 0, sizeof(short) * nVars );
+    if ( nVars <= 5 )
+    {
+        if ( nVars > 0 )
+            pStore[0] = Kit_WordCountOnes( pTruth[0] & 0x55555555 );
+        if ( nVars > 1 )
+            pStore[1] = Kit_WordCountOnes( pTruth[0] & 0x33333333 );
+        if ( nVars > 2 )
+            pStore[2] = Kit_WordCountOnes( pTruth[0] & 0x0F0F0F0F );
+        if ( nVars > 3 )
+            pStore[3] = Kit_WordCountOnes( pTruth[0] & 0x00FF00FF );
+        if ( nVars > 4 )
+            pStore[4] = Kit_WordCountOnes( pTruth[0] & 0x0000FFFF );
+        return;
+    }
+    // nVars >= 6
+    // count 1's for all other variables
+    for ( k = 0; k < nWords; k++ )
+    {
+        Counter = Kit_WordCountOnes( pTruth[k] );
+        for ( i = 5; i < nVars; i++ )
+            if ( (k & (1 << (i-5))) == 0 )
+                pStore[i] += Counter;
+    }
+    // count 1's for the first five variables
+    for ( k = 0; k < nWords/2; k++ )
+    {
+        pStore[0] += Kit_WordCountOnes( (pTruth[0] & 0x55555555) | ((pTruth[1] & 0x55555555) <<  1) );
+        pStore[1] += Kit_WordCountOnes( (pTruth[0] & 0x33333333) | ((pTruth[1] & 0x33333333) <<  2) );
+        pStore[2] += Kit_WordCountOnes( (pTruth[0] & 0x0F0F0F0F) | ((pTruth[1] & 0x0F0F0F0F) <<  4) );
+        pStore[3] += Kit_WordCountOnes( (pTruth[0] & 0x00FF00FF) | ((pTruth[1] & 0x00FF00FF) <<  8) );
+        pStore[4] += Kit_WordCountOnes( (pTruth[0] & 0x0000FFFF) | ((pTruth[1] & 0x0000FFFF) << 16) );
+        pTruth += 2;
+    }
+}
+
+/**Function*************************************************************
+
   Synopsis    [Counts the number of 1's in each cofactor.]
 
   Description [Verifies the above procedure.]
@@ -1382,16 +1671,17 @@ unsigned Kit_TruthSemiCanonicize( unsigned * pInOut, unsigned * pAux, int nVars,
 */
     // collect the minterm counts
     Kit_TruthCountOnesInCofs( pIn, nVars, pStore );
-//    Kit_TruthCountOnesInCofsSlow( pIn, nVars, pStore2, pAux );
-//    for ( i = 0; i < 2*nVars; i++ )
-//    {
-//        assert( pStore[i] == pStore2[i] );
-//    }
-
+/*
+    Kit_TruthCountOnesInCofsSlow( pIn, nVars, pStore2, pAux );
+    for ( i = 0; i < 2*nVars; i++ )
+    {
+        assert( pStore[i] == pStore2[i] );
+    }
+*/
     // canonicize phase
     for ( i = 0; i < nVars; i++ )
     {
-        if ( pStore[2*i+0] >= pStore[2*i+1] )
+        if ( pStore[2*i+0] <= pStore[2*i+1] )
             continue;
         uCanonPhase |= (1 << i);
         Temp = pStore[2*i+0];
@@ -1405,11 +1695,12 @@ unsigned Kit_TruthSemiCanonicize( unsigned * pInOut, unsigned * pAux, int nVars,
 
     // permute
     Counter = 0;
+
     do {
         fChange = 0;
         for ( i = 0; i < nVars-1; i++ )
         {
-            if ( pStore[2*i] >= pStore[2*(i+1)] )
+            if ( pStore[2*i] <= pStore[2*(i+1)] )
                 continue;
             Counter++;
             fChange = 1;
@@ -1427,16 +1718,17 @@ unsigned Kit_TruthSemiCanonicize( unsigned * pInOut, unsigned * pAux, int nVars,
             pStore[2*(i+1)+1] = Temp;
 
             // if the polarity of variables is different, swap them
-            if ( ((uCanonPhase & (1 << i)) > 0) != ((uCanonPhase & (1 << (i+1))) > 0) )
-            {
-                uCanonPhase ^= (1 << i);
-                uCanonPhase ^= (1 << (i+1));
-            }
+//            if ( ((uCanonPhase & (1 << i)) > 0) != ((uCanonPhase & (1 << (i+1))) > 0) )
+//            {
+//                uCanonPhase ^= (1 << i);
+//                uCanonPhase ^= (1 << (i+1));
+//            }
 
             Kit_TruthSwapAdjacentVars( pOut, pIn, nVars, i );
             pTemp = pIn; pIn = pOut; pOut = pTemp;
         }
     } while ( fChange );
+
 
 /*
     Extra_PrintBinary( stdout, &uCanonPhase, nVars+1 ); printf( " : " );
@@ -1539,7 +1831,7 @@ unsigned Kit_TruthSemiCanonicize( unsigned * pInOut, unsigned * pAux, int nVars,
   SeeAlso     []
 
 ***********************************************************************/
-int Kit_TruthCountMinterms( unsigned * pTruth, int nVars, int * pRes, int * pBytes )
+int Kit_TruthCountMinterms( unsigned * pTruth, int nVars, int * pRes, int * pBytesInit )
 {
     // the number of 1s if every byte as well as in the 0-cofactors w.r.t. three variables
     static unsigned Table[256] = {
@@ -1578,6 +1870,7 @@ int Kit_TruthCountMinterms( unsigned * pTruth, int nVars, int * pRes, int * pByt
     };
     unsigned uSum;
     unsigned char * pTruthC, * pLimit;
+    int * pBytes = pBytesInit;
     int i, iVar, Step, nWords, nBytes, nTotal;
 
     assert( nVars <= 20 );
@@ -1616,11 +1909,14 @@ int Kit_TruthCountMinterms( unsigned * pTruth, int nVars, int * pRes, int * pByt
     for ( iVar = 3, Step = 1; Step < nBytes; Step *= 2, iVar++ )
         for ( i = 0; i < nBytes; i += Step + Step )
         {
-            pRes[iVar] += pBytes[i];
-            pBytes[i] += pBytes[i+Step];
+            pRes[iVar] += pBytesInit[i];
+            pBytesInit[i] += pBytesInit[i+Step];
         }
-    assert( pBytes[0] == nTotal );
+    assert( pBytesInit[0] == nTotal );
     assert( iVar == nVars );
+
+    for ( i = 0; i < nVars; i++ )
+        assert( pRes[i] == Kit_TruthCofactor0Count(pTruth, nVars, i) );
     return nTotal;
 }
 
@@ -1711,6 +2007,206 @@ char * Kit_TruthDumpToFile( unsigned * pTruth, int nVars, int nFile )
     fprintf( pFile, "; bdd; sop; ps\n" );
     fclose( pFile );
     return pFileName;
+}
+
+
+/**Function*************************************************************
+
+  Synopsis    [Dumps truth table into a file.]
+
+  Description [Generates script file for reading into ABC.]
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+void Kit_TruthPrintProfile_int( unsigned * pTruth, int nVars )
+{
+    int Mints[20];
+    int Mints0[20];
+    int Mints1[20];
+    int Unique1[20];
+    int Total2[20][20];
+    int Unique2[20][20];
+    int Common2[20][20];
+    int nWords = Kit_TruthWordNum( nVars );
+    int * pBytes    = ABC_ALLOC( int, nWords * 4 );
+    unsigned * pIn  = ABC_ALLOC( unsigned, nWords );
+    unsigned * pOut = ABC_ALLOC( unsigned, nWords );
+    unsigned * pCof00 = ABC_ALLOC( unsigned, nWords );
+    unsigned * pCof01 = ABC_ALLOC( unsigned, nWords );
+    unsigned * pCof10 = ABC_ALLOC( unsigned, nWords );
+    unsigned * pCof11 = ABC_ALLOC( unsigned, nWords );
+    unsigned * pTemp;
+    int nTotalMints, nTotalMints0, nTotalMints1;
+    int v, u, i, iVar, nMints1;
+    int Cof00, Cof01, Cof10, Cof11;
+    int Coz00, Coz01, Coz10, Coz11;
+    assert( nVars <= 20 );
+    assert( nVars >=  6 );
+
+    nTotalMints = Kit_TruthCountMinterms( pTruth, nVars, Mints, pBytes );
+    for ( v = 0; v < nVars; v++ )
+        Unique1[v] = Kit_TruthBooleanDiffCount( pTruth, nVars, v );
+
+    for ( v = 0; v < nVars; v++ )
+    for ( u = 0; u < nVars; u++ )
+        Total2[v][u] = Unique2[v][u] = Common2[v][u] = -1;
+
+    nMints1 = (1<<(nVars-2));
+    for ( v = 0; v < nVars; v++ )
+    {
+        // move this var to be the first
+        Kit_TruthCopy( pIn, pTruth, nVars );
+//        Extra_PrintBinary( stdout, pIn, (1<<nVars) ); printf( "\n" );
+        for ( i = v; i < nVars - 1; i++ )
+        {
+            Kit_TruthSwapAdjacentVars( pOut, pIn, nVars, i );
+            pTemp = pIn; pIn = pOut; pOut = pTemp;
+        }
+//        Extra_PrintBinary( stdout, pIn, (1<<nVars) ); printf( "\n" );
+//        printf( "\n" );
+
+
+        // count minterms in both cofactor
+        nTotalMints0 = Kit_TruthCountMinterms( pIn,          nVars-1, Mints0, pBytes );
+        nTotalMints1 = Kit_TruthCountMinterms( pIn+nWords/2, nVars-1, Mints1, pBytes );
+        assert( nTotalMints == nTotalMints0 + nTotalMints1 );
+/*
+        for ( u = 0; u < nVars-1; u++ )
+            printf( "%2d ", Mints0[u] );
+        printf( "\n" );
+
+        for ( u = 0; u < nVars-1; u++ )
+            printf( "%2d ", Mints1[u] );
+        printf( "\n" );
+*/
+        for ( u = 0; u < nVars-1; u++ )
+        {
+            if ( u < v )
+                iVar = u;
+            else 
+                iVar = u + 1;
+            assert( v != iVar );
+            // get minter counts in the cofactors
+            Cof00 =              Mints0[u]; Coz00 = nMints1 - Cof00;              
+            Cof01 = nTotalMints0-Mints0[u]; Coz01 = nMints1 - Cof01;
+            Cof10 =              Mints1[u]; Coz10 = nMints1 - Cof10;
+            Cof11 = nTotalMints1-Mints1[u]; Coz11 = nMints1 - Cof11;
+
+            assert( Cof00 >= 0 && Cof00 <= nMints1 );
+            assert( Cof01 >= 0 && Cof01 <= nMints1 );
+            assert( Cof10 >= 0 && Cof10 <= nMints1 );
+            assert( Cof11 >= 0 && Cof11 <= nMints1 );
+
+            assert( Coz00 >= 0 && Coz00 <= nMints1 );
+            assert( Coz01 >= 0 && Coz01 <= nMints1 );
+            assert( Coz10 >= 0 && Coz10 <= nMints1 );
+            assert( Coz11 >= 0 && Coz11 <= nMints1 );
+
+            Common2[v][iVar] = Common2[iVar][v] = Cof00 * Coz11 + Coz00 * Cof11 + Cof01 * Coz10 + Coz01 * Cof10;
+
+            Total2[v][iVar] = Total2[iVar][v] = 
+                Cof00 * Coz01 + Coz00 * Cof01 + 
+                Cof00 * Coz10 + Coz00 * Cof10 + 
+                Cof00 * Coz11 + Coz00 * Cof11 + 
+                Cof01 * Coz10 + Coz01 * Cof10 + 
+                Cof01 * Coz11 + Coz01 * Cof11 + 
+                Cof10 * Coz11 + Coz10 * Cof11 ;
+
+            
+            Kit_TruthCofactor0New( pCof00, pIn,          nVars-1, u );
+            Kit_TruthCofactor1New( pCof01, pIn,          nVars-1, u );
+            Kit_TruthCofactor0New( pCof10, pIn+nWords/2, nVars-1, u );
+            Kit_TruthCofactor1New( pCof11, pIn+nWords/2, nVars-1, u );
+
+            Unique2[v][iVar] = Unique2[iVar][v] = 
+                Kit_TruthXorCount( pCof00, pCof01, nVars-1 ) +
+                Kit_TruthXorCount( pCof00, pCof10, nVars-1 ) +
+                Kit_TruthXorCount( pCof00, pCof11, nVars-1 ) +
+                Kit_TruthXorCount( pCof01, pCof10, nVars-1 ) +
+                Kit_TruthXorCount( pCof01, pCof11, nVars-1 ) +
+                Kit_TruthXorCount( pCof10, pCof11, nVars-1 );
+        }
+    }
+
+    printf( "\n" );
+    printf( " V: " );
+    for ( v = 0; v < nVars; v++ )
+        printf( "%8c  ", v+'a' );
+    printf( "\n" );
+
+    printf( " M: " );
+    for ( v = 0; v < nVars; v++ )
+        printf( "%8d  ", Mints[v] );
+    printf( "\n" );
+
+    printf( " U: " );
+    for ( v = 0; v < nVars; v++ )
+        printf( "%8d  ", Unique1[v] );
+    printf( "\n" );
+    printf( "\n" );
+
+    printf( "Unique:\n" );
+    for ( i = 0; i < nVars; i++ )
+    {
+    printf( " %2d ", i );
+    for ( v = 0; v < nVars; v++ )
+        printf( "%8d  ", Unique2[i][v] );
+    printf( "\n" );
+    }
+
+    printf( "Common:\n" );
+    for ( i = 0; i < nVars; i++ )
+    {
+    printf( " %2d ", i );
+    for ( v = 0; v < nVars; v++ )
+        printf( "%8d  ", Common2[i][v] );
+    printf( "\n" );
+    }
+
+    printf( "Total:\n" );
+    for ( i = 0; i < nVars; i++ )
+    {
+    printf( " %2d ", i );
+    for ( v = 0; v < nVars; v++ )
+        printf( "%8d  ", Total2[i][v] );
+    printf( "\n" );
+    }
+
+    ABC_FREE( pIn );
+    ABC_FREE( pOut );
+    ABC_FREE( pCof00 );
+    ABC_FREE( pCof01 );
+    ABC_FREE( pCof10 );
+    ABC_FREE( pCof11 );
+    ABC_FREE( pBytes );
+}
+
+/**Function*************************************************************
+
+  Synopsis    [Dumps truth table into a file.]
+
+  Description [Generates script file for reading into ABC.]
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+void Kit_TruthPrintProfile( unsigned * pTruth, int nVars )
+{
+    unsigned uTruth[2];
+    if ( nVars >= 6 )
+    {
+        Kit_TruthPrintProfile_int( pTruth, nVars );
+        return;
+    }
+    assert( nVars >= 2 );
+    uTruth[0] = pTruth[0];
+    uTruth[1] = pTruth[0];
+    Kit_TruthPrintProfile( uTruth, 6 );
 }
 
 

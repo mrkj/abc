@@ -208,7 +208,7 @@ void Abc_NtkInsertLatchValues( Abc_Ntk_t * pNtk, Vec_Int_t * vValues )
     Abc_Obj_t * pLatch;
     int i;
     Abc_NtkForEachLatch( pNtk, pLatch, i )
-        pLatch->pData = (void *)(vValues? (Vec_IntEntry(vValues,i)? ABC_INIT_ONE : ABC_INIT_ZERO) : ABC_INIT_DC);
+        pLatch->pData = (void *)(ABC_PTRINT_T)(vValues? (Vec_IntEntry(vValues,i)? ABC_INIT_ONE : ABC_INIT_ZERO) : ABC_INIT_DC);
 }
 
 /**Function*************************************************************
@@ -318,6 +318,358 @@ void Abc_NtkConvertDcLatches( Abc_Ntk_t * pNtk )
     printf( "The number of converted latches with DC values = %d.\n", Counter );
 }
 
+/**Function*************************************************************
+
+  Synopsis    [Transfors the array of latch names into that of latch numbers.]
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+Vec_Ptr_t * Abc_NtkConverLatchNamesIntoNumbers( Abc_Ntk_t * pNtk )
+{
+    Vec_Ptr_t * vResult, * vNames;
+    Vec_Int_t * vNumbers;
+    Abc_Obj_t * pObj;
+    char * pName;
+    int i, k, Num;
+    if ( pNtk->vOnehots == NULL )
+        return NULL;
+    // set register numbers
+    Abc_NtkForEachLatch( pNtk, pObj, i )
+        pObj->pNext = (Abc_Obj_t *)(ABC_PTRINT_T)i;
+    // add the numbers
+    vResult = Vec_PtrAlloc( Vec_PtrSize(pNtk->vOnehots) );
+    Vec_PtrForEachEntry( pNtk->vOnehots, vNames, i )
+    {
+        vNumbers = Vec_IntAlloc( Vec_PtrSize(vNames) );
+        Vec_PtrForEachEntry( vNames, pName, k )
+        {
+            Num = Nm_ManFindIdByName( pNtk->pManName, pName, ABC_OBJ_BO );
+            if ( Num < 0 )
+                continue;
+            pObj = Abc_NtkObj( pNtk, Num );
+            if ( Abc_ObjFaninNum(pObj) != 1 || !Abc_ObjIsLatch(Abc_ObjFanin0(pObj)) )
+                continue;
+            Vec_IntPush( vNumbers, (int)(ABC_PTRINT_T)pObj->pNext );
+        }
+        if ( Vec_IntSize( vNumbers ) > 1 )
+        {
+            Vec_PtrPush( vResult, vNumbers );
+printf( "Converted %d one-hot registers.\n", Vec_IntSize(vNumbers) );
+        }
+        else
+            Vec_IntFree( vNumbers );
+    }
+    // clean the numbers
+    Abc_NtkForEachLatch( pNtk, pObj, i )
+        pObj->pNext = NULL;
+    return vResult;
+}
+
+
+/**Function*************************************************************
+
+  Synopsis    [Converts registers with DC values into additional PIs.]
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+Abc_Ntk_t * Abc_NtkConvertOnehot( Abc_Ntk_t * pNtk )
+{
+    Vec_Ptr_t * vNodes;
+    Abc_Ntk_t * pNtkNew;
+    Abc_Obj_t * pObj, * pFanin, * pObjNew, * pObjLiNew, * pObjLoNew;
+    int i, k, nFlops, nStates, iState, pfCompl[32];
+    assert( Abc_NtkIsLogic(pNtk) );
+    nFlops = Abc_NtkLatchNum(pNtk);
+    if ( nFlops == 0 )
+        return Abc_NtkDup( pNtk );
+    if ( nFlops > 16 )
+    {
+        printf( "Cannot reencode %d flops because it will lead to 2^%d states.\n", nFlops, nFlops );
+        return NULL;
+    }
+    // check if there are latches with DC values
+    iState = 0;
+    Abc_NtkForEachLatch( pNtk, pObj, i )
+    {
+        if ( Abc_LatchIsInitDc(pObj) )
+        {
+            printf( "Cannot process logic network with don't-care init values. Run \"zero\".\n" );
+            return NULL;
+        }
+        if ( Abc_LatchIsInit1(pObj) )
+            iState |= (1 << i);
+    }
+    // transfer logic to SOPs
+    Abc_NtkToSop( pNtk, 0 );
+    // create new network
+    pNtkNew = Abc_NtkStartFromNoLatches( pNtk, pNtk->ntkType, pNtk->ntkFunc );
+    nStates = (1 << nFlops);
+    for ( i = 0; i < nStates; i++ )
+    {
+        pObjNew   = Abc_NtkCreateLatch( pNtkNew );
+        pObjLiNew = Abc_NtkCreateBi( pNtkNew );
+        pObjLoNew = Abc_NtkCreateBo( pNtkNew );
+        Abc_ObjAddFanin( pObjNew, pObjLiNew );
+        Abc_ObjAddFanin( pObjLoNew, pObjNew );
+        if ( i == iState )
+            Abc_LatchSetInit1( pObjNew );
+        else
+            Abc_LatchSetInit0( pObjNew );
+    }
+    Abc_NtkAddDummyBoxNames( pNtkNew );
+    assert( Abc_NtkLatchNum(pNtkNew) == nStates );
+    assert( Abc_NtkPiNum(pNtkNew) == Abc_NtkPiNum(pNtk) );
+    assert( Abc_NtkPoNum(pNtkNew) == Abc_NtkPoNum(pNtk) );
+    assert( Abc_NtkCiNum(pNtkNew) == Abc_NtkPiNum(pNtkNew) + nStates );
+    assert( Abc_NtkCoNum(pNtkNew) == Abc_NtkPoNum(pNtkNew) + nStates );
+    assert( Abc_NtkCiNum(pNtk) == Abc_NtkPiNum(pNtk) + nFlops );
+    assert( Abc_NtkCoNum(pNtk) == Abc_NtkPoNum(pNtk) + nFlops );
+    // create hot-to-log transformers
+    for ( i = 0; i < nFlops; i++ ) 
+    {
+        pObjNew = Abc_NtkCreateNode( pNtkNew );
+        for ( k = 0; k < nStates; k++ )
+            if ( (k >> i) & 1 )
+                Abc_ObjAddFanin( pObjNew, Abc_NtkCi(pNtkNew, Abc_NtkPiNum(pNtkNew)+k) );
+        assert( Abc_ObjFaninNum(pObjNew) == nStates/2 );
+        pObjNew->pData = Abc_SopCreateOr( pNtkNew->pManFunc, nStates/2, NULL );
+        // save the new flop
+        pObj = Abc_NtkCi( pNtk, Abc_NtkPiNum(pNtk) + i );
+        pObj->pCopy = pObjNew;
+    }
+    // duplicate the nodes
+    vNodes = Abc_NtkDfs( pNtk, 0 );
+    Vec_PtrForEachEntry( vNodes, pObj, i )
+    {
+        pObj->pCopy = Abc_NtkDupObj( pNtkNew, pObj, 1 );
+        Abc_ObjForEachFanin( pObj, pFanin, k )
+            Abc_ObjAddFanin( pObj->pCopy, pFanin->pCopy );
+    }
+    Vec_PtrFree( vNodes );
+    // connect the POs
+    Abc_NtkForEachPo( pNtk, pObj, i )
+        Abc_ObjAddFanin( pObj->pCopy, Abc_ObjNotCond(Abc_ObjFanin0(pObj)->pCopy, Abc_ObjFaninC0(pObj)) );
+    // write entries into the nodes
+    Abc_NtkForEachCo( pNtk, pObj, i )
+        pObj->pCopy = Abc_ObjNotCond(Abc_ObjFanin0(pObj)->pCopy, Abc_ObjFaninC0(pObj));
+    // create log-to-hot transformers
+    for ( k = 0; k < nStates; k++ )
+    {
+        pObjNew = Abc_NtkCreateNode( pNtkNew );
+        for ( i = 0; i < nFlops; i++ )
+        {
+            pObj = Abc_NtkCo( pNtk, Abc_NtkPoNum(pNtk) + i );
+            Abc_ObjAddFanin( pObjNew, Abc_ObjRegular(pObj->pCopy) );
+            pfCompl[i] = Abc_ObjIsComplement(pObj->pCopy) ^ !((k >> i) & 1);
+        }
+        pObjNew->pData = Abc_SopCreateAnd( pNtkNew->pManFunc, nFlops, pfCompl );
+        // connect it to the flop input
+        Abc_ObjAddFanin( Abc_NtkCo(pNtkNew, Abc_NtkPoNum(pNtkNew)+k), pObjNew );
+    }
+    if ( !Abc_NtkCheck( pNtkNew ) )
+        fprintf( stdout, "Abc_NtkConvertOnehot(): Network check has failed.\n" );
+    return pNtkNew;
+}
+
+#include "giaAig.h"
+
+/**Function*************************************************************
+
+  Synopsis    [Performs retiming with classes.]
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+Aig_Man_t * Abc_NtkRetimeWithClassesAig( Aig_Man_t * pMan, Vec_Int_t * vClasses, Vec_Int_t ** pvClasses, int fVerbose )
+{
+    Aig_Man_t * pManNew;
+    Gia_Man_t * pGia, * pGiaNew;
+    pGia = Gia_ManFromAigSimple( pMan );
+    assert( Gia_ManRegNum(pGia) == Vec_IntSize(vClasses) );
+    pGia->vFlopClasses = vClasses;
+    pGiaNew = Gia_ManRetimeForward( pGia, 10, fVerbose );
+    *pvClasses = pGiaNew->vFlopClasses; 
+    pGiaNew->vFlopClasses = NULL;
+    pManNew = Gia_ManToAig( pGiaNew, 0 );
+    Gia_ManStop( pGiaNew );
+    Gia_ManStop( pGia );
+    return pManNew;
+}
+
+/**Function*************************************************************
+
+  Synopsis    [Performs retiming with classes.]
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+Abc_Ntk_t * Abc_NtkRetimeWithClassesNtk( Abc_Ntk_t * pNtk, Vec_Int_t * vClasses, Vec_Int_t ** pvClasses, int fVerbose )
+{
+    extern Aig_Man_t * Abc_NtkToDar( Abc_Ntk_t * pNtk, int fExors, int fRegisters );
+    extern Abc_Ntk_t * Abc_NtkFromDarSeqSweep( Abc_Ntk_t * pNtkOld, Aig_Man_t * pMan );
+    Abc_Ntk_t * pNtkAig, * pNtkAigRet, * pNtkRes;
+    Aig_Man_t * pMan, * pManNew;
+    pNtkAig    = Abc_NtkStrash( pNtk, 0, 1, 0 );
+    pMan       = Abc_NtkToDar( pNtkAig, 0, 1 );
+    pManNew    = Abc_NtkRetimeWithClassesAig( pMan, vClasses, pvClasses, fVerbose );
+    pNtkAigRet = Abc_NtkFromDarSeqSweep( pNtkAig, pManNew );
+    pNtkRes    = Abc_NtkToLogic( pNtkAigRet );
+    Abc_NtkDelete( pNtkAigRet );
+    Abc_NtkDelete( pNtkAig );
+    Aig_ManStop( pManNew );
+    Aig_ManStop( pMan );
+    return pNtkRes;
+}
+
+/**Function*************************************************************
+
+  Synopsis    [Returns self-loops back into the network.]
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+void Abc_NtkTransformBack( Abc_Ntk_t * pNtkOld, Abc_Ntk_t * pNtkNew, Vec_Ptr_t * vControls, Vec_Int_t * vClasses )
+{
+    Abc_Obj_t * pObj, * pNodeNew, * pCtrl, * pDriver;
+    int i, Class;
+    assert( Abc_NtkPoNum(pNtkOld) == Abc_NtkPoNum(pNtkNew) );
+    // match the POs of the old into new
+    Abc_NtkForEachPo( pNtkOld, pObj, i )
+        pObj->pCopy = Abc_NtkPo( pNtkNew, i );
+    // remap the flops
+    Vec_PtrForEachEntry( vControls, pObj, i )
+    {
+        assert( Abc_ObjIsPo(pObj) && pObj->pNtk == pNtkOld );
+        Vec_PtrWriteEntry( vControls, i, pObj->pCopy );
+    }
+    // create self-loops
+    assert( Abc_NtkLatchNum(pNtkNew) == Vec_IntSize(vClasses) );
+    Abc_NtkForEachLatch( pNtkNew, pObj, i )
+    {
+        Class = Vec_IntEntry( vClasses, i );
+        if ( Class == -1 )
+            continue;
+        pDriver = Abc_ObjFanin0(Abc_ObjFanin0(pObj));
+        pCtrl = Vec_PtrEntry( vControls, Class );
+        pCtrl = Abc_ObjFanin0( pCtrl );
+        pNodeNew = Abc_NtkCreateNode( pNtkNew );
+        Abc_ObjAddFanin( pNodeNew, pCtrl );
+        Abc_ObjAddFanin( pNodeNew, pDriver );
+        Abc_ObjAddFanin( pNodeNew, Abc_ObjFanout0(pObj) );
+        Abc_ObjSetData( pNodeNew, Abc_SopRegister(pNtkNew->pManFunc, "0-1 1\n11- 1\n") );
+        Abc_ObjPatchFanin( Abc_ObjFanin0(pObj), pDriver, pNodeNew );
+    }
+    // remove the useless POs
+    Vec_PtrForEachEntry( vControls, pObj, i )
+        Abc_NtkDeleteObj( pObj );
+}
+
+/**Function*************************************************************
+
+  Synopsis    [Classify flops.]
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+Abc_Ntk_t * Abc_NtkCRetime( Abc_Ntk_t * pNtk, int fVerbose )
+{
+    Abc_Ntk_t * pNtkNew;
+    Vec_Ptr_t * vControls;
+    Vec_Int_t * vFlopClasses, * vFlopClassesNew;
+    Abc_Obj_t * pObj, * pDriver, * pFlopOut, * pObjPo;
+    int i, iFlop, CountN = 0, Count2 = 0, Count1 = 0, Count0 = 0;
+
+    // duplicate the AIG
+    pNtk = Abc_NtkDup( pNtk );
+
+    // update registers
+    vControls    = Vec_PtrAlloc( 100 );
+    vFlopClasses = Vec_IntAlloc( 100 );
+    Abc_NtkForEachLatch( pNtk, pObj, i )
+    {
+        pFlopOut = Abc_ObjFanout0(pObj);
+        pDriver = Abc_ObjFanin0( Abc_ObjFanin0(pObj) );
+        if ( Abc_ObjFaninNum(pDriver) != 3 )
+        {
+            Vec_IntPush( vFlopClasses, -1 );
+            CountN++;
+            continue;
+        }
+        if ( Abc_ObjFanin(pDriver, 1) != pFlopOut && Abc_ObjFanin(pDriver, 2) != pFlopOut )
+        {
+            Vec_IntPush( vFlopClasses, -1 );
+            Count2++;
+            continue;
+        }
+        if ( Abc_ObjFanin(pDriver, 1) == pFlopOut )
+        {
+            Vec_IntPush( vFlopClasses, -1 );
+            Count1++;
+            continue;
+        }
+        assert( Abc_ObjFanin(pDriver, 2) == pFlopOut );
+        Count0++;
+        Vec_PtrPushUnique( vControls, Abc_ObjFanin0(pDriver) );
+        // set the flop class
+        iFlop = Vec_PtrFind( vControls, Abc_ObjFanin0(pDriver) );
+        Vec_IntPush( vFlopClasses, iFlop );
+        // update
+        Abc_ObjPatchFanin( Abc_ObjFanin0(pObj), pDriver, Abc_ObjFanin(pDriver, 1) );
+    }
+    if ( Count1 )
+        printf( "Opposite phase enable is present in %d flops (out of %d).\n", Count1, Abc_NtkLatchNum(pNtk) );
+    if ( fVerbose )
+    printf( "CountN = %4d. Count2 = %4d. Count1 = %4d. Count0 = %4d. Ctrls = %d.\n", 
+        CountN, Count2, Count1, Count0, Vec_PtrSize(vControls) );
+
+    // add the controls to the list of POs
+    Vec_PtrForEachEntry( vControls, pObj, i )
+    {
+        pObjPo = Abc_NtkCreatePo( pNtk );
+        Abc_ObjAddFanin( pObjPo, pObj );
+        Abc_ObjAssignName( pObjPo, Abc_ObjName(pObjPo), NULL );
+        Vec_PtrWriteEntry( vControls, i, pObjPo );
+    }
+    Abc_NtkOrderCisCos( pNtk );
+    Abc_NtkCleanup( pNtk, fVerbose );
+
+    // performs retiming with classes
+    pNtkNew = Abc_NtkRetimeWithClassesNtk( pNtk, vFlopClasses, &vFlopClassesNew, fVerbose );
+    Abc_NtkTransformBack( pNtk, pNtkNew, vControls, vFlopClassesNew );
+//    assert( Abc_NtkPoNum(pNtkNew) == Abc_NtkPoNum(pNtk) );
+    Abc_NtkDelete( pNtk );
+
+    Vec_PtrFree( vControls );
+//    Vec_IntFree( vFlopClasses );
+    Vec_IntFree( vFlopClassesNew );
+    return pNtkNew;
+}
 
 ////////////////////////////////////////////////////////////////////////
 ///                       END OF FILE                                ///

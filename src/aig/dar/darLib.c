@@ -19,6 +19,7 @@
 ***********************************************************************/
 
 #include "darInt.h"
+#include "gia.h"
 
 ////////////////////////////////////////////////////////////////////////
 ///                        DECLARATIONS                              ///
@@ -41,9 +42,12 @@ struct Dar_LibObj_t_ // library object (2 words)
 
 struct Dar_LibDat_t_ // library object data
 {
+    union { 
     Aig_Obj_t *      pFunc;         // the corresponding AIG node if it exists
+    int              iGunc; };      // the corresponding AIG node if it exists
     int              Level;         // level of this node after it is constructured
     int              TravId;        // traversal ID of the library object data
+    float            dProb;         // probability of the node being 1
     unsigned char    fMffc;         // set to one if node is part of MFFC
     unsigned char    nLats[3];      // the number of latches on the input/output stem
 };
@@ -122,11 +126,11 @@ Dar_Lib_t * Dar_LibAlloc( int nObjs )
     unsigned uTruths[4] = { 0xAAAA, 0xCCCC, 0xF0F0, 0xFF00 };
     Dar_Lib_t * p;
     int i;//, clk = clock();
-    p = ALLOC( Dar_Lib_t, 1 );
+    p = ABC_ALLOC( Dar_Lib_t, 1 );
     memset( p, 0, sizeof(Dar_Lib_t) );
     // allocate objects
     p->nObjs = nObjs;
-    p->pObjs = ALLOC( Dar_LibObj_t, nObjs );
+    p->pObjs = ABC_ALLOC( Dar_LibObj_t, nObjs );
     memset( p->pObjs, 0, sizeof(Dar_LibObj_t) * nObjs );
     // allocate canonical data
     p->pPerms4 = Dar_Permutations( 4 );
@@ -138,7 +142,7 @@ Dar_Lib_t * Dar_LibAlloc( int nObjs )
         p->pObjs[i].fTerm = 1;
         p->pObjs[i].Num = uTruths[i];
     }
-//    PRT( "Library start", clock() - clk );
+//    ABC_PRT( "Library start", clock() - clk );
     return p;
 }
 
@@ -155,22 +159,39 @@ Dar_Lib_t * Dar_LibAlloc( int nObjs )
 ***********************************************************************/
 void Dar_LibFree( Dar_Lib_t * p )
 {
-    free( p->pObjs );
-    free( p->pDatas );
-    free( p->pNodesMem );
-    free( p->pNodes0Mem );
-    free( p->pSubgrMem );
-    free( p->pSubgr0Mem );
-    free( p->pPriosMem );
-    FREE( p->pPlaceMem );
-    FREE( p->pScoreMem );
-    free( p->pPerms4 );
-    free( p->puCanons );
-    free( p->pPhases );
-    free( p->pPerms );
-    free( p->pMap );
-    free( p );
+    ABC_FREE( p->pObjs );
+    ABC_FREE( p->pDatas );
+    ABC_FREE( p->pNodesMem );
+    ABC_FREE( p->pNodes0Mem );
+    ABC_FREE( p->pSubgrMem );
+    ABC_FREE( p->pSubgr0Mem );
+    ABC_FREE( p->pPriosMem );
+    ABC_FREE( p->pPlaceMem );
+    ABC_FREE( p->pScoreMem );
+    ABC_FREE( p->pPerms4 );
+    ABC_FREE( p->puCanons );
+    ABC_FREE( p->pPhases );
+    ABC_FREE( p->pPerms );
+    ABC_FREE( p->pMap );
+    ABC_FREE( p );
 }
+
+/**Function*************************************************************
+
+  Synopsis    [Returns canonical truth tables.]
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+int Dar_LibReturnClass( unsigned uTruth )
+{
+    return s_DarLib->pMap[uTruth & 0xffff];
+}
+
 
 /**Function*************************************************************
 
@@ -274,8 +295,8 @@ void Dar_LibSetup( Dar_Lib_t * p, Vec_Int_t * vOuts, Vec_Int_t * vPrios )
         p->nSubgr[Class]++;
     }
     // allocate memory for the roots of each class
-    p->pSubgrMem = ALLOC( int, Vec_IntSize(vOuts) );
-    p->pSubgr0Mem = ALLOC( int, Vec_IntSize(vOuts) );
+    p->pSubgrMem = ABC_ALLOC( int, Vec_IntSize(vOuts) );
+    p->pSubgr0Mem = ABC_ALLOC( int, Vec_IntSize(vOuts) );
     p->nSubgrTotal = 0;
     for ( i = 0; i < 222; i++ )
     {
@@ -297,7 +318,7 @@ void Dar_LibSetup( Dar_Lib_t * p, Vec_Int_t * vOuts, Vec_Int_t * vPrios )
     if ( fTraining )
     {
         // allocate memory for the priority of roots of each class
-        p->pPriosMem = ALLOC( int, Vec_IntSize(vOuts) );
+        p->pPriosMem = ABC_ALLOC( int, Vec_IntSize(vOuts) );
         p->nSubgrTotal = 0;
         for ( i = 0; i < 222; i++ )
         {
@@ -310,7 +331,7 @@ void Dar_LibSetup( Dar_Lib_t * p, Vec_Int_t * vOuts, Vec_Int_t * vPrios )
         assert( p->nSubgrTotal == Vec_IntSize(vOuts) );
 
         // allocate memory for the priority of roots of each class
-        p->pPlaceMem = ALLOC( int, Vec_IntSize(vOuts) );
+        p->pPlaceMem = ABC_ALLOC( int, Vec_IntSize(vOuts) );
         p->nSubgrTotal = 0;
         for ( i = 0; i < 222; i++ )
         {
@@ -323,7 +344,7 @@ void Dar_LibSetup( Dar_Lib_t * p, Vec_Int_t * vOuts, Vec_Int_t * vPrios )
         assert( p->nSubgrTotal == Vec_IntSize(vOuts) );
 
         // allocate memory for the priority of roots of each class
-        p->pScoreMem = ALLOC( int, Vec_IntSize(vOuts) );
+        p->pScoreMem = ABC_ALLOC( int, Vec_IntSize(vOuts) );
         p->nSubgrTotal = 0;
         for ( i = 0; i < 222; i++ )
         {
@@ -339,7 +360,7 @@ void Dar_LibSetup( Dar_Lib_t * p, Vec_Int_t * vOuts, Vec_Int_t * vPrios )
     {
         int Counter = 0;
         // allocate memory for the priority of roots of each class
-        p->pPriosMem = ALLOC( int, Vec_IntSize(vOuts) );
+        p->pPriosMem = ABC_ALLOC( int, Vec_IntSize(vOuts) );
         p->nSubgrTotal = 0;
         for ( i = 0; i < 222; i++ )
         {
@@ -365,8 +386,8 @@ void Dar_LibSetup( Dar_Lib_t * p, Vec_Int_t * vOuts, Vec_Int_t * vPrios )
     for ( i = 0; i < 222; i++ )
         p->nNodesTotal += p->nNodes[i];
     // allocate memory for the nodes of each class
-    p->pNodesMem = ALLOC( int, p->nNodesTotal );
-    p->pNodes0Mem = ALLOC( int, p->nNodesTotal );
+    p->pNodesMem = ABC_ALLOC( int, p->nNodesTotal );
+    p->pNodes0Mem = ABC_ALLOC( int, p->nNodesTotal );
     p->nNodesTotal = 0;
     for ( i = 0; i < 222; i++ )
     {
@@ -408,10 +429,10 @@ void Dar_LibCreateData( Dar_Lib_t * p, int nDatas )
 {
     if ( p->nDatas == nDatas )
         return;
-    FREE( p->pDatas );
+    ABC_FREE( p->pDatas );
     // allocate datas
     p->nDatas = nDatas;
-    p->pDatas = ALLOC( Dar_LibDat_t, nDatas );
+    p->pDatas = ABC_ALLOC( Dar_LibDat_t, nDatas );
     memset( p->pDatas, 0, sizeof(Dar_LibDat_t) * nDatas );
 }
 
@@ -471,7 +492,7 @@ void Dar_LibPrepare( int nSubgraphs )
         if ( i == 1 ) // special classes 
             p->nSubgr0[i] = p->nSubgr[i];
         else
-            p->nSubgr0[i] = AIG_MIN( p->nSubgr[i], nSubgraphs );
+            p->nSubgr0[i] = ABC_MIN( p->nSubgr[i], nSubgraphs );
         p->nSubgr0Total += p->nSubgr0[i];
         for ( k = 0; k < p->nSubgr0[i]; k++ )
             p->pSubgr0[i][k] = p->pSubgr[i][ p->pPrios[i][k] ];
@@ -493,7 +514,7 @@ void Dar_LibPrepare( int nSubgraphs )
         for ( k = 0; k < p->nSubgr0[i]; k++ )
             Dar_LibSetup0_rec( p, Dar_LibObj(p, p->pSubgr0[i][k]), i, 0 );
         p->nNodes0Total += p->nNodes0[i];
-        p->nNodes0Max = AIG_MAX( p->nNodes0Max, p->nNodes0[i] );
+        p->nNodes0Max = ABC_MAX( p->nNodes0Max, p->nNodes0[i] );
     }
 
     // clean node counters
@@ -571,7 +592,7 @@ void Dar_LibStart()
     assert( s_DarLib == NULL );
     s_DarLib = Dar_LibRead();
 //    printf( "The 4-input library started with %d nodes and %d subgraphs. ", s_DarLib->nObjs - 4, s_DarLib->nSubgrTotal );
-//    PRT( "Time", clock() - clk );
+//    ABC_PRT( "Time", clock() - clk );
 }
 
 /**Function*************************************************************
@@ -698,6 +719,12 @@ int Dar_LibCutMatch( Dar_Man_t * p, Dar_Cut_t * pCut )
         pFanin = Aig_NotCond(pFanin, ((uPhase >> i) & 1) );
         s_DarLib->pDatas[i].pFunc = pFanin;
         s_DarLib->pDatas[i].Level = Aig_Regular(pFanin)->Level;
+        // copy the propability of node being one
+        if ( p->pPars->fPower )
+        {
+            float Prob = Aig_Int2Float( Vec_IntEntry( p->pAig->vProbs, Aig_ObjId(Aig_Regular(pFanin)) ) );
+            s_DarLib->pDatas[i].dProb = Aig_IsComplement(pFanin)? 1.0-Prob : Prob;
+        }
     }
     p->nCutsGood++;
     return 1;
@@ -716,14 +743,14 @@ int Dar_LibCutMatch( Dar_Man_t * p, Dar_Cut_t * pCut )
   SeeAlso     []
 
 ***********************************************************************/
-int Dar_LibCutMarkMffc( Aig_Man_t * p, Aig_Obj_t * pRoot, int nLeaves )
+int Dar_LibCutMarkMffc( Aig_Man_t * p, Aig_Obj_t * pRoot, int nLeaves, float * pPower )
 {
     int i, nNodes;
     // mark the cut leaves
     for ( i = 0; i < nLeaves; i++ )
         Aig_Regular(s_DarLib->pDatas[i].pFunc)->nRefs++;
     // label MFFC with current ID
-    nNodes = Aig_NodeMffsLabel( p, pRoot );
+    nNodes = Aig_NodeMffcLabel( p, pRoot, pPower );
     // unmark the cut leaves
     for ( i = 0; i < nLeaves; i++ )
         Aig_Regular(s_DarLib->pDatas[i].pFunc)->nRefs--;
@@ -770,7 +797,7 @@ void Dar_LibObjPrint_rec( Dar_LibObj_t * pObj )
   SeeAlso     []
 
 ***********************************************************************/
-void Dar_LibEvalAssignNums( Dar_Man_t * p, int Class )
+void Dar_LibEvalAssignNums( Dar_Man_t * p, int Class, Aig_Obj_t * pRoot )
 {
     Dar_LibObj_t * pObj;
     Dar_LibDat_t * pData, * pData0, * pData1;
@@ -792,18 +819,26 @@ void Dar_LibEvalAssignNums( Dar_Man_t * p, int Class )
         assert( (int)Dar_LibObj(s_DarLib, pObj->Fan1)->Num < s_DarLib->nNodes0Max + 4 );
         pData0 = s_DarLib->pDatas + Dar_LibObj(s_DarLib, pObj->Fan0)->Num;
         pData1 = s_DarLib->pDatas + Dar_LibObj(s_DarLib, pObj->Fan1)->Num;
-        pData->Level = 1 + AIG_MAX(pData0->Level, pData1->Level);
+        pData->Level = 1 + ABC_MAX(pData0->Level, pData1->Level);
         if ( pData0->pFunc == NULL || pData1->pFunc == NULL )
             continue;
         pFanin0 = Aig_NotCond( pData0->pFunc, pObj->fCompl0 );
         pFanin1 = Aig_NotCond( pData1->pFunc, pObj->fCompl1 );
+        if ( Aig_Regular(pFanin0) == pRoot || Aig_Regular(pFanin1) == pRoot )
+            continue;
         pData->pFunc = Aig_TableLookupTwo( p->pAig, pFanin0, pFanin1 );
         if ( pData->pFunc )
         {
             // update the level to be more accurate
             pData->Level = Aig_Regular(pData->pFunc)->Level;
             // mark the node if it is part of MFFC
-            pData->fMffc = Aig_ObjIsTravIdCurrent(p->pAig, pData->pFunc);
+            pData->fMffc = Aig_ObjIsTravIdCurrent(p->pAig, Aig_Regular(pData->pFunc));
+            // assign the probability
+            if ( p->pPars->fPower )
+            {
+                float Prob = Aig_Int2Float( Vec_IntEntry( p->pAig->vProbs, Aig_ObjId(Aig_Regular(pData->pFunc)) ) );
+                pData->dProb = Aig_IsComplement(pData->pFunc)? 1.0-Prob : Prob;
+            }
         }
     }
 }
@@ -819,29 +854,49 @@ void Dar_LibEvalAssignNums( Dar_Man_t * p, int Class )
   SeeAlso     []
 
 ***********************************************************************/
-int Dar_LibEval_rec( Dar_LibObj_t * pObj, int Out, int nNodesSaved, int Required )
+int Dar_LibEval_rec( Dar_LibObj_t * pObj, int Out, int nNodesSaved, int Required, float * pPower )
 {
     Dar_LibDat_t * pData;
+    float Power0, Power1;
     int Area;
-    if ( pObj->fTerm )
-        return 0;
-    assert( pObj->Num > 3 );
+    if ( pPower )
+        *pPower = (float)0.0;
     pData = s_DarLib->pDatas + pObj->Num;
-    if ( pData->Level > Required )
-        return 0xff;
-    if ( pData->pFunc && !pData->fMffc )
-        return 0;
     if ( pData->TravId == Out )
         return 0;
     pData->TravId = Out;
+    if ( pObj->fTerm )
+    {
+        if ( pPower )
+            *pPower = pData->dProb;
+        return 0;
+    }
+    assert( pObj->Num > 3 );
+    if ( pData->Level > Required )
+        return 0xff;
+    if ( pData->pFunc && !pData->fMffc )
+    {
+        if ( pPower )
+            *pPower = pData->dProb;
+        return 0;
+    }
     // this is a new node - get a bound on the area of its branches
     nNodesSaved--;
-    Area = Dar_LibEval_rec( Dar_LibObj(s_DarLib, pObj->Fan0), Out, nNodesSaved, Required+1 );
+    Area = Dar_LibEval_rec( Dar_LibObj(s_DarLib, pObj->Fan0), Out, nNodesSaved, Required+1, pPower? &Power0 : NULL );
     if ( Area > nNodesSaved )
         return 0xff;
-    Area += Dar_LibEval_rec( Dar_LibObj(s_DarLib, pObj->Fan1), Out, nNodesSaved, Required+1 );
+    Area += Dar_LibEval_rec( Dar_LibObj(s_DarLib, pObj->Fan1), Out, nNodesSaved, Required+1, pPower? &Power1 : NULL );
     if ( Area > nNodesSaved )
         return 0xff;
+    if ( pPower )
+    {
+        Dar_LibDat_t * pData0 = s_DarLib->pDatas + Dar_LibObj(s_DarLib, pObj->Fan0)->Num;
+        Dar_LibDat_t * pData1 = s_DarLib->pDatas + Dar_LibObj(s_DarLib, pObj->Fan1)->Num;
+        pData->dProb = (pObj->fCompl0? 1.0 - pData0->dProb : pData0->dProb)*
+                       (pObj->fCompl1? 1.0 - pData1->dProb : pData1->dProb);
+        *pPower = Power0 + 2.0 * pData0->dProb * (1.0 - pData0->dProb) +
+                  Power1 + 2.0 * pData1->dProb * (1.0 - pData1->dProb);
+    }
     return Area + 1;
 }
 
@@ -859,6 +914,7 @@ int Dar_LibEval_rec( Dar_LibObj_t * pObj, int Out, int nNodesSaved, int Required
 void Dar_LibEval( Dar_Man_t * p, Aig_Obj_t * pRoot, Dar_Cut_t * pCut, int Required )
 {
     int fTraining = 0;
+    float PowerSaved, PowerAdded;
     Dar_LibObj_t * pObj;
     int Out, k, Class, nNodesSaved, nNodesAdded, nNodesGained, clk;
     clk = clock();
@@ -868,10 +924,10 @@ void Dar_LibEval( Dar_Man_t * p, Aig_Obj_t * pRoot, Dar_Cut_t * pCut, int Requir
     if ( !Dar_LibCutMatch(p, pCut) )
         return;
     // mark MFFC of the node
-    nNodesSaved = Dar_LibCutMarkMffc( p->pAig, pRoot, pCut->nLeaves );
+    nNodesSaved = Dar_LibCutMarkMffc( p->pAig, pRoot, pCut->nLeaves, p->pPars->fPower? &PowerSaved : NULL );
     // evaluate the cut
     Class = s_DarLib->pMap[pCut->uTruth];
-    Dar_LibEvalAssignNums( p, Class );
+    Dar_LibEvalAssignNums( p, Class, pRoot );
     // profile outputs by their savings
     p->nTotalSubgs += s_DarLib->nSubgr0[Class];
     p->ClassSubgs[Class] += s_DarLib->nSubgr0[Class];
@@ -880,8 +936,10 @@ void Dar_LibEval( Dar_Man_t * p, Aig_Obj_t * pRoot, Dar_Cut_t * pCut, int Requir
         pObj = Dar_LibObj(s_DarLib, s_DarLib->pSubgr0[Class][Out]);
         if ( Aig_Regular(s_DarLib->pDatas[pObj->Num].pFunc) == pRoot )
             continue;
-        nNodesAdded = Dar_LibEval_rec( pObj, Out, nNodesSaved - !p->pPars->fUseZeros, Required );
+        nNodesAdded = Dar_LibEval_rec( pObj, Out, nNodesSaved - !p->pPars->fUseZeros, Required, p->pPars->fPower? &PowerAdded : NULL );
         nNodesGained = nNodesSaved - nNodesAdded;
+        if ( p->pPars->fPower && PowerSaved < PowerAdded )
+            continue;
         if ( fTraining && nNodesGained >= 0 )
             Dar_LibIncrementScore( Class, Out, nNodesGained + 1 );
         if ( nNodesGained < 0 || (nNodesGained == 0 && !p->pPars->fUseZeros) )
@@ -972,6 +1030,300 @@ Aig_Obj_t * Dar_LibBuildBest( Dar_Man_t * p )
     return Dar_LibBuildBest_rec( p, Dar_LibObj(s_DarLib, p->OutBest) );
 }
 
+
+
+
+
+
+/**Function*************************************************************
+
+  Synopsis    [Matches the cut with its canonical form.]
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+int Dar2_LibCutMatch( Gia_Man_t * p, Vec_Int_t * vCutLits, unsigned uTruth )
+{
+    unsigned uPhase;
+    char * pPerm;
+    int i;
+    assert( Vec_IntSize(vCutLits) == 4 );
+    // get the fanin permutation
+    uPhase = s_DarLib->pPhases[uTruth];
+    pPerm  = s_DarLib->pPerms4[ (int)s_DarLib->pPerms[uTruth] ];
+    // collect fanins with the corresponding permutation/phase
+    for ( i = 0; i < Vec_IntSize(vCutLits); i++ )
+    {
+//        pFanin = Gia_ManObj( p, pCut->pLeaves[ (int)pPerm[i] ] );
+//        pFanin = Gia_ManObj( p, Vec_IntEntry( vCutLits, (int)pPerm[i] ) );
+//        pFanin = Gia_ObjFromLit( p, Vec_IntEntry( vCutLits, (int)pPerm[i] ) );
+        s_DarLib->pDatas[i].iGunc = Gia_LitNotCond( Vec_IntEntry(vCutLits, (int)pPerm[i]), ((uPhase >> i) & 1) );
+        s_DarLib->pDatas[i].Level = Gia_ObjLevel( p, Gia_Regular(Gia_ObjFromLit(p, s_DarLib->pDatas[i].iGunc)) );
+    }
+    return 1;
+}
+
+/**Function*************************************************************
+
+  Synopsis    [Assigns numbers to the nodes of one class.]
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+void Dar2_LibEvalAssignNums( Gia_Man_t * p, int Class )
+{
+    Dar_LibObj_t * pObj;
+    Dar_LibDat_t * pData, * pData0, * pData1;
+    int iFanin0, iFanin1, i, iLit;
+    for ( i = 0; i < s_DarLib->nNodes0[Class]; i++ )
+    {
+        // get one class node, assign its temporary number and set its data
+        pObj = Dar_LibObj(s_DarLib, s_DarLib->pNodes0[Class][i]);
+        pObj->Num = 4 + i;
+        assert( (int)pObj->Num < s_DarLib->nNodes0Max + 4 );
+        pData = s_DarLib->pDatas + pObj->Num;
+        pData->fMffc = 0;
+        pData->iGunc = -1;
+        pData->TravId = 0xFFFF;
+
+        // explore the fanins
+        assert( (int)Dar_LibObj(s_DarLib, pObj->Fan0)->Num < s_DarLib->nNodes0Max + 4 );
+        assert( (int)Dar_LibObj(s_DarLib, pObj->Fan1)->Num < s_DarLib->nNodes0Max + 4 );
+        pData0 = s_DarLib->pDatas + Dar_LibObj(s_DarLib, pObj->Fan0)->Num;
+        pData1 = s_DarLib->pDatas + Dar_LibObj(s_DarLib, pObj->Fan1)->Num;
+        pData->Level = 1 + ABC_MAX(pData0->Level, pData1->Level);
+        if ( pData0->iGunc == -1 || pData1->iGunc == -1 )
+            continue;
+        iFanin0 = Gia_LitNotCond( pData0->iGunc, pObj->fCompl0 );
+        iFanin1 = Gia_LitNotCond( pData1->iGunc, pObj->fCompl1 );
+        // compute the resulting literal
+        if ( iFanin0 == 0 || iFanin1 == 0 || iFanin0 == Gia_LitNot(iFanin1) )
+            iLit = 0;
+        else if ( iFanin0 == 1 || iFanin0 == iFanin1 )
+            iLit = iFanin1;
+        else if ( iFanin1 == 1 )
+            iLit = iFanin0;
+        else
+        {
+            iLit = Gia_ManHashLookup( p, Gia_ObjFromLit(p, iFanin0), Gia_ObjFromLit(p, iFanin1) );
+            if ( iLit == 0 )
+                iLit = -1;
+        }
+        pData->iGunc = iLit;
+        if ( pData->iGunc >= 0 )
+        {
+            // update the level to be more accurate
+            pData->Level = Gia_ObjLevel( p, Gia_Regular(Gia_ObjFromLit(p, pData->iGunc)) );
+            // mark the node if it is part of MFFC
+//            pData->fMffc = Gia_ObjIsTravIdCurrentArray(p, Gia_Regular(pData->pGunc));
+        }
+    }
+}
+
+/**Function*************************************************************
+
+  Synopsis    [Evaluates one cut.]
+
+  Description [Returns the best gain.]
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+int Dar2_LibEval_rec( Dar_LibObj_t * pObj, int Out )
+{
+    Dar_LibDat_t * pData;
+    int Area;
+    pData = s_DarLib->pDatas + pObj->Num;
+    if ( pData->TravId == Out )
+        return 0;
+    pData->TravId = Out;
+    if ( pObj->fTerm )
+        return 0;
+    assert( pObj->Num > 3 );
+    if ( pData->iGunc >= 0 )//&& !pData->fMffc )
+        return 0;
+    // this is a new node - get a bound on the area of its branches
+//    nNodesSaved--;
+    Area = Dar2_LibEval_rec( Dar_LibObj(s_DarLib, pObj->Fan0), Out );
+//    if ( Area > nNodesSaved )
+//        return 0xff;
+    Area += Dar2_LibEval_rec( Dar_LibObj(s_DarLib, pObj->Fan1), Out );
+//    if ( Area > nNodesSaved )
+//        return 0xff;
+    return Area + 1;
+}
+
+/**Function*************************************************************
+
+  Synopsis    [Evaluates one cut.]
+
+  Description [Returns the best gain.]
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+int Dar2_LibEval( Gia_Man_t * p, Vec_Int_t * vCutLits, unsigned uTruth, int fKeepLevel, Vec_Int_t * vLeavesBest2 )
+{
+    int p_OutBest    = -1;
+    int p_OutNumBest = -1;
+    int p_LevelBest  =  1000000;
+    int p_GainBest   = -1000000;
+    int p_ClassBest  = -1;
+    int fTraining    =  0;
+    Dar_LibObj_t * pObj;
+    int Out, k, Class, nNodesSaved, nNodesAdded, nNodesGained, clk;
+    clk = clock();
+    assert( Vec_IntSize(vCutLits) == 4 );
+    assert( (uTruth >> 16) == 0 );
+    // check if the cut exits and assigns leaves and their levels
+    if ( !Dar2_LibCutMatch(p, vCutLits, uTruth) )
+        return -1;
+    // mark MFFC of the node
+//    nNodesSaved = Dar2_LibCutMarkMffc( p->pAig, pRoot, pCut->nLeaves, p->pPars->fPower? &PowerSaved : NULL );
+    nNodesSaved = 0;
+    // evaluate the cut
+    Class = s_DarLib->pMap[uTruth];
+    Dar2_LibEvalAssignNums( p, Class );
+    // profile outputs by their savings
+//    p->nTotalSubgs += s_DarLib->nSubgr0[Class];
+//    p->ClassSubgs[Class] += s_DarLib->nSubgr0[Class];
+    for ( Out = 0; Out < s_DarLib->nSubgr0[Class]; Out++ )
+    {
+        pObj = Dar_LibObj(s_DarLib, s_DarLib->pSubgr0[Class][Out]);
+//        nNodesAdded = Dar2_LibEval_rec( pObj, Out, nNodesSaved - !p->pPars->fUseZeros, Required, p->pPars->fPower? &PowerAdded : NULL );
+        nNodesAdded = Dar2_LibEval_rec( pObj, Out );
+        nNodesGained = nNodesSaved - nNodesAdded;
+        if ( fKeepLevel )
+        {
+            if ( s_DarLib->pDatas[pObj->Num].Level >  p_LevelBest || 
+                (s_DarLib->pDatas[pObj->Num].Level == p_LevelBest && nNodesGained <= p_GainBest) )
+                continue;
+        }
+        else
+        {
+            if ( nNodesGained <  p_GainBest || 
+                (nNodesGained == p_GainBest && s_DarLib->pDatas[pObj->Num].Level >= p_LevelBest) )
+                continue;
+        }
+        // remember this possibility
+        Vec_IntClear( vLeavesBest2 );
+        for ( k = 0; k < Vec_IntSize(vCutLits); k++ )
+            Vec_IntPush( vLeavesBest2, s_DarLib->pDatas[k].iGunc );
+        p_OutBest    = s_DarLib->pSubgr0[Class][Out];
+        p_OutNumBest = Out;
+        p_LevelBest  = s_DarLib->pDatas[pObj->Num].Level;
+        p_GainBest   = nNodesGained;
+        p_ClassBest  = Class;
+//        assert( p_LevelBest <= Required );
+    }
+//clk = clock() - clk;
+//p->ClassTimes[Class] += clk;
+//p->timeEval += clk;
+    assert( p_OutBest != -1 );
+    return p_OutBest;
+}
+
+/**Function*************************************************************
+
+  Synopsis    [Clears the fields of the nodes used i this cut.]
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+void Dar2_LibBuildClear_rec( Dar_LibObj_t * pObj, int * pCounter )
+{
+    if ( pObj->fTerm )
+        return;
+    pObj->Num = (*pCounter)++;
+    s_DarLib->pDatas[ pObj->Num ].iGunc = -1;
+    Dar2_LibBuildClear_rec( Dar_LibObj(s_DarLib, pObj->Fan0), pCounter );
+    Dar2_LibBuildClear_rec( Dar_LibObj(s_DarLib, pObj->Fan1), pCounter );
+}
+
+/**Function*************************************************************
+
+  Synopsis    [Reconstructs the best cut.]
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+int Dar2_LibBuildBest_rec( Gia_Man_t * p, Dar_LibObj_t * pObj )
+{
+    Gia_Obj_t * pNode;
+    Dar_LibDat_t * pData;
+    int iFanin0, iFanin1;
+    pData = s_DarLib->pDatas + pObj->Num;
+    if ( pData->iGunc >= 0 )
+        return pData->iGunc;
+    iFanin0 = Dar2_LibBuildBest_rec( p, Dar_LibObj(s_DarLib, pObj->Fan0) );
+    iFanin1 = Dar2_LibBuildBest_rec( p, Dar_LibObj(s_DarLib, pObj->Fan1) );
+    iFanin0 = Gia_LitNotCond( iFanin0, pObj->fCompl0 );
+    iFanin1 = Gia_LitNotCond( iFanin1, pObj->fCompl1 );
+    pData->iGunc = Gia_ManHashAnd( p, iFanin0, iFanin1 );
+    pNode = Gia_ManObj( p, Gia_Lit2Var(pData->iGunc) );
+    if ( Gia_ObjIsAnd( pNode ) )
+        Gia_ObjSetAndLevel( p, pNode );
+    Gia_ObjSetPhase( pNode );
+    return pData->iGunc;
+}
+
+/**Function*************************************************************
+
+  Synopsis    [Reconstructs the best cut.]
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+int Dar2_LibBuildBest( Gia_Man_t * p, Vec_Int_t * vLeavesBest2, int OutBest )
+{
+    int i, iLeaf, Counter = 4;
+    assert( Vec_IntSize(vLeavesBest2) == 4 );
+    Vec_IntForEachEntry( vLeavesBest2, iLeaf, i )
+        s_DarLib->pDatas[i].iGunc = iLeaf;
+    Dar2_LibBuildClear_rec( Dar_LibObj(s_DarLib, OutBest), &Counter );
+    return Dar2_LibBuildBest_rec( p, Dar_LibObj(s_DarLib, OutBest) );
+}
+
+/**Function*************************************************************
+
+  Synopsis    [Evaluate and build the new node.]
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+int Dar_LibEvalBuild( Gia_Man_t * p, Vec_Int_t * vCutLits, unsigned uTruth, int fKeepLevel, Vec_Int_t * vLeavesBest2 )
+{
+    int OutBest = Dar2_LibEval( p, vCutLits, uTruth, fKeepLevel, vLeavesBest2 );
+    return Dar2_LibBuildBest( p, vLeavesBest2, OutBest );
+}
 
 ////////////////////////////////////////////////////////////////////////
 ///                       END OF FILE                                ///

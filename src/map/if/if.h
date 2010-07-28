@@ -21,10 +21,6 @@
 #ifndef __IF_H__
 #define __IF_H__
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 ////////////////////////////////////////////////////////////////////////
 ///                          INCLUDES                                ///
 ////////////////////////////////////////////////////////////////////////
@@ -36,6 +32,11 @@ extern "C" {
 #include <time.h>
 #include "vec.h"
 #include "mem.h"
+#include "tim.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 ////////////////////////////////////////////////////////////////////////
 ///                         PARAMETERS                               ///
@@ -49,6 +50,7 @@ extern "C" {
 #define IF_INFINITY          100000000  
 // the largest possible user cut cost
 #define IF_COST_MAX          ((1<<14)-1)
+//#define IF_USE_BAT
 
 // object types
 typedef enum { 
@@ -74,18 +76,24 @@ typedef struct If_Set_t_     If_Set_t;
 // parameters
 struct If_Par_t_
 {
-    // user-controlable paramters
+    // user-controlable parameters
     int                nLutSize;      // the LUT size
     int                nCutsMax;      // the max number of cuts
     int                nFlowIters;    // the number of iterations of area recovery
     int                nAreaIters;    // the number of iterations of area recovery
     float              DelayTarget;   // delay target
+    float              Epsilon;       // value used in comparison floating point numbers
     int                fPreprocess;   // preprossing
     int                fArea;         // area-oriented mapping
     int                fFancy;        // a fancy feature
     int                fExpRed;       // expand/reduce of the best cuts
     int                fLatchPaths;   // reset timing on latch paths
+    int                fEdge;         // uses edge-based cut selection heuristics
+    int                fPower;        // uses power-aware cut selection heuristics
+    int                fCutMin;       // performs cut minimization by removing functionally reducdant variables
     int                fSeqMap;       // sequential mapping
+    int                fBidec;        // use bi-decomposition
+    int                fUseBat;       // use one specialized feature
     int                fVerbose;      // the verbosity flag
     // internal parameters
     int                fAreaOnly;     // area only mode
@@ -95,6 +103,7 @@ struct If_Par_t_
     int                fUseSops;      // use local SOPs as a cost function
     int                fUseCnfs;      // use local CNFs as a cost function
     int                fUseMv;        // use local MV-SOPs as a cost function
+    int                fUseAdders;    // timing model for adders
     int                nLatches;      // the number of latches in seq mapping
     int                fLiftLeaves;   // shift the leaves for seq mapping
     If_Lib_t *         pLutLib;       // the LUT library
@@ -125,7 +134,8 @@ struct If_Man_t_
     Vec_Ptr_t *        vCis;          // the primary inputs
     Vec_Ptr_t *        vCos;          // the primary outputs
     Vec_Ptr_t *        vObjs;         // all objects
-    Vec_Ptr_t *        vMapped;       // objects used in the mapping
+    Vec_Ptr_t *        vObjsRev;      // reverse topological order of objects
+//    Vec_Ptr_t *        vMapped;       // objects used in the mapping
     Vec_Ptr_t *        vTemp;         // temporary array
     int                nObjs[IF_VOID];// the number of objects by type
     // various data
@@ -135,12 +145,14 @@ struct If_Man_t_
     float              RequiredGlo2;  // global required times
     float              AreaGlo;       // global area
     int                nNets;         // the sum total of fanins of all LUTs in the mapping
+    float              dPower;        // the sum total of switching activities of all LUTs in the mapping
     int                nCutsUsed;     // the number of cuts currently used
     int                nCutsMerged;   // the total number of cuts merged
     unsigned *         puTemp[4];     // used for the truth table computation
     int                SortMode;      // one of the three sorting modes
     int                fNextRound;    // set to 1 after the first round
     int                nChoices;      // the number of choice nodes
+    Vec_Int_t *        vSwitching;    // switching activity of each node
     // sequential mapping
     Vec_Ptr_t *        vLatchOrder;   // topological ordering of latches
     Vec_Int_t *        vLags;         // sequentail lags of all nodes
@@ -158,18 +170,28 @@ struct If_Man_t_
     If_Set_t *         pMemCi;        // memory for CI cutsets
     If_Set_t *         pMemAnd;       // memory for AND cutsets
     If_Set_t *         pFreeList;     // the list of free cutsets
+    int                nSmallSupp;    // the small support
+    int                nCutsTotal;
+    int                nCutsUseless;
+    // timing manager
+    Tim_Man_t *        pManTim;
+    // statistics 
+//    int                timeTruth;
 };
 
 // priority cut
 struct If_Cut_t_
 {
-    float              Delay;         // delay of the cut
     float              Area;          // area (or area-flow) of the cut
     float              AveRefs;       // the average number of leaf references
+    float              Edge;          // the edge flow
+    float              Power;         // the power flow
+    float              Delay;         // delay of the cut
     unsigned           uSign;         // cut signature
-    unsigned           Cost    : 14;  // the user's cost of the cut
+    unsigned           Cost    : 13;  // the user's cost of the cut
     unsigned           fCompl  :  1;  // the complemented attribute 
     unsigned           fUser   :  1;  // using the user's area and delay
+    unsigned           fUseless:  1;  // using the user's area and delay
     unsigned           nLimit  :  8;  // the maximum number of leaves
     unsigned           nLeaves :  8;  // the number of leaves
     int *              pLeaves;       // array of fanins
@@ -196,8 +218,10 @@ struct If_Obj_t_
     unsigned           fRepr   :  1;  // representative of the equivalence class
     unsigned           fMark   :  1;  // multipurpose mark
     unsigned           fVisit  :  1;  // multipurpose mark
-    unsigned           Level   : 22;  // logic level of the node
+    unsigned           fSpec   :  1;  // multipurpose mark
+    unsigned           Level   : 21;  // logic level of the node
     int                Id;            // integer ID
+    int                IdPio;         // integer ID of PIs/POs
     int                nRefs;         // the number of references
     int                nVisits;       // the number of visits to this node
     int                nVisitsCopy;   // the number of visits to this node
@@ -212,10 +236,10 @@ struct If_Obj_t_
     If_Cut_t           CutBest;       // the best cut selected 
 };
 
-static inline If_Obj_t * If_Regular( If_Obj_t * p )                          { return (If_Obj_t *)((unsigned long)(p) & ~01);  }
-static inline If_Obj_t * If_Not( If_Obj_t * p )                              { return (If_Obj_t *)((unsigned long)(p) ^  01);  }
-static inline If_Obj_t * If_NotCond( If_Obj_t * p, int c )                   { return (If_Obj_t *)((unsigned long)(p) ^ (c));  }
-static inline int        If_IsComplement( If_Obj_t * p )                     { return (int )(((unsigned long)p) & 01);         }
+static inline If_Obj_t * If_Regular( If_Obj_t * p )                          { return (If_Obj_t *)((ABC_PTRUINT_T)(p) & ~01);  }
+static inline If_Obj_t * If_Not( If_Obj_t * p )                              { return (If_Obj_t *)((ABC_PTRUINT_T)(p) ^  01);  }
+static inline If_Obj_t * If_NotCond( If_Obj_t * p, int c )                   { return (If_Obj_t *)((ABC_PTRUINT_T)(p) ^ (c));  }
+static inline int        If_IsComplement( If_Obj_t * p )                     { return (int )(((ABC_PTRUINT_T)p) & 01);         }
 
 static inline int        If_ManCiNum( If_Man_t * p )                         { return p->nObjs[IF_CI];               }
 static inline int        If_ManCoNum( If_Man_t * p )                         { return p->nObjs[IF_CO];               }
@@ -232,15 +256,18 @@ static inline If_Obj_t * If_ManObj( If_Man_t * p, int i )                    { r
 static inline int        If_ObjIsConst1( If_Obj_t * pObj )                   { return pObj->Type == IF_CONST1;       }
 static inline int        If_ObjIsCi( If_Obj_t * pObj )                       { return pObj->Type == IF_CI;           }
 static inline int        If_ObjIsCo( If_Obj_t * pObj )                       { return pObj->Type == IF_CO;           }
-static inline int        If_ObjIsPi( If_Obj_t * pObj )                       { return If_ObjIsCi(pObj) && pObj->pFanin0 == NULL; }
-static inline int        If_ObjIsLatch( If_Obj_t * pObj )                    { return If_ObjIsCi(pObj) && pObj->pFanin0 != NULL; }
+static inline int        If_ObjIsTerm( If_Obj_t * pObj )                     { return pObj->Type == IF_CI || pObj->Type == IF_CO; }
+static inline int        If_ObjIsLatch( If_Obj_t * pObj )                    { return If_ObjIsCi(pObj) && pObj->pFanin0 != NULL;  }
 static inline int        If_ObjIsAnd( If_Obj_t * pObj )                      { return pObj->Type == IF_AND;          }
 
+static inline int        If_ObjId( If_Obj_t * pObj )                         { return pObj->Id;                      }
 static inline If_Obj_t * If_ObjFanin0( If_Obj_t * pObj )                     { return pObj->pFanin0;                 }
 static inline If_Obj_t * If_ObjFanin1( If_Obj_t * pObj )                     { return pObj->pFanin1;                 }
 static inline int        If_ObjFaninC0( If_Obj_t * pObj )                    { return pObj->fCompl0;                 }
 static inline int        If_ObjFaninC1( If_Obj_t * pObj )                    { return pObj->fCompl1;                 }
 static inline void *     If_ObjCopy( If_Obj_t * pObj )                       { return pObj->pCopy;                   }
+static inline int        If_ObjLevel( If_Obj_t * pObj )                      { return pObj->Level;                   }
+static inline void       If_ObjSetLevel( If_Obj_t * pObj, int Level )        { pObj->Level = Level;                  }
 static inline void       If_ObjSetCopy( If_Obj_t * pObj, void * pCopy )      { pObj->pCopy = pCopy;                  }
 static inline void       If_ObjSetChoice( If_Obj_t * pObj, If_Obj_t * pEqu ) { pObj->pEquiv = pEqu;                  }
 
@@ -256,8 +283,13 @@ static inline void       If_ObjSetLValue( If_Obj_t * pObj, float LValue )    { p
 static inline void *     If_CutData( If_Cut_t * pCut )                       { return *(void **)pCut;                }
 static inline void       If_CutSetData( If_Cut_t * pCut, void * pData )      { *(void **)pCut = pData;               }
 
+static inline int        If_CutDataInt( If_Cut_t * pCut )                    { return *(int *)pCut;                  }
+static inline void       If_CutSetDataInt( If_Cut_t * pCut, int Data )       { *(int *)pCut = Data;                  }
+
 static inline int        If_CutLeaveNum( If_Cut_t * pCut )                   { return pCut->nLeaves;                             }
+static inline int *      If_CutLeaves( If_Cut_t * pCut )                     { return pCut->pLeaves;                             }
 static inline unsigned * If_CutTruth( If_Cut_t * pCut )                      { return pCut->pTruth;                              }
+static inline unsigned   If_CutSuppMask( If_Cut_t * pCut )                   { return (~(unsigned)0) >> (32-pCut->nLeaves);      }
 static inline int        If_CutTruthWords( int nVarsMax )                    { return nVarsMax <= 5 ? 1 : (1 << (nVarsMax - 5)); }
 static inline int        If_CutPermWords( int nVarsMax )                     { return nVarsMax / sizeof(int) + ((nVarsMax % sizeof(int)) > 0); }
 
@@ -292,9 +324,12 @@ static inline float      If_CutLutArea( If_Man_t * p, If_Cut_t * pCut )      { r
     Vec_PtrForEachEntryStart( p->vCos, pObj, i, If_ManCoNum(p) - p->pPars->nLatches )
 #define If_ManForEachLatchOutput( p, pObj, i )                                 \
     Vec_PtrForEachEntryStart( p->vCis, pObj, i, If_ManCiNum(p) - p->pPars->nLatches )
-// iterator over all objects, including those currently not used
+// iterator over all objects in topological order
 #define If_ManForEachObj( p, pObj, i )                                         \
     Vec_PtrForEachEntry( p->vObjs, pObj, i )
+// iterator over all objects in reverse topological order
+#define If_ManForEachObjReverse( p, pObj, i )                                  \
+    Vec_PtrForEachEntry( p->vObjsRev, pObj, i )
 // iterator over logic nodes 
 #define If_ManForEachNode( p, pObj, i )                                        \
     If_ManForEachObj( p, pObj, i ) if ( pObj->Type != IF_AND ) {} else
@@ -306,7 +341,7 @@ static inline float      If_CutLutArea( If_Man_t * p, If_Cut_t * pCut )      { r
     for ( i = 0; (i < (int)(pCut)->nLeaves) && ((pLeaf) = If_ManObj(p, (pCut)->pLeaves[i])); i++ )
 #define If_CutForEachLeafReverse( p, pCut, pLeaf, i )                                 \
     for ( i = (int)(pCut)->nLeaves - 1; (i >= 0) && ((pLeaf) = If_ManObj(p, (pCut)->pLeaves[i])); i-- )
-//#define If_CutForEachLeaf( p, pCut, pLeaf, i )                                 \
+//#define If_CutForEachLeaf( p, pCut, pLeaf, i )                                 \ \\prevent multiline comment
 //    for ( i = 0; (i < (int)(pCut)->nLeaves) && ((pLeaf) = If_ManObj(p, p->pPars->fLiftLeaves? (pCut)->pLeaves[i] >> 8 : (pCut)->pLeaves[i])); i++ )
 // iterator over the leaves of the sequential cut
 #define If_CutForEachLeafSeq( p, pCut, pLeaf, Shift, i )                       \
@@ -320,20 +355,41 @@ static inline float      If_CutLutArea( If_Man_t * p, If_Cut_t * pCut )      { r
 extern int             If_ManPerformMapping( If_Man_t * p );
 extern int             If_ManPerformMappingComb( If_Man_t * p );
 /*=== ifCut.c ============================================================*/
-extern float           If_CutAreaDerefed( If_Man_t * p, If_Cut_t * pCut, int nLevels );
-extern float           If_CutAreaRefed( If_Man_t * p, If_Cut_t * pCut, int nLevels );
-extern float           If_CutDeref( If_Man_t * p, If_Cut_t * pCut, int nLevels );
-extern float           If_CutRef( If_Man_t * p, If_Cut_t * pCut, int nLevels );
-extern void            If_CutPrint( If_Man_t * p, If_Cut_t * pCut );
-extern void            If_CutPrintTiming( If_Man_t * p, If_Cut_t * pCut );
-extern float           If_CutFlow( If_Man_t * p, If_Cut_t * pCut );
-extern float           If_CutAverageRefs( If_Man_t * p, If_Cut_t * pCut );
 extern int             If_CutFilter( If_Set_t * pCutSet, If_Cut_t * pCut );
 extern void            If_CutSort( If_Man_t * p, If_Set_t * pCutSet, If_Cut_t * pCut );
+extern void            If_CutOrder( If_Cut_t * pCut );
 extern int             If_CutMerge( If_Cut_t * pCut0, If_Cut_t * pCut1, If_Cut_t * pCut );
+extern int             If_CutCheck( If_Cut_t * pCut );
+extern void            If_CutPrint( If_Cut_t * pCut );
+extern void            If_CutPrintTiming( If_Man_t * p, If_Cut_t * pCut );
 extern void            If_CutLift( If_Cut_t * pCut );
 extern void            If_CutCopy( If_Man_t * p, If_Cut_t * pCutDest, If_Cut_t * pCutSrc );
-extern void            If_ManSortCuts( If_Man_t * p, int Mode );
+extern float           If_CutAreaFlow( If_Man_t * p, If_Cut_t * pCut );
+extern float           If_CutEdgeFlow( If_Man_t * p, If_Cut_t * pCut );
+extern float           If_CutPowerFlow( If_Man_t * p, If_Cut_t * pCut, If_Obj_t * pRoot );
+extern float           If_CutAverageRefs( If_Man_t * p, If_Cut_t * pCut );
+extern float           If_CutAreaDeref( If_Man_t * p, If_Cut_t * pCut );
+extern float           If_CutAreaRef( If_Man_t * p, If_Cut_t * pCut );
+extern float           If_CutAreaDerefed( If_Man_t * p, If_Cut_t * pCut );
+extern float           If_CutAreaRefed( If_Man_t * p, If_Cut_t * pCut );
+extern float           If_CutEdgeDeref( If_Man_t * p, If_Cut_t * pCut );
+extern float           If_CutEdgeRef( If_Man_t * p, If_Cut_t * pCut );
+extern float           If_CutEdgeDerefed( If_Man_t * p, If_Cut_t * pCut );
+extern float           If_CutEdgeRefed( If_Man_t * p, If_Cut_t * pCut );
+extern float           If_CutPowerDeref( If_Man_t * p, If_Cut_t * pCut, If_Obj_t * pRoot );
+extern float           If_CutPowerRef( If_Man_t * p, If_Cut_t * pCut, If_Obj_t * pRoot );
+extern float           If_CutPowerDerefed( If_Man_t * p, If_Cut_t * pCut, If_Obj_t * pRoot );
+extern float           If_CutPowerRefed( If_Man_t * p, If_Cut_t * pCut, If_Obj_t * pRoot );
+/*=== ifLib.c =============================================================*/
+extern If_Lib_t *      If_LutLibRead( char * FileName );
+extern If_Lib_t *      If_LutLibDup( If_Lib_t * p );
+extern void            If_LutLibFree( If_Lib_t * pLutLib );
+extern void            If_LutLibPrint( If_Lib_t * pLutLib );
+extern int             If_LutLibDelaysAreDiscrete( If_Lib_t * pLutLib );
+extern int             If_LutLibDelaysAreDifferent( If_Lib_t * pLutLib );
+extern If_Lib_t *      If_SetSimpleLutLib( int nLutSize );
+extern float           If_LutLibFastestPinDelay( If_Lib_t * p );
+extern float           If_LutLibSlowestPinDelay( If_Lib_t * p );
 /*=== ifMan.c =============================================================*/
 extern If_Man_t *      If_ManStart( If_Par_t * pPars );
 extern void            If_ManRestart( If_Man_t * p );
@@ -361,8 +417,10 @@ extern int             If_ManPerformMappingSeq( If_Man_t * p );
 /*=== ifTime.c ============================================================*/
 extern float           If_CutDelay( If_Man_t * p, If_Cut_t * pCut );
 extern void            If_CutPropagateRequired( If_Man_t * p, If_Cut_t * pCut, float Required );
+extern void            If_CutRotatePins( If_Man_t * p, If_Cut_t * pCut );
 /*=== ifTruth.c ===========================================================*/
 extern void            If_CutComputeTruth( If_Man_t * p, If_Cut_t * pCut, If_Cut_t * pCut0, If_Cut_t * pCut1, int fCompl0, int fCompl1 );
+extern void            If_CutTruthPermute( unsigned * pOut, unsigned * pIn, int nVars, float * pDelays, int * pVars );
 /*=== ifUtil.c ============================================================*/
 extern void            If_ManCleanNodeCopy( If_Man_t * p );
 extern void            If_ManCleanCutData( If_Man_t * p );
@@ -370,9 +428,20 @@ extern void            If_ManCleanMarkV( If_Man_t * p );
 extern float           If_ManDelayMax( If_Man_t * p, int fSeq );
 extern void            If_ManComputeRequired( If_Man_t * p );
 extern float           If_ManScanMapping( If_Man_t * p );
+extern float           If_ManScanMappingDirect( If_Man_t * p );
 extern float           If_ManScanMappingSeq( If_Man_t * p );
 extern void            If_ManResetOriginalRefs( If_Man_t * p );
 extern int             If_ManCrossCut( If_Man_t * p );
+
+extern Vec_Ptr_t *     If_ManReverseOrder( If_Man_t * p );
+extern void            If_ManMarkMapping( If_Man_t * p );
+extern Vec_Ptr_t *     If_ManCollectMappingDirect( If_Man_t * p );
+extern Vec_Int_t *     If_ManCollectMappingInt( If_Man_t * p );
+
+
+extern int             If_ManCountSpecialPos( If_Man_t * p );
+
+
 
 #ifdef __cplusplus
 }

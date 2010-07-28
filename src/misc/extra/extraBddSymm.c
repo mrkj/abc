@@ -207,12 +207,12 @@ Extra_SymmInfo_t * Extra_SymmPairsAllocate( int nVars )
     Extra_SymmInfo_t * p;
 
     // allocate and clean the storage for symmetry info
-    p = ALLOC( Extra_SymmInfo_t, 1 );
+    p = ABC_ALLOC( Extra_SymmInfo_t, 1 );
     memset( p, 0, sizeof(Extra_SymmInfo_t) );
     p->nVars     = nVars;
-    p->pVars     = ALLOC( int, nVars );  
-    p->pSymms    = ALLOC( char *, nVars );  
-    p->pSymms[0] = ALLOC( char  , nVars * nVars );
+    p->pVars     = ABC_ALLOC( int, nVars );  
+    p->pSymms    = ABC_ALLOC( char *, nVars );  
+    p->pSymms[0] = ABC_ALLOC( char  , nVars * nVars );
     memset( p->pSymms[0], 0, nVars * nVars * sizeof(char) );
 
     for ( i = 1; i < nVars; i++ )
@@ -234,10 +234,10 @@ Extra_SymmInfo_t * Extra_SymmPairsAllocate( int nVars )
 ******************************************************************************/
 void Extra_SymmPairsDissolve( Extra_SymmInfo_t * p )
 {
-    free( p->pVars );
-    free( p->pSymms[0] );
-    free( p->pSymms    );
-    free( p );
+    ABC_FREE( p->pVars );
+    ABC_FREE( p->pSymms[0] );
+    ABC_FREE( p->pSymms    );
+    ABC_FREE( p );
 } /* end of Extra_SymmPairsDissolve */
 
 /**Function********************************************************************
@@ -298,7 +298,7 @@ Extra_SymmInfo_t * Extra_SymmPairsCreateFromZdd( DdManager * dd, DdNode * zPairs
     p = Extra_SymmPairsAllocate( nSuppSize );
 
     // allocate the storage for the temporary map
-    pMapVars2Nums = ALLOC( int, dd->size );
+    pMapVars2Nums = ABC_ALLOC( int, dd->size );
     memset( pMapVars2Nums, 0, dd->size * sizeof(int) );
 
     // assign the variables
@@ -337,7 +337,7 @@ Extra_SymmInfo_t * Extra_SymmPairsCreateFromZdd( DdManager * dd, DdNode * zPairs
     } // for each cube 
     Cudd_RecursiveDerefZdd( dd, zSet );
 
-    FREE( pMapVars2Nums );
+    ABC_FREE( pMapVars2Nums );
     return p;
 
 } /* end of Extra_SymmPairsCreateFromZdd */
@@ -515,7 +515,7 @@ DdNode* Extra_zddTuplesFromBdd(
             return NULL;
 
         /* the second argument in the recursive call stannds for <n>;
-        /* reate the first argument, which stands for <k> 
+         * reate the first argument, which stands for <k>
          * as when we are talking about the tuple of <k> out of <n> */
         for ( i = 0; i < nVars-K; i++ )
             bVarsK = cuddT( bVarsK );
@@ -603,7 +603,7 @@ extraZddSymmPairsCompute(
     }
     assert( bVars != b1 );
 
-    if ( zRes = cuddCacheLookup2Zdd(dd, extraZddSymmPairsCompute, bFunc, bVars) )
+    if ( (zRes = cuddCacheLookup2Zdd(dd, extraZddSymmPairsCompute, bFunc, bVars)) )
         return zRes;
     else
     {
@@ -817,7 +817,7 @@ DdNode * extraZddGetSymmetricVars(
     }
     assert( bVars != b1 );
 
-    if ( zRes = cuddCacheLookupZdd(dd, DD_GET_SYMM_VARS_TAG, bF, bG, bVars) )
+    if ( (zRes = cuddCacheLookupZdd(dd, DD_GET_SYMM_VARS_TAG, bF, bG, bVars)) )
         return zRes;
     else
     {
@@ -1005,7 +1005,7 @@ DdNode * extraZddGetSingletons(
 //    if ( bVars == b0 )  // bug fixed by Jin Zhang, Jan 23, 2004
         return z1;
 
-    if ( zRes = cuddCacheLookup1Zdd(dd, extraZddGetSingletons, bVars) )
+    if ( (zRes = cuddCacheLookup1Zdd(dd, extraZddGetSingletons, bVars)) )
         return zRes;
     else
     {
@@ -1067,7 +1067,7 @@ DdNode * extraBddReduceVarSet(
     if ( cuddIsConstant(bFR) || bVars == b1 )
         return bVars;
 
-    if ( bRes = cuddCacheLookup2(dd, extraBddReduceVarSet, bVars, bF) )
+    if ( (bRes = cuddCacheLookup2(dd, extraBddReduceVarSet, bVars, bF)) )
         return bRes;
     else
     {
@@ -1175,7 +1175,7 @@ DdNode * extraBddCheckVarsSymmetric(
 
     assert( bVars != b1 );
     
-    if ( bRes = cuddCacheLookup2(dd, extraBddCheckVarsSymmetric, bF, bVars) )
+    if ( (bRes = cuddCacheLookup2(dd, extraBddCheckVarsSymmetric, bF, bVars)) )
         return bRes;
     else
     {
@@ -1425,7 +1425,7 @@ DdNode * extraZddSelectOneSubset(
     if ( zS == z1 )    return z1;
     
     // check cache
-    if ( zRes = cuddCacheLookup1Zdd( dd, extraZddSelectOneSubset, zS ) )
+    if ( (zRes = cuddCacheLookup1Zdd( dd, extraZddSelectOneSubset, zS )) )
         return zRes;
     else
     {

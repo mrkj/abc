@@ -57,11 +57,12 @@ extern void  Abc_PlaceUpdate( Vec_Ptr_t * vAddedCells, Vec_Ptr_t * vUpdatedNets 
 ***********************************************************************/
 int Abc_NtkRewrite( Abc_Ntk_t * pNtk, int fUpdateLevel, int fUseZeros, int fVerbose, int fVeryVerbose, int fPlaceEnable )
 {
+    extern void           Dec_GraphUpdateNetwork( Abc_Obj_t * pRoot, Dec_Graph_t * pGraph, bool fUpdateLevel, int nGain );
     ProgressBar * pProgress;
     Cut_Man_t * pManCut;
     Rwr_Man_t * pManRwr;
     Abc_Obj_t * pNode;
-    Vec_Ptr_t * vAddedCells = NULL, * vUpdatedNets = NULL;
+//    Vec_Ptr_t * vAddedCells = NULL, * vUpdatedNets = NULL;
     Dec_Graph_t * pGraph;
     int i, nNodes, nGain, fCompl;
     int clk, clkStart = clock();
@@ -119,7 +120,7 @@ Rwr_ManAddTimeCuts( pManRwr, clock() - clk );
 
         // for each cut, try to resynthesize it
         nGain = Rwr_NodeRewrite( pManRwr, pManCut, pNode, fUpdateLevel, fUseZeros, fPlaceEnable );
-        if ( !(nGain > 0 || nGain == 0 && fUseZeros) )
+        if ( !(nGain > 0 || (nGain == 0 && fUseZeros)) )
             continue;
         // if we end up here, a rewriting step is accepted
 
@@ -167,7 +168,7 @@ Rwr_ManAddTimeTotal( pManRwr, clock() - clkStart );
     {
 //        int clk = clock();
     Abc_NtkReassignIds( pNtk );
-//        PRT( "time", clock() - clk );
+//        ABC_PRT( "time", clock() - clk );
     }
 //    Abc_AigCheckFaninOrder( pNtk->pManFunc );
     // fix the levels

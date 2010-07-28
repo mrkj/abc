@@ -18,15 +18,24 @@
 
 ***********************************************************************/
 
-#include "mainInt.h"
 #include <stdio.h>
 #include <string.h>
+#include "mainInt.h"
+#include "abc_global.h"
 
 #ifndef WIN32
 # include <sys/types.h>
 # include <dirent.h>
 # include <dlfcn.h>
 #endif
+
+// fix by Paddy O'Brien  on Sep 22, 2009
+#ifdef __CYGWIN__
+#ifndef RTLD_LOCAL
+#define RTLD_LOCAL 0
+#endif
+#endif 
+
 
 #define MAX_LIBS 256
 static void* libHandles[MAX_LIBS+1]; // will be null terminated
@@ -50,10 +59,10 @@ void open_libs() {
     env = getenv ("ABC_LIB_PATH");
     if (env == NULL) {
 //    printf("Warning: ABC_LIB_PATH not defined. Looking into the current directory.\n");
-      init_p = malloc (2*sizeof(char));
+      init_p = ABC_ALLOC( char, (2*sizeof(char)) );
       init_p[0]='.'; init_p[1] = 0;
     } else {
-      init_p = malloc ((strlen(env)+1)*sizeof(char));
+      init_p = ABC_ALLOC( char, ((strlen(env)+1)*sizeof(char)) );
       strcpy (init_p, env);
     }
 
@@ -84,8 +93,8 @@ void open_libs() {
           
           // attempt to load it
           else {
-            char* szPrefixed = malloc((strlen(dp->d_name) + strlen(p) + 2) * 
-                                      sizeof(char));
+            char* szPrefixed = ABC_ALLOC( char, ((strlen(dp->d_name) + strlen(p) + 2) * 
+                                      sizeof(char)) );
             sprintf(szPrefixed, "%s/", p);
             strcat(szPrefixed, dp->d_name);
             libHandles[curr_lib] = dlopen(szPrefixed, RTLD_NOW | RTLD_LOCAL);
@@ -98,7 +107,7 @@ void open_libs() {
               printf("Warning: failed to load ABC library %s:\n\t%s\n", szPrefixed, dlerror());
             }
             
-            free(szPrefixed);
+            ABC_FREE(szPrefixed);
           }
         }
       }
@@ -106,7 +115,7 @@ void open_libs() {
       p = endp+1;
     }
 
-    free(init_p);
+    ABC_FREE(init_p);
 #endif
     
     // null terminate the list of handles

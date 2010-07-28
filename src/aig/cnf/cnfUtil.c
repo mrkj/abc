@@ -140,6 +140,7 @@ int Cnf_ManScanMapping_rec( Cnf_Man_t * p, Aig_Obj_t * pObj, Vec_Ptr_t * vMapped
     else
     {
         pCutBest = pObj->pData;
+//        assert( pCutBest->nFanins > 0 );
         assert( pCutBest->Cost < 127 );
         aArea = pCutBest->Cost;
         Cnf_CutForEachLeaf( p->pManAig, pCutBest, pLeaf, i )
@@ -179,6 +180,50 @@ Vec_Ptr_t * Cnf_ManScanMapping( Cnf_Man_t * p, int fCollect, int fPreorder )
         p->aArea += Cnf_ManScanMapping_rec( p, Aig_ObjFanin0(pObj), vMapped, fPreorder );
 //    printf( "Variables = %6d. Clauses = %8d.\n", vMapped? Vec_PtrSize(vMapped) + Aig_ManPiNum(p->pManAig) + 1 : 0, p->aArea + 2 );
     return vMapped;
+}
+
+/**Function*************************************************************
+
+  Synopsis    [Returns the array of CI IDs.]
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+Vec_Int_t * Cnf_DataCollectCiSatNums( Cnf_Dat_t * pCnf, Aig_Man_t * p )
+{
+    Vec_Int_t * vCiIds;
+    Aig_Obj_t * pObj;
+    int i;
+    vCiIds = Vec_IntAlloc( Aig_ManPiNum(p) );
+    Aig_ManForEachPi( p, pObj, i )
+        Vec_IntPush( vCiIds, pCnf->pVarNums[pObj->Id] );
+    return vCiIds;
+}
+
+/**Function*************************************************************
+
+  Synopsis    [Returns the array of CI IDs.]
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+Vec_Int_t * Cnf_DataCollectCoSatNums( Cnf_Dat_t * pCnf, Aig_Man_t * p )
+{
+    Vec_Int_t * vCoIds;
+    Aig_Obj_t * pObj;
+    int i;
+    vCoIds = Vec_IntAlloc( Aig_ManPoNum(p) );
+    Aig_ManForEachPo( p, pObj, i )
+        Vec_IntPush( vCoIds, pCnf->pVarNums[pObj->Id] );
+    return vCoIds;
 }
 
 ////////////////////////////////////////////////////////////////////////

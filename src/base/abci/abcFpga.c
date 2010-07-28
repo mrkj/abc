@@ -49,14 +49,15 @@ Abc_Ntk_t * Abc_NtkFpga( Abc_Ntk_t * pNtk, float DelayTarget, int fRecovery, int
     int fShowSwitching = 1;
     Abc_Ntk_t * pNtkNew;
     Fpga_Man_t * pMan;
-    Vec_Int_t * vSwitching;
+    Vec_Int_t * vSwitching = NULL;
     float * pSwitching = NULL;
+    int Num;
 
     assert( Abc_NtkIsStrash(pNtk) );
 
     // print a warning about choice nodes
-    if ( Abc_NtkGetChoiceNum( pNtk ) )
-        printf( "Performing FPGA mapping with choices.\n" );
+    if ( (Num = Abc_NtkGetChoiceNum( pNtk )) )
+        Abc_Print( 0, "Performing LUT mapping with %d choices.\n", Num );
 
     // compute switching activity
     fShowSwitching |= fSwitching;
@@ -69,7 +70,7 @@ Abc_Ntk_t * Abc_NtkFpga( Abc_Ntk_t * pNtk, float DelayTarget, int fRecovery, int
 
     // perform FPGA mapping
     pMan = Abc_NtkToFpga( pNtk, fRecovery, pSwitching, fLatchPaths, fVerbose );    
-    if ( pSwitching ) Vec_IntFree( vSwitching );
+    if ( pSwitching ) { assert(vSwitching); Vec_IntFree( vSwitching ); }
     if ( pMan == NULL )
         return NULL;
     Fpga_ManSetSwitching( pMan, fSwitching );
@@ -229,8 +230,8 @@ Abc_Ntk_t * Abc_NtkFromFpga( Fpga_Man_t * pMan, Abc_Ntk_t * pNtk )
         Abc_NtkDeleteObj( pNodeNew );
     // decouple the PO driver nodes to reduce the number of levels
     nDupGates = Abc_NtkLogicMakeSimpleCos( pNtkNew, 1 );
-//    if ( nDupGates && Fpga_ManReadVerbose(pMan) )
-//        printf( "Duplicated %d gates to decouple the CO drivers.\n", nDupGates );
+    if ( nDupGates && Fpga_ManReadVerbose(pMan) )
+        printf( "Duplicated %d gates to decouple the CO drivers.\n", nDupGates );
     return pNtkNew;
 }
 

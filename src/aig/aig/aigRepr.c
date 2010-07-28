@@ -44,7 +44,7 @@ void Aig_ManReprStart( Aig_Man_t * p, int nIdMax )
     assert( Aig_ManBufNum(p) == 0 );
     assert( p->pReprs == NULL );
     p->nReprsAlloc = nIdMax;
-    p->pReprs = ALLOC( Aig_Obj_t *, p->nReprsAlloc );
+    p->pReprs = ABC_ALLOC( Aig_Obj_t *, p->nReprsAlloc );
     memset( p->pReprs, 0, sizeof(Aig_Obj_t *) * p->nReprsAlloc );
 }
 
@@ -62,7 +62,7 @@ void Aig_ManReprStart( Aig_Man_t * p, int nIdMax )
 void Aig_ManReprStop( Aig_Man_t * p )
 {
     assert( p->pReprs != NULL );
-    FREE( p->pReprs );
+    ABC_FREE( p->pReprs );
     p->nReprsAlloc = 0;    
 }
 
@@ -99,7 +99,7 @@ void Aig_ObjCreateRepr( Aig_Man_t * p, Aig_Obj_t * pNode1, Aig_Obj_t * pNode2 )
   SeeAlso     []
 
 ***********************************************************************/
-static inline void Aig_ObjSetRepr( Aig_Man_t * p, Aig_Obj_t * pNode1, Aig_Obj_t * pNode2 )
+static inline void Aig_ObjSetRepr_( Aig_Man_t * p, Aig_Obj_t * pNode1, Aig_Obj_t * pNode2 )
 {
     assert( p->pReprs != NULL );
     assert( !Aig_IsComplement(pNode1) );
@@ -184,15 +184,15 @@ static inline Aig_Obj_t * Aig_ObjFindReprTransitive( Aig_Man_t * p, Aig_Obj_t * 
   SeeAlso     []
 
 ***********************************************************************/
-static inline Aig_Obj_t * Aig_ObjRepr( Aig_Man_t * p, Aig_Obj_t * pObj )
+static inline Aig_Obj_t * Aig_ObjGetRepr( Aig_Man_t * p, Aig_Obj_t * pObj )
 {
     Aig_Obj_t * pRepr;
     if ( (pRepr = Aig_ObjFindRepr(p, pObj)) )
         return Aig_NotCond( pRepr->pData, pObj->fPhase ^ pRepr->fPhase );
     return pObj->pData;
 }
-static inline Aig_Obj_t * Aig_ObjChild0Repr( Aig_Man_t * p, Aig_Obj_t * pObj ) { return Aig_NotCond( Aig_ObjRepr(p, Aig_ObjFanin0(pObj)), Aig_ObjFaninC0(pObj) ); }
-static inline Aig_Obj_t * Aig_ObjChild1Repr( Aig_Man_t * p, Aig_Obj_t * pObj ) { return Aig_NotCond( Aig_ObjRepr(p, Aig_ObjFanin1(pObj)), Aig_ObjFaninC1(pObj) ); }
+static inline Aig_Obj_t * Aig_ObjChild0Repr( Aig_Man_t * p, Aig_Obj_t * pObj ) { return Aig_NotCond( Aig_ObjGetRepr(p, Aig_ObjFanin0(pObj)), Aig_ObjFaninC0(pObj) ); }
+static inline Aig_Obj_t * Aig_ObjChild1Repr( Aig_Man_t * p, Aig_Obj_t * pObj ) { return Aig_NotCond( Aig_ObjGetRepr(p, Aig_ObjFanin1(pObj)), Aig_ObjFaninC1(pObj) ); }
 
 /**Function*************************************************************
 
@@ -214,14 +214,14 @@ void Aig_ManTransferRepr( Aig_Man_t * pNew, Aig_Man_t * pOld )
     if ( pNew->nReprsAlloc < Aig_ManObjNumMax(pNew) )
     {
         int nReprsAllocNew = 2 * Aig_ManObjNumMax(pNew);
-        pNew->pReprs = REALLOC( Aig_Obj_t *, pNew->pReprs, nReprsAllocNew );
+        pNew->pReprs = ABC_REALLOC( Aig_Obj_t *, pNew->pReprs, nReprsAllocNew );
         memset( pNew->pReprs + pNew->nReprsAlloc, 0, sizeof(Aig_Obj_t *) * (nReprsAllocNew-pNew->nReprsAlloc) );
         pNew->nReprsAlloc = nReprsAllocNew;
     }
     // go through the nodes which have representatives
     Aig_ManForEachObj( pOld, pObj, k )
         if ( (pRepr = Aig_ObjFindRepr(pOld, pObj)) )
-            Aig_ObjSetRepr( pNew, Aig_Regular(pRepr->pData), Aig_Regular(pObj->pData) ); 
+            Aig_ObjSetRepr_( pNew, Aig_Regular(pRepr->pData), Aig_Regular(pObj->pData) ); 
 }
 
 /**Function*************************************************************
@@ -269,7 +269,8 @@ Aig_Man_t * Aig_ManDupRepr( Aig_Man_t * p, int fOrdered )
     // start the HOP package
     pNew = Aig_ManStart( Aig_ManObjNumMax(p) );
     pNew->pName = Aig_UtilStrsav( p->pName );
-    pNew->nRegs = p->nRegs;
+    pNew->pSpec = Aig_UtilStrsav( p->pSpec );
+    pNew->nConstrs = p->nConstrs;
     if ( p->vFlopNums )
         pNew->vFlopNums = Vec_IntDup( p->vFlopNums );
     // map the const and primary inputs
@@ -277,6 +278,8 @@ Aig_Man_t * Aig_ManDupRepr( Aig_Man_t * p, int fOrdered )
     Aig_ManConst1(p)->pData = Aig_ManConst1(pNew);
     Aig_ManForEachPi( p, pObj, i )
         pObj->pData = Aig_ObjCreatePi(pNew);
+//    Aig_ManForEachPi( p, pObj, i )
+//        pObj->pData = Aig_ObjGetRepr( p, pObj );
     // map the internal nodes
     if ( fOrdered )
     {
@@ -285,15 +288,48 @@ Aig_Man_t * Aig_ManDupRepr( Aig_Man_t * p, int fOrdered )
     }
     else
     {
+//        Aig_ManForEachObj( p, pObj, i )
+//            if ( p->pReprs[i] )
+//                printf( "Substituting %d for %d.\n", p->pReprs[i]->Id, pObj->Id );
+
         Aig_ManForEachPo( p, pObj, i )
             Aig_ManDupRepr_rec( pNew, p, Aig_ObjFanin0(pObj) );
     }
     // transfer the POs
     Aig_ManForEachPo( p, pObj, i )
         Aig_ObjCreatePo( pNew, Aig_ObjChild0Repr(p, pObj) );
+    Aig_ManSetRegNum( pNew, Aig_ManRegNum(p) );
     // check the new manager
     if ( !Aig_ManCheck(pNew) )
         printf( "Aig_ManDupRepr: Check has failed.\n" );
+    return pNew;
+}
+
+/**Function*************************************************************
+
+  Synopsis    [Duplicates AIG with representatives without removing registers.]
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+Aig_Man_t * Aig_ManDupReprBasic( Aig_Man_t * p )
+{
+    Aig_Man_t * pNew;
+    Aig_Obj_t * pObj;
+    int i;
+    assert( p->pReprs != NULL );
+    // reconstruct AIG with representatives
+    pNew = Aig_ManDupRepr( p, 0 );
+    // perfrom sequential cleanup but do not remove registers
+    Aig_ManSeqCleanupBasic( pNew );
+    // remove pointers to the dead nodes
+    Aig_ManForEachObj( p, pObj, i )
+        if ( pObj->pData && Aig_ObjIsNone(pObj->pData) )
+            pObj->pData = NULL;
     return pNew;
 }
 
@@ -318,10 +354,32 @@ int Aig_ManRemapRepr( Aig_Man_t * p )
         if ( pRepr == NULL )
             continue;
         assert( pRepr->Id < pObj->Id );
-        Aig_ObjSetRepr( p, pObj, pRepr );
+        Aig_ObjSetRepr_( p, pObj, pRepr );
         nFanouts += (pObj->nRefs > 0);
     }
     return nFanouts;
+}
+
+/**Function*************************************************************
+
+  Synopsis    [Transfer representatives and return the number of critical fanouts.]
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+int Aig_ManCountReprs( Aig_Man_t * p )
+{
+    Aig_Obj_t * pObj;
+    int i, Counter = 0;
+    if ( p->pReprs == NULL )
+        return 0;
+    Aig_ManForEachObj( p, pObj, i )
+        Counter += (p->pReprs[i] != NULL);
+    return Counter;
 }
 
 /**Function*************************************************************
@@ -340,6 +398,8 @@ int Aig_ObjCheckTfi_rec( Aig_Man_t * p, Aig_Obj_t * pNode, Aig_Obj_t * pOld )
     // check the trivial cases
     if ( pNode == NULL )
         return 0;
+    if ( Aig_ObjIsPi(pNode) )
+        return 0;
 //    if ( pNode->Id < pOld->Id ) // cannot use because of choices of pNode
 //        return 0;
     if ( pNode == pOld )
@@ -354,7 +414,7 @@ int Aig_ObjCheckTfi_rec( Aig_Man_t * p, Aig_Obj_t * pNode, Aig_Obj_t * pOld )
     if ( Aig_ObjCheckTfi_rec( p, Aig_ObjFanin1(pNode), pOld ) )
         return 1;
     // check equivalent nodes
-    return Aig_ObjCheckTfi_rec( p, p->pEquivs[pNode->Id], pOld );
+    return Aig_ObjCheckTfi_rec( p, Aig_ObjEquiv(p, pNode), pOld );
 }
 
 /**Function*************************************************************
@@ -421,7 +481,7 @@ void Aig_ManMarkValidChoices( Aig_Man_t * p )
     assert( p->pReprs != NULL );
     // create equivalent nodes in the manager
     assert( p->pEquivs == NULL );
-    p->pEquivs = ALLOC( Aig_Obj_t *, Aig_ManObjNumMax(p) );
+    p->pEquivs = ABC_ALLOC( Aig_Obj_t *, Aig_ManObjNumMax(p) );
     memset( p->pEquivs, 0, sizeof(Aig_Obj_t *) * Aig_ManObjNumMax(p) );
     // make the choice nodes
     Aig_ManForEachNode( p, pObj, i )
@@ -429,7 +489,6 @@ void Aig_ManMarkValidChoices( Aig_Man_t * p )
         pRepr = Aig_ObjFindRepr( p, pObj );
         if ( pRepr == NULL )
             continue;
-        assert( pObj->nRefs == 0 );
         // skip constant and PI classes
         if ( !Aig_ObjIsNode(pRepr) )
         {
@@ -444,9 +503,46 @@ void Aig_ManMarkValidChoices( Aig_Man_t * p )
         }
 //printf( "Node %d is represented by node %d.\n", pObj->Id, pRepr->Id );
         // add choice to the choice node
+        if ( pObj->nRefs > 0 )
+        {
+            Aig_ObjClearRepr( p, pObj );
+            continue;
+        }
+        assert( pObj->nRefs == 0 );
         p->pEquivs[pObj->Id] = p->pEquivs[pRepr->Id];
         p->pEquivs[pRepr->Id] = pObj;
     }
+}
+
+
+/**Function*************************************************************
+
+  Synopsis    [Transfers the classes.]
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+int Aig_TransferMappedClasses( Aig_Man_t * pAig, Aig_Man_t * pPart, int * pMapBack )
+{
+    Aig_Obj_t * pObj;
+    int nClasses, k;
+    nClasses = 0;
+    if ( pPart->pReprs ) {
+      Aig_ManForEachObj( pPart, pObj, k )
+      {
+          if ( pPart->pReprs[pObj->Id] == NULL )
+              continue;
+          nClasses++;
+          Aig_ObjSetRepr_( pAig,
+              Aig_ManObj(pAig, pMapBack[pObj->Id]),
+              Aig_ManObj(pAig, pMapBack[pPart->pReprs[pObj->Id]->Id]) );
+      }
+    }
+    return nClasses;
 }
 
 

@@ -22,6 +22,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
+#include "abc_global.h"
 #include "mem.h"
 
 ////////////////////////////////////////////////////////////////////////
@@ -74,12 +75,6 @@ struct Mem_Step_t_
     Mem_Fixed_t **  pMap;     // maps the number of bytes into its memory manager
 };
 
-#define ALLOC(type, num)	 ((type *) malloc(sizeof(type) * (num)))
-#define FREE(obj)		     ((obj) ? (free((char *) (obj)), (obj) = 0) : 0)
-#define REALLOC(type, obj, num)	\
-        ((obj) ? ((type *) realloc((char *)(obj), sizeof(type) * (num))) : \
-	     ((type *) malloc(sizeof(type) * (num))))
-
 ////////////////////////////////////////////////////////////////////////
 ///                     FUNCTION DEFINITIONS                         ///
 ////////////////////////////////////////////////////////////////////////
@@ -100,7 +95,7 @@ Mem_Fixed_t * Mem_FixedStart( int nEntrySize )
 {
     Mem_Fixed_t * p;
 
-    p = ALLOC( Mem_Fixed_t, 1 );
+    p = ABC_ALLOC( Mem_Fixed_t, 1 );
     memset( p, 0, sizeof(Mem_Fixed_t) );
 
     p->nEntrySize    = nEntrySize;
@@ -117,7 +112,7 @@ Mem_Fixed_t * Mem_FixedStart( int nEntrySize )
 
     p->nChunksAlloc  = 64;
     p->nChunks       = 0;
-    p->pChunks       = ALLOC( char *, p->nChunksAlloc );
+    p->pChunks       = ABC_ALLOC( char *, p->nChunksAlloc );
 
     p->nMemoryUsed   = 0;
     p->nMemoryAlloc  = 0;
@@ -148,9 +143,9 @@ void Mem_FixedStop( Mem_Fixed_t * p, int fVerbose )
             p->nEntriesUsed, p->nEntriesMax, p->nEntrySize * p->nEntriesUsed, p->nMemoryAlloc );
     }
     for ( i = 0; i < p->nChunks; i++ )
-        free( p->pChunks[i] );
-    free( p->pChunks );
-    free( p );
+        ABC_FREE( p->pChunks[i] );
+    ABC_FREE( p->pChunks );
+    ABC_FREE( p );
 }
 
 /**Function*************************************************************
@@ -176,9 +171,9 @@ char * Mem_FixedEntryFetch( Mem_Fixed_t * p )
         if ( p->nChunks == p->nChunksAlloc )
         {
             p->nChunksAlloc *= 2;
-            p->pChunks = REALLOC( char *, p->pChunks, p->nChunksAlloc ); 
+            p->pChunks = ABC_REALLOC( char *, p->pChunks, p->nChunksAlloc ); 
         }
-        p->pEntriesFree = ALLOC( char, p->nEntrySize * p->nChunkSize );
+        p->pEntriesFree = ABC_ALLOC( char, p->nEntrySize * p->nChunkSize );
         p->nMemoryAlloc += p->nEntrySize * p->nChunkSize;
         // transform these entries into a linked list
         pTemp = p->pEntriesFree;
@@ -242,7 +237,7 @@ void Mem_FixedRestart( Mem_Fixed_t * p )
 
     // deallocate all chunks except the first one
     for ( i = 1; i < p->nChunks; i++ )
-        free( p->pChunks[i] );
+        ABC_FREE( p->pChunks[i] );
     p->nChunks = 1;
     // transform these entries into a linked list
     pTemp = p->pChunks[0];
@@ -311,7 +306,7 @@ Mem_Flex_t * Mem_FlexStart()
 {
     Mem_Flex_t * p;
 
-    p = ALLOC( Mem_Flex_t, 1 );
+    p = ABC_ALLOC( Mem_Flex_t, 1 );
     memset( p, 0, sizeof(Mem_Flex_t) );
 
     p->nEntriesUsed  = 0;
@@ -321,7 +316,7 @@ Mem_Flex_t * Mem_FlexStart()
     p->nChunkSize    = (1 << 14);
     p->nChunksAlloc  = 64;
     p->nChunks       = 0;
-    p->pChunks       = ALLOC( char *, p->nChunksAlloc );
+    p->pChunks       = ABC_ALLOC( char *, p->nChunksAlloc );
 
     p->nMemoryUsed   = 0;
     p->nMemoryAlloc  = 0;
@@ -352,9 +347,9 @@ void Mem_FlexStop( Mem_Flex_t * p, int fVerbose )
             p->nEntriesUsed, p->nMemoryUsed, p->nMemoryAlloc );
     }
     for ( i = 0; i < p->nChunks; i++ )
-        free( p->pChunks[i] );
-    free( p->pChunks );
-    free( p );
+        ABC_FREE( p->pChunks[i] );
+    ABC_FREE( p->pChunks );
+    ABC_FREE( p );
 }
 
 /**Function*************************************************************
@@ -377,7 +372,7 @@ char * Mem_FlexEntryFetch( Mem_Flex_t * p, int nBytes )
         if ( p->nChunks == p->nChunksAlloc )
         {
             p->nChunksAlloc *= 2;
-            p->pChunks = REALLOC( char *, p->pChunks, p->nChunksAlloc ); 
+            p->pChunks = ABC_REALLOC( char *, p->pChunks, p->nChunksAlloc ); 
         }
         if ( nBytes > p->nChunkSize )
         {
@@ -385,7 +380,7 @@ char * Mem_FlexEntryFetch( Mem_Flex_t * p, int nBytes )
             // (ideally, this should never happen)
             p->nChunkSize = 2 * nBytes;
         }
-        p->pCurrent = ALLOC( char, p->nChunkSize );
+        p->pCurrent = ABC_ALLOC( char, p->nChunkSize );
         p->pEnd     = p->pCurrent + p->nChunkSize;
         p->nMemoryAlloc += p->nChunkSize;
         // add the chunk to the chunk storage
@@ -420,7 +415,7 @@ void Mem_FlexRestart( Mem_Flex_t * p )
         return;
     // deallocate all chunks except the first one
     for ( i = 1; i < p->nChunks; i++ )
-        free( p->pChunks[i] );
+        ABC_FREE( p->pChunks[i] );
     p->nChunks  = 1;
     p->nMemoryAlloc = p->nChunkSize;
     // transform these entries into a linked list
@@ -463,7 +458,7 @@ int Mem_FlexReadMemUsage( Mem_Flex_t * p )
   are employed internally. Calling this procedure with nSteps equal
   to 10 results in 10 hierarchically arranged internal memory managers, 
   which can allocate up to 4096 (1Kb) entries. Requests for larger 
-  entries are handed over to malloc() and then free()ed.]
+  entries are handed over to malloc() and then ABC_FREE()ed.]
                
   SideEffects []
 
@@ -474,16 +469,16 @@ Mem_Step_t * Mem_StepStart( int nSteps )
 {
     Mem_Step_t * p;
     int i, k;
-    p = ALLOC( Mem_Step_t, 1 );
+    p = ABC_ALLOC( Mem_Step_t, 1 );
     memset( p, 0, sizeof(Mem_Step_t) );
     p->nMems = nSteps;
     // start the fixed memory managers
-    p->pMems = ALLOC( Mem_Fixed_t *, p->nMems );
+    p->pMems = ABC_ALLOC( Mem_Fixed_t *, p->nMems );
     for ( i = 0; i < p->nMems; i++ )
         p->pMems[i] = Mem_FixedStart( (8<<i) );
     // set up the mapping of the required memory size into the corresponding manager
     p->nMapSize = (4<<p->nMems);
-    p->pMap = ALLOC( Mem_Fixed_t *, p->nMapSize+1 );
+    p->pMap = ABC_ALLOC( Mem_Fixed_t *, p->nMapSize+1 );
     p->pMap[0] = NULL;
     for ( k = 1; k <= 4; k++ )
         p->pMap[k] = p->pMems[0];
@@ -514,12 +509,12 @@ void Mem_StepStop( Mem_Step_t * p, int fVerbose )
 //    if ( p->pLargeChunks ) 
 //    {
 //      for ( i = 0; i < p->nLargeChunks; i++ )
-//          free( p->pLargeChunks[i] );
-//      free( p->pLargeChunks );
+//          ABC_FREE( p->pLargeChunks[i] );
+//      ABC_FREE( p->pLargeChunks );
 //    }
-    free( p->pMems );
-    free( p->pMap );
-    free( p );
+    ABC_FREE( p->pMems );
+    ABC_FREE( p->pMap );
+    ABC_FREE( p );
 }
 
 /**Function*************************************************************
@@ -546,12 +541,12 @@ char * Mem_StepEntryFetch( Mem_Step_t * p, int nBytes )
             if ( p->nLargeChunksAlloc == 0 )
                 p->nLargeChunksAlloc = 5;
             p->nLargeChunksAlloc *= 2;
-            p->pLargeChunks = REALLOC( char *, p->pLargeChunks, p->nLargeChunksAlloc ); 
+            p->pLargeChunks = ABC_REALLOC( char *, p->pLargeChunks, p->nLargeChunksAlloc ); 
         }
-        p->pLargeChunks[ p->nLargeChunks++ ] = ALLOC( char, nBytes );
+        p->pLargeChunks[ p->nLargeChunks++ ] = ABC_ALLOC( char, nBytes );
         return p->pLargeChunks[ p->nLargeChunks - 1 ];
 */
-        return ALLOC( char, nBytes );
+        return ABC_ALLOC( char, nBytes );
     }
     return Mem_FixedEntryFetch( p->pMap[nBytes] );
 }
@@ -574,7 +569,7 @@ void Mem_StepEntryRecycle( Mem_Step_t * p, char * pEntry, int nBytes )
         return;
     if ( nBytes > p->nMapSize )
     {
-        free( pEntry );
+//        ABC_FREE( pEntry );
         return;
     }
     Mem_FixedEntryRecycle( p->pMap[nBytes], pEntry );

@@ -15,6 +15,11 @@
   Revision    [$Id: mapperLib.c,v 1.6 2005/01/23 06:59:44 alanmi Exp $]
 
 ***********************************************************************/
+#define _BSD_SOURCE
+
+#ifndef WIN32
+#include <unistd.h>
+#endif
 
 #include "mapperInt.h"
 
@@ -51,7 +56,7 @@ Map_SuperLib_t * Map_SuperLibCreate( char * pFileName, char * pExcludeFile, bool
     int clk;
 
     // start the supergate library
-    p = ALLOC( Map_SuperLib_t, 1 );
+    p = ABC_ALLOC( Map_SuperLib_t, 1 );
     memset( p, 0, sizeof(Map_SuperLib_t) );
     p->pName     = pFileName;
     p->fVerbose  = fVerbose;
@@ -93,7 +98,7 @@ clk = clock();
 if ( fVerbose ) {
     printf( "Loaded %d unique %d-input supergates from \"%s\".  ", 
         p->nSupersReal, p->nVarsMax, pFileName );
-    PRT( "Time", clock() - clk );
+    ABC_PRT( "Time", clock() - clk );
 }
 
     // assign the interver parameters
@@ -150,8 +155,8 @@ void Map_SuperLibFree( Map_SuperLib_t * p )
     Extra_MmFixedStop( p->mmSupers );
     Extra_MmFixedStop( p->mmEntries );
     Extra_MmFlexStop( p->mmForms );
-    FREE( p->ppSupers );
-    FREE( p );
+    ABC_FREE( p->ppSupers );
+    ABC_FREE( p );
 }
 
 /**Function*************************************************************
@@ -169,14 +174,19 @@ int Map_SuperLibDeriveFromGenlib( Mio_Library_t * pLib )
 {
     Abc_Frame_t * pAbc = Abc_FrameGetGlobalFrame();
     char * pNameGeneric;
-    char FileNameGenlib[100];
-    char FileNameSuper[100];
-    char CommandSuper[500];
-    char CommandRead[500];
+    char * FileNameGenlib;
+    char * FileNameSuper;
+    char * CommandSuper;
+    char * CommandRead;
     FILE * pFile;
 
     if ( pLib == NULL )
         return 0;
+
+    FileNameGenlib = ABC_ALLOC( char, 10000 );
+    FileNameSuper = ABC_ALLOC( char, 10000 );
+    CommandSuper = ABC_ALLOC( char, 10000 );
+    CommandRead = ABC_ALLOC( char, 10000 );
 
     // write the current library into the file
     sprintf( FileNameGenlib, "%s_temp", Mio_LibraryReadName(pLib) );
@@ -187,11 +197,15 @@ int Map_SuperLibDeriveFromGenlib( Mio_Library_t * pLib )
     // get the file name with the library
     pNameGeneric = Extra_FileNameGeneric( Mio_LibraryReadName(pLib) );
     sprintf( FileNameSuper, "%s.super", pNameGeneric );
-    free( pNameGeneric );
+    ABC_FREE( pNameGeneric );
 
     sprintf( CommandSuper,  "super -l 1 -i 5 -d 10000000 -a 10000000 -t 100 %s", FileNameGenlib ); 
     if ( Cmd_CommandExecute( pAbc, CommandSuper ) )
     {
+        ABC_FREE( FileNameGenlib );
+        ABC_FREE( FileNameSuper );
+        ABC_FREE( CommandSuper );
+        ABC_FREE( CommandRead );
         fprintf( stdout, "Cannot execute command \"%s\".\n", CommandSuper );
         return 0;
     }
@@ -210,6 +224,10 @@ int Map_SuperLibDeriveFromGenlib( Mio_Library_t * pLib )
         unlink( FileNameSuper );
 #endif
         fprintf( stdout, "Cannot execute command \"%s\".\n", CommandRead );
+        ABC_FREE( FileNameGenlib );
+        ABC_FREE( FileNameSuper );
+        ABC_FREE( CommandSuper );
+        ABC_FREE( CommandRead );
         return 0;
     }
 
@@ -220,6 +238,10 @@ int Map_SuperLibDeriveFromGenlib( Mio_Library_t * pLib )
     unlink( FileNameSuper );
 #endif
 */
+    ABC_FREE( FileNameGenlib );
+    ABC_FREE( FileNameSuper );
+    ABC_FREE( CommandSuper );
+    ABC_FREE( CommandRead );
      return 1;
 }
 

@@ -25,7 +25,9 @@
 
 // these symbols (and no other) can appear in the formulas
 #define MIO_SYMB_AND    '*'
-#define MIO_SYMB_OR     '+'
+#define MIO_SYMB_OR1    '+'
+#define MIO_SYMB_OR2    '|'
+#define MIO_SYMB_XOR    '^'
 #define MIO_SYMB_NOT    '!'
 #define MIO_SYMB_AFTNOT '\''
 #define MIO_SYMB_OPEN   '('
@@ -142,7 +144,7 @@ int Mio_GateParseFormula( Mio_Gate_t * pGate )
     {
         // get the topmost (generic) pin
         pPin = pGate->pPins;
-        FREE( pPin->pName );
+        ABC_FREE( pPin->pName );
 
         // create individual pins from the generic pin
         ppPin = &pPin->pNext;
@@ -174,7 +176,7 @@ int Mio_GateParseFormula( Mio_Gate_t * pGate )
                     // free pPinNames[i] because it is already available as pPin->pName
                     // setting pPinNames[i] to NULL is useful to make sure that
                     // this name is not assigned to two pins in the list
-                    FREE( pPinNames[i] );
+                    ABC_FREE( pPinNames[i] );
                     pPinNamesCopy[iPin++] = pPin->pName;
                     break;
                 }
@@ -210,6 +212,8 @@ int Mio_GateParseFormula( Mio_Gate_t * pGate )
 
     // derive the formula as the BDD
     pGate->bFunc = Parse_FormulaParser( stdout, pGate->pForm, nPins, 0, pPinNames, dd, dd->vars );
+    if ( pGate->bFunc == NULL )
+        return 1;
     Cudd_Ref( pGate->bFunc );
 
     // derive the cover (SOP)
@@ -239,8 +243,9 @@ int Mio_GateCollectNames( char * pFormula, char * pPinNames[] )
 
     // remove the non-name symbols
     for ( pTemp = Buffer; *pTemp; pTemp++ )
-        if ( *pTemp == MIO_SYMB_AND  || *pTemp == MIO_SYMB_OR || *pTemp == MIO_SYMB_NOT
-          || *pTemp == MIO_SYMB_OPEN || *pTemp == MIO_SYMB_CLOSE || *pTemp == MIO_SYMB_AFTNOT )
+        if ( *pTemp == MIO_SYMB_AND || *pTemp == MIO_SYMB_OR1 || *pTemp == MIO_SYMB_OR2 
+          || *pTemp == MIO_SYMB_XOR || *pTemp == MIO_SYMB_NOT || *pTemp == MIO_SYMB_OPEN 
+          || *pTemp == MIO_SYMB_CLOSE || *pTemp == MIO_SYMB_AFTNOT )
             *pTemp = ' ';
 
     // save the names

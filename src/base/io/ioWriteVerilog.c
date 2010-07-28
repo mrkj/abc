@@ -18,7 +18,7 @@
 
 ***********************************************************************/
 
-#include "io.h"
+#include "ioAbc.h"
 #include "main.h"
 #include "mio.h"
 
@@ -458,7 +458,7 @@ void Io_WriteVerilogLatches( FILE * pFile, Abc_Ntk_t * pNtk )
     if ( i == Abc_NtkLatchNum(pNtk) )
         return;
     // write the initial values
-    fprintf( pFile, "  initial begin\n", Io_WriteVerilogGetName(Abc_ObjName(Abc_ObjFanout0(Abc_NtkPi(pNtk,0)))) );
+    fprintf( pFile, "  initial begin\n" );
     Abc_NtkForEachLatch( pNtk, pLatch, i )
     {
         if ( Abc_LatchInit(pLatch) == ABC_INIT_ZERO )
@@ -549,7 +549,7 @@ void Io_WriteVerilogObjects( FILE * pFile, Abc_Ntk_t * pNtk )
             fprintf( pFile, ";\n" );
             // clear the input names
             Abc_ObjForEachFanin( pObj, pFanin, k )
-                free( Hop_IthVar(pNtk->pManFunc, k)->pData );
+                ABC_FREE( Hop_IthVar(pNtk->pManFunc, k)->pData );
         }
         Vec_VecFree( vLevels );
     }

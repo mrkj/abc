@@ -18,7 +18,7 @@
 
 ***********************************************************************/
 
-#include "io.h"
+#include "ioAbc.h"
 
 ////////////////////////////////////////////////////////////////////////
 ///                        DECLARATIONS                              ///
@@ -100,7 +100,7 @@ Abc_Ntk_t * Io_ReadEqnNetwork( Extra_FileReader_t * p )
     // go through the lines of the file
     vVars  = Vec_PtrAlloc( 100 );
     pProgress = Extra_ProgressBarStart( stdout, Extra_FileReaderGetFileSize(p) );
-    for ( iLine = 0; vTokens = Extra_FileReaderGetTokens(p); iLine++ )
+    for ( iLine = 0; (vTokens = Extra_FileReaderGetTokens(p)); iLine++ )
     {
         Extra_ProgressBarUpdate( pProgress, Extra_FileReaderGetCurPosition(p), NULL );
 
@@ -158,7 +158,7 @@ Abc_Ntk_t * Io_ReadEqnNetwork( Extra_FileReader_t * p )
             // derive the function
             pNode->pData = Parse_FormulaParserEqn( stdout, pFormula, vVars, pNtk->pManFunc );
             // remove the cubes
-            FREE( pFormulaCopy );
+            ABC_FREE( pFormulaCopy );
         }
     }
     Extra_ProgressBarStop( pProgress );

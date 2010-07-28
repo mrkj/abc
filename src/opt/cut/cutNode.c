@@ -393,6 +393,13 @@ p->timeMerge += clock() - clk;
             Vec_IntPush( p->vCutPairs, ((pCut->Num1 << 16) | pCut->Num0) );
         Vec_IntWriteEntry( p->vNodeCuts, Node, Vec_IntSize(p->vCutPairs) - Vec_IntEntry(p->vNodeStarts, Node) );
     }
+    if ( p->pParams->fRecordAig )
+    {
+        extern void Aig_RManRecord( unsigned * pTruth, int nVarsInit );
+        Cut_ListForEachCut( pList, pCut )
+            if ( Cut_CutReadLeaveNum(pCut) > 4 )
+                Aig_RManRecord( Cut_CutReadTruth(pCut), Cut_CutReadLeaveNum(pCut) );
+    }
     // check if the node is over the list
     if ( p->nNodeCuts == p->pParams->nKeepMax )
         p->nCutsLimit++;
@@ -561,7 +568,8 @@ int Cut_ManMappingArea_rec( Cut_Man_t * p, int Node )
 ***********************************************************************/
 void Cut_NodeDoComputeCuts( Cut_Man_t * p, Cut_List_t * pSuper, int Node, int fCompl0, int fCompl1, Cut_Cut_t * pList0, Cut_Cut_t * pList1, int fTriv, int TreeCode )
 {
-    Cut_Cut_t * pStop0, * pStop1, * pTemp0, * pTemp1, * pStore0, * pStore1;
+    Cut_Cut_t * pStop0, * pStop1, * pTemp0, * pTemp1;
+    Cut_Cut_t * pStore0 = NULL, * pStore1 = NULL; // Suppress "might be used uninitialized"
     int i, nCutsOld, Limit;
     // start with the elementary cut
     if ( fTriv ) 
@@ -667,7 +675,8 @@ Quits:
 Cut_Cut_t * Cut_NodeUnionCuts( Cut_Man_t * p, Vec_Int_t * vNodes )
 {
     Cut_List_t Super, * pSuper = &Super;
-    Cut_Cut_t * pList, * pListStart, * pCut, * pCut2, * pTop;
+    Cut_Cut_t * pList, * pListStart, * pCut, * pCut2;
+    Cut_Cut_t * pTop = NULL; // Suppress "might be used uninitialized"
     int i, k, Node, Root, Limit = p->pParams->nVarsMax;
     int clk = clock();
 
@@ -973,11 +982,9 @@ int Cut_CutListVerify( Cut_Cut_t * pList )
         {
             if ( Cut_CutCheckDominance( pDom, pCut ) )
             {
-                int x = 0;
                 printf( "******************* These are contained cuts:\n" );
                 Cut_CutPrint( pDom, 1 );
                 Cut_CutPrint( pDom, 1 );
-                
                 return 0;
             }
         }

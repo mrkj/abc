@@ -4547,25 +4547,25 @@ void Cnf_ReadMsops( char ** ppSopSizes, char *** ppSops )
     for ( i = 0; i < 256; i++ )
         Map[i] = -1;
     for ( i = 0; i < 81; i++ )
-        Map[s_Data3[i]] = i;
+        Map[(int)s_Data3[i]] = i;
 
     // count the number of strings
     for ( Size = 0; s_Data4[Size] && Size < 100000; Size++ );
     assert( Size < 100000 );
 
     // allocate memory
-    pMemory = ALLOC( char, Size * 75 );
+    pMemory = ABC_ALLOC( char, Size * 75 );
     // copy the array into memory
     for ( i = 0; i < Size; i++ )
         for ( k = 0; k < 75; k++ )
             if ( s_Data4[i][k] == ' ' )
                 pMemory[i*75+k] = -1;
             else
-                pMemory[i*75+k] = Map[s_Data4[i][k]];
+                pMemory[i*75+k] = Map[(int)s_Data4[i][k]];
 
     // set pointers and compute SOP sizes
-    pSopSizes = ALLOC( char, 65536 );
-    pSops = ALLOC( char *, 65536 );
+    pSopSizes = ABC_ALLOC( char, 65536 );
+    pSops = ABC_ALLOC( char *, 65536 );
     pSopSizes[0] = 0;
     pSops[0] = NULL;
     pPrev = pMemory;

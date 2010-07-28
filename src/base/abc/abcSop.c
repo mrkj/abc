@@ -439,6 +439,41 @@ char * Abc_SopCreateFromIsop( Extra_MmFlex_t * pMan, int nVars, Vec_Int_t * vCov
 
 /**Function*************************************************************
 
+  Synopsis    [Creates the cover from the ISOP computed from TT.]
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+void Abc_SopToIsop( char * pSop, Vec_Int_t * vCover )
+{
+    char * pCube;
+    int k, nVars, Entry;
+    nVars = Abc_SopGetVarNum( pSop );
+    assert( nVars > 0 );
+    // create cubes
+    Vec_IntClear( vCover );
+    for ( pCube = pSop; *pCube; pCube += nVars + 3 )
+    {
+        Entry = 0;
+        for ( k = nVars - 1; k >= 0; k-- )
+            if ( pCube[k] == '0' )
+                Entry = (Entry << 2) | 1;
+            else if ( pCube[k] == '1' )
+                Entry = (Entry << 2) | 2;
+            else if ( pCube[k] == '-' )
+                Entry = (Entry << 2);
+            else 
+                assert( 0 );
+        Vec_IntPush( vCover, Entry );
+    }
+}
+
+/**Function*************************************************************
+
   Synopsis    [Reads the number of cubes in the cover.]
 
   Description []
@@ -498,7 +533,9 @@ int Abc_SopGetLitNum( char * pSop )
 int Abc_SopGetVarNum( char * pSop )
 {
     char * pCur;
-    for ( pCur = pSop; *pCur != '\n'; pCur++ );
+    for ( pCur = pSop; *pCur != '\n'; pCur++ )
+        if ( *pCur == 0 )
+            return -1;
     return pCur - pSop - 2;
 }
 
@@ -769,7 +806,7 @@ bool Abc_SopCheck( char * pSop, int nFanins )
         if ( pCubes - pCubesOld != nFanins )
         {
             fprintf( stdout, "Abc_SopCheck: SOP has a mismatch between its cover size (%d) and its fanin number (%d).\n",
-                pCubes - pCubesOld, nFanins );
+                (int)(ABC_PTRDIFF_T)(pCubes - pCubesOld), nFanins );
             return 0;
         }
         // check the output values for this cube
@@ -849,7 +886,7 @@ char * Abc_SopFromTruthBin( char * pTruth )
 
     // create the SOP representation of the minterms
     Length = Vec_IntSize(vMints) * (nVars + 3);
-    pSopCover = ALLOC( char, Length + 1 );
+    pSopCover = ABC_ALLOC( char, Length + 1 );
     pSopCover[Length] = 0;
     Vec_IntForEachEntry( vMints, Mint, i )
     {
@@ -916,7 +953,7 @@ char * Abc_SopFromTruthHex( char * pTruth )
 
     // create the SOP representation of the minterms
     Length = Vec_IntSize(vMints) * (nVars + 3);
-    pSopCover = ALLOC( char, Length + 1 );
+    pSopCover = ABC_ALLOC( char, Length + 1 );
     pSopCover[Length] = 0;
     Vec_IntForEachEntry( vMints, Mint, i )
     {
@@ -931,6 +968,21 @@ char * Abc_SopFromTruthHex( char * pTruth )
         pCube[nVars + 1] = '1';
         pCube[nVars + 2] = '\n';
     }
+/*
+    // create TT representation
+    {
+        extern void Bdc_ManDecomposeTest( unsigned uTruth, int nVars );
+        unsigned uTruth = 0;
+        int nVarsAll = 4;
+        assert( nVarsAll == 4 );
+        assert( nVars <= nVarsAll );
+        Vec_IntForEachEntry( vMints, Mint, i )
+            uTruth |= (1 << Mint);
+//        uTruth = uTruth | (uTruth << 8) | (uTruth << 16) | (uTruth << 24);
+        uTruth = uTruth | (uTruth << 16);
+        Bdc_ManDecomposeTest( uTruth, nVarsAll );
+    }
+*/
     Vec_IntFree( vMints );
     return pSopCover;
 }

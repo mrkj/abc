@@ -28,7 +28,6 @@
 ///                     FUNCTION DEFINITIONS                         ///
 ////////////////////////////////////////////////////////////////////////
 
-
 /**Function*************************************************************
 
   Synopsis    [Returns 1 if pDom is contained in pCut.]
@@ -298,6 +297,7 @@ int If_CutMerge( If_Cut_t * pCut0, If_Cut_t * pCut1, If_Cut_t * pCut )
             return 0;
     }
     pCut->uSign = pCut0->uSign | pCut1->uSign;
+    assert( If_CutCheck( pCut ) );
     return 1;
 }
 
@@ -312,21 +312,21 @@ int If_CutMerge( If_Cut_t * pCut0, If_Cut_t * pCut1, If_Cut_t * pCut )
   SeeAlso     []
 
 ***********************************************************************/
-int If_CutCompareDelay( If_Cut_t ** ppC0, If_Cut_t ** ppC1 )
+int If_CutCompareDelay( If_Man_t * p, If_Cut_t ** ppC0, If_Cut_t ** ppC1 )
 {
     If_Cut_t * pC0 = *ppC0;
     If_Cut_t * pC1 = *ppC1;
-    if ( pC0->Delay < pC1->Delay - 0.0001 )
+    if ( pC0->Delay < pC1->Delay - p->fEpsilon )
         return -1;
-    if ( pC0->Delay > pC1->Delay + 0.0001 )
+    if ( pC0->Delay > pC1->Delay + p->fEpsilon )
         return 1;
     if ( pC0->nLeaves < pC1->nLeaves )
         return -1;
     if ( pC0->nLeaves > pC1->nLeaves )
         return 1;
-    if ( pC0->Area < pC1->Area - 0.0001 )
+    if ( pC0->Area < pC1->Area - p->fEpsilon )
         return -1;
-    if ( pC0->Area > pC1->Area + 0.0001 )
+    if ( pC0->Area > pC1->Area + p->fEpsilon )
         return 1;
     return 0;
 }
@@ -342,17 +342,17 @@ int If_CutCompareDelay( If_Cut_t ** ppC0, If_Cut_t ** ppC1 )
   SeeAlso     []
 
 ***********************************************************************/
-int If_CutCompareDelayOld( If_Cut_t ** ppC0, If_Cut_t ** ppC1 )
+int If_CutCompareDelayOld( If_Man_t * p, If_Cut_t ** ppC0, If_Cut_t ** ppC1 )
 {
     If_Cut_t * pC0 = *ppC0;
     If_Cut_t * pC1 = *ppC1;
-    if ( pC0->Delay < pC1->Delay - 0.0001 )
+    if ( pC0->Delay < pC1->Delay - p->fEpsilon )
         return -1;
-    if ( pC0->Delay > pC1->Delay + 0.0001 )
+    if ( pC0->Delay > pC1->Delay + p->fEpsilon )
         return 1;
-    if ( pC0->Area < pC1->Area - 0.0001 )
+    if ( pC0->Area < pC1->Area - p->fEpsilon )
         return -1;
-    if ( pC0->Area > pC1->Area + 0.0001 )
+    if ( pC0->Area > pC1->Area + p->fEpsilon )
         return 1;
     if ( pC0->nLeaves < pC1->nLeaves )
         return -1;
@@ -372,13 +372,13 @@ int If_CutCompareDelayOld( If_Cut_t ** ppC0, If_Cut_t ** ppC1 )
   SeeAlso     []
 
 ***********************************************************************/
-int If_CutCompareArea( If_Cut_t ** ppC0, If_Cut_t ** ppC1 )
+int If_CutCompareArea( If_Man_t * p, If_Cut_t ** ppC0, If_Cut_t ** ppC1 )
 {
     If_Cut_t * pC0 = *ppC0;
     If_Cut_t * pC1 = *ppC1;
-    if ( pC0->Area < pC1->Area - 0.0001 )
+    if ( pC0->Area < pC1->Area - p->fEpsilon )
         return -1;
-    if ( pC0->Area > pC1->Area + 0.0001 )
+    if ( pC0->Area > pC1->Area + p->fEpsilon )
         return 1;
     if ( pC0->AveRefs > pC1->AveRefs )
         return -1;
@@ -388,9 +388,9 @@ int If_CutCompareArea( If_Cut_t ** ppC0, If_Cut_t ** ppC1 )
         return -1;
     if ( pC0->nLeaves > pC1->nLeaves )
         return 1;
-    if ( pC0->Delay < pC1->Delay - 0.0001 )
+    if ( pC0->Delay < pC1->Delay - p->fEpsilon )
         return -1;
-    if ( pC0->Delay > pC1->Delay + 0.0001 )
+    if ( pC0->Delay > pC1->Delay + p->fEpsilon )
         return 1;
     return 0;
 }
@@ -432,11 +432,182 @@ void If_ManSortCuts( If_Man_t * p, int Mode )
 ***********************************************************************/
 static inline int If_ManSortCompare( If_Man_t * p, If_Cut_t * pC0, If_Cut_t * pC1 )
 {
+    if ( p->pPars->fPower )
+    {
+        if ( p->SortMode == 1 ) // area flow       
+        {
+            if ( pC0->Area < pC1->Area - p->fEpsilon )
+                return -1;
+            if ( pC0->Area > pC1->Area + p->fEpsilon )
+                return 1;
+            //Abc_Print( 1,"area(%.2f, %.2f), power(%.2f, %.2f), edge(%.2f, %.2f)\n",
+            //         pC0->Area, pC1->Area, pC0->Power, pC1->Power, pC0->Edge, pC1->Edge);
+            if ( pC0->Power < pC1->Power - p->fEpsilon )
+                return -1;
+            if ( pC0->Power > pC1->Power + p->fEpsilon )
+                return 1;
+            if ( pC0->Edge < pC1->Edge - p->fEpsilon )
+                return -1;
+            if ( pC0->Edge > pC1->Edge + p->fEpsilon )
+                return 1;
+            if ( pC0->AveRefs > pC1->AveRefs )
+                return -1;
+            if ( pC0->AveRefs < pC1->AveRefs )
+                return 1;
+            if ( pC0->nLeaves < pC1->nLeaves )
+                return -1;
+            if ( pC0->nLeaves > pC1->nLeaves )
+                return 1;
+            if ( pC0->Delay < pC1->Delay - p->fEpsilon )
+                return -1;
+            if ( pC0->Delay > pC1->Delay + p->fEpsilon )
+                return 1;
+            return 0;
+        }
+        if ( p->SortMode == 0 ) // delay
+        {
+            if ( pC0->Delay < pC1->Delay - p->fEpsilon )
+                return -1;
+            if ( pC0->Delay > pC1->Delay + p->fEpsilon )
+                return 1;
+            if ( pC0->nLeaves < pC1->nLeaves )
+                return -1;
+            if ( pC0->nLeaves > pC1->nLeaves )
+                return 1;
+            if ( pC0->Area < pC1->Area - p->fEpsilon )
+                return -1;
+            if ( pC0->Area > pC1->Area + p->fEpsilon )
+                return 1;
+            if ( pC0->Power < pC1->Power - p->fEpsilon  )
+                return -1;
+            if ( pC0->Power > pC1->Power + p->fEpsilon  )
+                return 1;
+            if ( pC0->Edge < pC1->Edge - p->fEpsilon )
+                return -1;
+            if ( pC0->Edge > pC1->Edge + p->fEpsilon )
+                return 1;
+            return 0;
+        }
+        assert( p->SortMode == 2 ); // delay old, exact area
+        if ( pC0->Delay < pC1->Delay - p->fEpsilon )
+            return -1;
+        if ( pC0->Delay > pC1->Delay + p->fEpsilon )
+            return 1;
+        if ( pC0->Power < pC1->Power - p->fEpsilon  )
+            return -1;
+        if ( pC0->Power > pC1->Power + p->fEpsilon  )
+            return 1;
+        if ( pC0->Edge < pC1->Edge - p->fEpsilon )
+            return -1;
+        if ( pC0->Edge > pC1->Edge + p->fEpsilon )
+            return 1;
+        if ( pC0->Area < pC1->Area - p->fEpsilon )
+            return -1;
+        if ( pC0->Area > pC1->Area + p->fEpsilon )
+            return 1;
+        if ( pC0->nLeaves < pC1->nLeaves )
+            return -1;
+        if ( pC0->nLeaves > pC1->nLeaves )
+            return 1;
+        return 0;
+    } 
+    else  // reglar
+    {
+        if ( p->SortMode == 1 ) // area
+        {
+            if ( pC0->Area < pC1->Area - p->fEpsilon )
+                return -1;
+            if ( pC0->Area > pC1->Area + p->fEpsilon )
+                return 1;
+            if ( pC0->Edge < pC1->Edge - p->fEpsilon )
+                return -1;
+            if ( pC0->Edge > pC1->Edge + p->fEpsilon )
+                return 1;
+            if ( pC0->Power < pC1->Power - p->fEpsilon )
+                return -1;
+            if ( pC0->Power > pC1->Power + p->fEpsilon )
+                return 1;
+            if ( pC0->AveRefs > pC1->AveRefs )
+                return -1;
+            if ( pC0->AveRefs < pC1->AveRefs )
+                return 1;
+            if ( pC0->nLeaves < pC1->nLeaves )
+                return -1;
+            if ( pC0->nLeaves > pC1->nLeaves )
+                return 1;
+            if ( pC0->Delay < pC1->Delay - p->fEpsilon )
+                return -1;
+            if ( pC0->Delay > pC1->Delay + p->fEpsilon )
+                return 1;
+            return 0;
+        }
+        if ( p->SortMode == 0 ) // delay
+        {
+            if ( pC0->Delay < pC1->Delay - p->fEpsilon )
+                return -1;
+            if ( pC0->Delay > pC1->Delay + p->fEpsilon )
+                return 1;
+            if ( pC0->nLeaves < pC1->nLeaves )
+                return -1;
+            if ( pC0->nLeaves > pC1->nLeaves )
+                return 1;
+            if ( pC0->Area < pC1->Area - p->fEpsilon )
+                return -1;
+            if ( pC0->Area > pC1->Area + p->fEpsilon )
+                return 1;
+            if ( pC0->Edge < pC1->Edge - p->fEpsilon )
+                return -1;
+            if ( pC0->Edge > pC1->Edge + p->fEpsilon )
+                return 1;
+            if ( pC0->Power < pC1->Power - p->fEpsilon )
+                return -1;
+            if ( pC0->Power > pC1->Power + p->fEpsilon )
+                return 1;
+            return 0;
+        }
+        assert( p->SortMode == 2 ); // delay old
+        if ( pC0->Delay < pC1->Delay - p->fEpsilon )
+            return -1;
+        if ( pC0->Delay > pC1->Delay + p->fEpsilon )
+            return 1;
+        if ( pC0->Area < pC1->Area - p->fEpsilon )
+            return -1;
+        if ( pC0->Area > pC1->Area + p->fEpsilon )
+            return 1;
+        if ( pC0->Edge < pC1->Edge - p->fEpsilon )
+            return -1;
+        if ( pC0->Edge > pC1->Edge + p->fEpsilon )
+            return 1;
+        if ( pC0->Power < pC1->Power - p->fEpsilon )
+            return -1;
+        if ( pC0->Power > pC1->Power + p->fEpsilon )
+            return 1;
+        if ( pC0->nLeaves < pC1->nLeaves )
+            return -1;
+        if ( pC0->nLeaves > pC1->nLeaves )
+            return 1;
+        return 0;
+    }
+}
+
+/**Function*************************************************************
+
+  Synopsis    [Comparison function for two cuts.]
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+static inline int If_ManSortCompare_old( If_Man_t * p, If_Cut_t * pC0, If_Cut_t * pC1 )
+{
     if ( p->SortMode == 1 ) // area
     {
-        if ( pC0->Area < pC1->Area - 0.0001 )
+        if ( pC0->Area < pC1->Area - p->fEpsilon )
             return -1;
-        if ( pC0->Area > pC1->Area + 0.0001 )
+        if ( pC0->Area > pC1->Area + p->fEpsilon )
             return 1;
         if ( pC0->AveRefs > pC1->AveRefs )
             return -1;
@@ -446,36 +617,36 @@ static inline int If_ManSortCompare( If_Man_t * p, If_Cut_t * pC0, If_Cut_t * pC
             return -1;
         if ( pC0->nLeaves > pC1->nLeaves )
             return 1;
-        if ( pC0->Delay < pC1->Delay - 0.0001 )
+        if ( pC0->Delay < pC1->Delay - p->fEpsilon )
             return -1;
-        if ( pC0->Delay > pC1->Delay + 0.0001 )
+        if ( pC0->Delay > pC1->Delay + p->fEpsilon )
             return 1;
         return 0;
     }
     if ( p->SortMode == 0 ) // delay
     {
-        if ( pC0->Delay < pC1->Delay - 0.0001 )
+        if ( pC0->Delay < pC1->Delay - p->fEpsilon )
             return -1;
-        if ( pC0->Delay > pC1->Delay + 0.0001 )
+        if ( pC0->Delay > pC1->Delay + p->fEpsilon )
             return 1;
         if ( pC0->nLeaves < pC1->nLeaves )
             return -1;
         if ( pC0->nLeaves > pC1->nLeaves )
             return 1;
-        if ( pC0->Area < pC1->Area - 0.0001 )
+        if ( pC0->Area < pC1->Area - p->fEpsilon )
             return -1;
-        if ( pC0->Area > pC1->Area + 0.0001 )
+        if ( pC0->Area > pC1->Area + p->fEpsilon )
             return 1;
         return 0;
     }
     assert( p->SortMode == 2 ); // delay old
-    if ( pC0->Delay < pC1->Delay - 0.0001 )
+    if ( pC0->Delay < pC1->Delay - p->fEpsilon )
         return -1;
-    if ( pC0->Delay > pC1->Delay + 0.0001 )
+    if ( pC0->Delay > pC1->Delay + p->fEpsilon )
         return 1;
-    if ( pC0->Area < pC1->Area - 0.0001 )
+    if ( pC0->Area < pC1->Area - p->fEpsilon )
         return -1;
-    if ( pC0->Area > pC1->Area + 0.0001 )
+    if ( pC0->Area > pC1->Area + p->fEpsilon )
         return 1;
     if ( pC0->nLeaves < pC1->nLeaves )
         return -1;
@@ -511,16 +682,28 @@ void If_CutSort( If_Man_t * p, If_Set_t * pCutSet, If_Cut_t * pCut )
         return;
     }
 
+    if ( p->pPars->fUseBat && !pCut->fUseless )
+    {
+        If_Cut_t * pFirst = pCutSet->ppCuts[0];
+        if ( pFirst->fUseless || If_ManSortCompare(p, pFirst, pCut) == 1 )
+        {
+            pCutSet->ppCuts[0] = pCut;
+            pCutSet->ppCuts[pCutSet->nCuts] = pFirst;
+            If_CutSort( p, pCutSet, pFirst );
+            return;
+        }
+    }
+
     // the cut will be added - find its place
     for ( i = pCutSet->nCuts-1; i >= 0; i-- )
     {
 //        Counter++;
-        if ( If_ManSortCompare( p, pCutSet->ppCuts[i], pCut ) <= 0 )
+        if ( If_ManSortCompare( p, pCutSet->ppCuts[i], pCut ) <= 0 || (i == 0 && !pCutSet->ppCuts[0]->fUseless && pCut->fUseless) )
             break;
         pCutSet->ppCuts[i+1] = pCutSet->ppCuts[i];
         pCutSet->ppCuts[i] = pCut;
     }
-//    printf( "%d ", Counter );
+//    Abc_Print( 1, "%d ", Counter );
 
     // update the number of cuts
     if ( pCutSet->nCuts < pCutSet->nCutsMax )
@@ -529,7 +712,7 @@ void If_CutSort( If_Man_t * p, If_Set_t * pCutSet, If_Cut_t * pCut )
 
 /**Function*************************************************************
 
-  Synopsis    [Computes area flow.]
+  Synopsis    [Orders the leaves of the cut.]
 
   Description []
                
@@ -538,31 +721,27 @@ void If_CutSort( If_Man_t * p, If_Set_t * pCutSet, If_Cut_t * pCut )
   SeeAlso     []
 
 ***********************************************************************/
-float If_CutFlow( If_Man_t * p, If_Cut_t * pCut )
+void If_CutOrder( If_Cut_t * pCut )
 {
-    If_Obj_t * pLeaf;
-    float Flow;
-    int i;
-    assert( p->pPars->fSeqMap || pCut->nLeaves > 1 );
-    Flow = If_CutLutArea(p, pCut);
-    If_CutForEachLeaf( p, pCut, pLeaf, i )
-    {
-        if ( pLeaf->nRefs == 0 )
-            Flow += If_ObjCutBest(pLeaf)->Area;
-        else if ( p->pPars->fSeqMap ) // seq
-            Flow += If_ObjCutBest(pLeaf)->Area / pLeaf->nRefs;
-        else 
+    int i, Temp, fChanges;
+    do {
+        fChanges = 0;
+        for ( i = 0; i < (int)pCut->nLeaves - 1; i++ )
         {
-            assert( pLeaf->EstRefs > p->fEpsilon );
-            Flow += If_ObjCutBest(pLeaf)->Area / pLeaf->EstRefs;
+            assert( pCut->pLeaves[i] != pCut->pLeaves[i+1] );
+            if ( pCut->pLeaves[i] <= pCut->pLeaves[i+1] )
+                continue;
+            Temp = pCut->pLeaves[i];
+            pCut->pLeaves[i] = pCut->pLeaves[i+1];
+            pCut->pLeaves[i+1] = Temp;
+            fChanges = 1;
         }
-    }
-    return Flow;
+    } while ( fChanges );
 }
 
 /**Function*************************************************************
 
-  Synopsis    [Average number of references of the leaves.]
+  Synopsis    [Checks correctness of the cut.]
 
   Description []
                
@@ -571,70 +750,22 @@ float If_CutFlow( If_Man_t * p, If_Cut_t * pCut )
   SeeAlso     []
 
 ***********************************************************************/
-float If_CutAverageRefs( If_Man_t * p, If_Cut_t * pCut )
+int If_CutCheck( If_Cut_t * pCut )
 {
-    If_Obj_t * pLeaf;
-    int nRefsTotal, i;
-    assert( p->pPars->fSeqMap || pCut->nLeaves > 1 );
-    nRefsTotal = 0;
-    If_CutForEachLeaf( p, pCut, pLeaf, i )
-        nRefsTotal += pLeaf->nRefs;
-    return ((float)nRefsTotal)/pCut->nLeaves;
-}
-
-/**Function*************************************************************
-
-  Synopsis    [Computes area of the first level.]
-
-  Description [The cut need to be derefed.]
-               
-  SideEffects []
-
-  SeeAlso     []
- 
-***********************************************************************/
-float If_CutDeref( If_Man_t * p, If_Cut_t * pCut, int nLevels )
-{
-    If_Obj_t * pLeaf;
-    float Area;
     int i;
-    Area = If_CutLutArea(p, pCut);
-    If_CutForEachLeaf( p, pCut, pLeaf, i )
+    assert( pCut->nLeaves <= pCut->nLimit );
+    for ( i = 1; i < (int)pCut->nLeaves; i++ )
     {
-        assert( pLeaf->nRefs > 0 );
-        if ( --pLeaf->nRefs > 0 || !If_ObjIsAnd(pLeaf) || nLevels == 1 )
-            continue;
-        Area += If_CutDeref( p, If_ObjCutBest(pLeaf), nLevels - 1 );
+        if ( pCut->pLeaves[i-1] >= pCut->pLeaves[i] )
+        {
+            Abc_Print( -1, "If_CutCheck(): Cut has wrong ordering of inputs.\n" );
+            return 0;
+        }
+        assert( pCut->pLeaves[i-1] < pCut->pLeaves[i] );
     }
-    return Area;
+    return 1;
 }
 
-/**Function*************************************************************
-
-  Synopsis    [Computes area of the first level.]
-
-  Description [The cut need to be derefed.]
-               
-  SideEffects []
-
-  SeeAlso     []
-
-***********************************************************************/
-float If_CutRef( If_Man_t * p, If_Cut_t * pCut, int nLevels )
-{
-    If_Obj_t * pLeaf;
-    float Area;
-    int i;
-    Area = If_CutLutArea(p, pCut);
-    If_CutForEachLeaf( p, pCut, pLeaf, i )
-    {
-        assert( pLeaf->nRefs >= 0 );
-        if ( pLeaf->nRefs++ > 0 || !If_ObjIsAnd(pLeaf) || nLevels == 1 )
-            continue;
-        Area += If_CutRef( p, If_ObjCutBest(pLeaf), nLevels - 1 );
-    }
-    return Area;
-}
 
 /**Function*************************************************************
 
@@ -647,13 +778,13 @@ float If_CutRef( If_Man_t * p, If_Cut_t * pCut, int nLevels )
   SeeAlso     []
 
 ***********************************************************************/
-void If_CutPrint( If_Man_t * p, If_Cut_t * pCut )
+void If_CutPrint( If_Cut_t * pCut )
 {
     unsigned i;
-    printf( "{" );
+    Abc_Print( 1, "{" );
     for ( i = 0; i < pCut->nLeaves; i++ )
-        printf( " %d", pCut->pLeaves[i] );
-    printf( " }\n" );
+        Abc_Print( 1, " %d", pCut->pLeaves[i] );
+    Abc_Print( 1, " }\n" );
 }
 
 /**Function*************************************************************
@@ -671,54 +802,10 @@ void If_CutPrintTiming( If_Man_t * p, If_Cut_t * pCut )
 {
     If_Obj_t * pLeaf;
     unsigned i;
-    printf( "{" );
+    Abc_Print( 1, "{" );
     If_CutForEachLeaf( p, pCut, pLeaf, i )
-        printf( " %d(%.2f/%.2f)", pLeaf->Id, If_ObjCutBest(pLeaf)->Delay, pLeaf->Required );
-    printf( " }\n" );
-}
-
-/**Function*************************************************************
-
-  Synopsis    [Computes area of the first level.]
-
-  Description [The cut need to be derefed.]
-               
-  SideEffects []
-
-  SeeAlso     []
-
-***********************************************************************/
-float If_CutAreaDerefed( If_Man_t * p, If_Cut_t * pCut, int nLevels )
-{
-    float aResult, aResult2;
-    assert( p->pPars->fSeqMap || pCut->nLeaves > 1 );
-    aResult2 = If_CutRef( p, pCut, nLevels );
-    aResult  = If_CutDeref( p, pCut, nLevels );
-    assert( aResult > aResult2 - p->fEpsilon );
-    assert( aResult < aResult2 + p->fEpsilon );
-    return aResult;
-}
-
-/**Function*************************************************************
-
-  Synopsis    [Computes area of the first level.]
-
-  Description [The cut need to be derefed.]
-               
-  SideEffects []
-
-  SeeAlso     []
-
-***********************************************************************/
-float If_CutAreaRefed( If_Man_t * p, If_Cut_t * pCut, int nLevels )
-{
-    float aResult, aResult2;
-    assert( p->pPars->fSeqMap || pCut->nLeaves > 1 );
-    aResult2 = If_CutDeref( p, pCut, nLevels );
-    aResult  = If_CutRef( p, pCut, nLevels );
-    assert( aResult > aResult2 - p->fEpsilon );
-    assert( aResult < aResult2 + p->fEpsilon );
-    return aResult;
+        Abc_Print( 1, " %d(%.2f/%.2f)", pLeaf->Id, If_ObjCutBest(pLeaf)->Delay, pLeaf->Required );
+    Abc_Print( 1, " }\n" );
 }
 
 /**Function*************************************************************
@@ -768,6 +855,572 @@ void If_CutCopy( If_Man_t * p, If_Cut_t * pCutDest, If_Cut_t * pCutSrc )
     pCutDest->pLeaves = pLeaves;
     pCutDest->pPerm   = pPerm;
     pCutDest->pTruth  = pTruth;
+}
+
+
+/**Function*************************************************************
+
+  Synopsis    [Computes area flow.]
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+float If_CutAreaFlow( If_Man_t * p, If_Cut_t * pCut )
+{
+    If_Obj_t * pLeaf;
+    float Flow;
+    int i;
+    assert( p->pPars->fSeqMap || pCut->nLeaves > 1 );
+    Flow = If_CutLutArea(p, pCut);
+    If_CutForEachLeaf( p, pCut, pLeaf, i )
+    {
+        if ( pLeaf->nRefs == 0 )
+            Flow += If_ObjCutBest(pLeaf)->Area;
+        else if ( p->pPars->fSeqMap ) // seq
+            Flow += If_ObjCutBest(pLeaf)->Area / pLeaf->nRefs;
+        else 
+        {
+            assert( pLeaf->EstRefs > p->fEpsilon );
+            Flow += If_ObjCutBest(pLeaf)->Area / pLeaf->EstRefs;
+        }
+    }
+    return Flow;
+}
+
+/**Function*************************************************************
+
+  Synopsis    [Computes area flow.]
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+float If_CutEdgeFlow( If_Man_t * p, If_Cut_t * pCut )
+{
+    If_Obj_t * pLeaf;
+    float Flow;
+    int i;
+    assert( p->pPars->fSeqMap || pCut->nLeaves > 1 );
+    Flow = pCut->nLeaves;
+    If_CutForEachLeaf( p, pCut, pLeaf, i )
+    {
+        if ( pLeaf->nRefs == 0 )
+            Flow += If_ObjCutBest(pLeaf)->Edge;
+        else if ( p->pPars->fSeqMap ) // seq
+            Flow += If_ObjCutBest(pLeaf)->Edge / pLeaf->nRefs;
+        else 
+        {
+            assert( pLeaf->EstRefs > p->fEpsilon );
+            Flow += If_ObjCutBest(pLeaf)->Edge / pLeaf->EstRefs;
+        }
+    }
+    return Flow;
+}
+
+/**Function*************************************************************
+
+  Synopsis    [Computes area flow.]
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+float If_CutPowerFlow( If_Man_t * p, If_Cut_t * pCut, If_Obj_t * pRoot )
+{
+    If_Obj_t * pLeaf;
+    float * pSwitching = (float *)p->vSwitching->pArray;
+    float Power = 0;
+    int i;
+    assert( p->pPars->fSeqMap || pCut->nLeaves > 1 );
+    If_CutForEachLeaf( p, pCut, pLeaf, i )
+    {
+        Power += pSwitching[pLeaf->Id];
+        if ( pLeaf->nRefs == 0 )
+            Power += If_ObjCutBest(pLeaf)->Power;
+        else if ( p->pPars->fSeqMap ) // seq
+            Power += If_ObjCutBest(pLeaf)->Power / pLeaf->nRefs;
+        else 
+        {
+            assert( pLeaf->EstRefs > p->fEpsilon );
+            Power += If_ObjCutBest(pLeaf)->Power / pLeaf->EstRefs;
+        }
+    }
+    return Power;
+}
+
+/**Function*************************************************************
+
+  Synopsis    [Average number of references of the leaves.]
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+float If_CutAverageRefs( If_Man_t * p, If_Cut_t * pCut )
+{
+    If_Obj_t * pLeaf;
+    int nRefsTotal, i;
+    assert( p->pPars->fSeqMap || pCut->nLeaves > 1 );
+    nRefsTotal = 0;
+    If_CutForEachLeaf( p, pCut, pLeaf, i )
+        nRefsTotal += pLeaf->nRefs;
+    return ((float)nRefsTotal)/pCut->nLeaves;
+}
+
+
+/**Function*************************************************************
+
+  Synopsis    [Computes area of the first level.]
+
+  Description [The cut need to be derefed.]
+               
+  SideEffects []
+
+  SeeAlso     []
+ 
+***********************************************************************/
+float If_CutAreaDeref( If_Man_t * p, If_Cut_t * pCut )
+{
+    If_Obj_t * pLeaf;
+    float Area;
+    int i;
+    Area = If_CutLutArea(p, pCut);
+    If_CutForEachLeaf( p, pCut, pLeaf, i )
+    {
+        assert( pLeaf->nRefs > 0 );
+        if ( --pLeaf->nRefs > 0 || !If_ObjIsAnd(pLeaf) )
+            continue;
+        Area += If_CutAreaDeref( p, If_ObjCutBest(pLeaf) );
+    }
+    return Area;
+}
+
+/**Function*************************************************************
+
+  Synopsis    [Computes area of the first level.]
+
+  Description [The cut need to be derefed.]
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+float If_CutAreaRef( If_Man_t * p, If_Cut_t * pCut )
+{
+    If_Obj_t * pLeaf;
+    float Area;
+    int i;
+    Area = If_CutLutArea(p, pCut);
+    If_CutForEachLeaf( p, pCut, pLeaf, i )
+    {
+        assert( pLeaf->nRefs >= 0 );
+        if ( pLeaf->nRefs++ > 0 || !If_ObjIsAnd(pLeaf) )
+            continue;
+        Area += If_CutAreaRef( p, If_ObjCutBest(pLeaf) );
+    }
+    return Area;
+}
+
+/**Function*************************************************************
+
+  Synopsis    [Computes area of the first level.]
+
+  Description [The cut need to be derefed.]
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+float If_CutAreaDerefed( If_Man_t * p, If_Cut_t * pCut )
+{
+    float aResult, aResult2;
+    assert( p->pPars->fSeqMap || pCut->nLeaves > 1 );
+    aResult2 = If_CutAreaRef( p, pCut );
+    aResult  = If_CutAreaDeref( p, pCut );
+    assert( aResult > aResult2 - p->fEpsilon );
+    assert( aResult < aResult2 + p->fEpsilon );
+    return aResult;
+}
+
+/**Function*************************************************************
+
+  Synopsis    [Computes area of the first level.]
+
+  Description [The cut need to be derefed.]
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+float If_CutAreaRefed( If_Man_t * p, If_Cut_t * pCut )
+{
+    float aResult, aResult2;
+    assert( p->pPars->fSeqMap || pCut->nLeaves > 1 );
+    aResult2 = If_CutAreaDeref( p, pCut );
+    aResult  = If_CutAreaRef( p, pCut );
+    assert( aResult > aResult2 - p->fEpsilon );
+    assert( aResult < aResult2 + p->fEpsilon );
+    return aResult;
+}
+
+
+/**Function*************************************************************
+
+  Synopsis    [Computes area of the first level.]
+
+  Description [The cut need to be derefed.]
+               
+  SideEffects []
+
+  SeeAlso     []
+ 
+***********************************************************************/
+float If_CutEdgeDeref( If_Man_t * p, If_Cut_t * pCut )
+{
+    If_Obj_t * pLeaf;
+    float Edge;
+    int i;
+    Edge = pCut->nLeaves;
+    If_CutForEachLeaf( p, pCut, pLeaf, i )
+    {
+        assert( pLeaf->nRefs > 0 );
+        if ( --pLeaf->nRefs > 0 || !If_ObjIsAnd(pLeaf) )
+            continue;
+        Edge += If_CutEdgeDeref( p, If_ObjCutBest(pLeaf) );
+    }
+    return Edge;
+}
+
+/**Function*************************************************************
+
+  Synopsis    [Computes area of the first level.]
+
+  Description [The cut need to be derefed.]
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+float If_CutEdgeRef( If_Man_t * p, If_Cut_t * pCut )
+{
+    If_Obj_t * pLeaf;
+    float Edge;
+    int i;
+    Edge = pCut->nLeaves;
+    If_CutForEachLeaf( p, pCut, pLeaf, i )
+    {
+        assert( pLeaf->nRefs >= 0 );
+        if ( pLeaf->nRefs++ > 0 || !If_ObjIsAnd(pLeaf) )
+            continue;
+        Edge += If_CutEdgeRef( p, If_ObjCutBest(pLeaf) );
+    }
+    return Edge;
+}
+
+/**Function*************************************************************
+
+  Synopsis    [Computes edge of the first level.]
+
+  Description [The cut need to be derefed.]
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+float If_CutEdgeDerefed( If_Man_t * p, If_Cut_t * pCut )
+{
+    float aResult, aResult2;
+    assert( p->pPars->fSeqMap || pCut->nLeaves > 1 );
+    aResult2 = If_CutEdgeRef( p, pCut );
+    aResult  = If_CutEdgeDeref( p, pCut );
+    assert( aResult > aResult2 - p->fEpsilon );
+    assert( aResult < aResult2 + p->fEpsilon );
+    return aResult;
+}
+
+/**Function*************************************************************
+
+  Synopsis    [Computes area of the first level.]
+
+  Description [The cut need to be derefed.]
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+float If_CutEdgeRefed( If_Man_t * p, If_Cut_t * pCut )
+{
+    float aResult, aResult2;
+    assert( p->pPars->fSeqMap || pCut->nLeaves > 1 );
+    aResult2 = If_CutEdgeDeref( p, pCut );
+    aResult  = If_CutEdgeRef( p, pCut );
+    assert( aResult > aResult2 - p->fEpsilon );
+    assert( aResult < aResult2 + p->fEpsilon );
+    return aResult;
+}
+
+
+/**Function*************************************************************
+
+  Synopsis    [Computes area of the first level.]
+
+  Description [The cut need to be derefed.]
+               
+  SideEffects []
+
+  SeeAlso     []
+ 
+***********************************************************************/
+float If_CutPowerDeref( If_Man_t * p, If_Cut_t * pCut, If_Obj_t * pRoot )
+{
+    If_Obj_t * pLeaf;
+    float * pSwitching = (float *)p->vSwitching->pArray;
+    float Power = 0;
+    int i;
+    If_CutForEachLeaf( p, pCut, pLeaf, i )
+    {
+        Power += pSwitching[pLeaf->Id];
+        assert( pLeaf->nRefs > 0 );
+        if ( --pLeaf->nRefs > 0 || !If_ObjIsAnd(pLeaf) )
+            continue;
+        Power += If_CutPowerDeref( p, If_ObjCutBest(pLeaf), pRoot );
+    }
+    return Power;
+}
+
+/**Function*************************************************************
+
+  Synopsis    [Computes area of the first level.]
+
+  Description [The cut need to be derefed.]
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+float If_CutPowerRef( If_Man_t * p, If_Cut_t * pCut, If_Obj_t * pRoot )
+{
+    If_Obj_t * pLeaf;
+    float * pSwitching = (float *)p->vSwitching->pArray;
+    float Power = 0;
+    int i;
+    If_CutForEachLeaf( p, pCut, pLeaf, i )
+    {
+        Power += pSwitching[pLeaf->Id];
+        assert( pLeaf->nRefs >= 0 );
+        if ( pLeaf->nRefs++ > 0 || !If_ObjIsAnd(pLeaf) )
+            continue;
+        Power += If_CutPowerRef( p, If_ObjCutBest(pLeaf), pRoot );
+    }
+    return Power;
+}
+
+/**Function*************************************************************
+
+  Synopsis    [Computes Power of the first level.]
+
+  Description [The cut need to be derefed.]
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+float If_CutPowerDerefed( If_Man_t * p, If_Cut_t * pCut, If_Obj_t * pRoot )
+{
+    float aResult, aResult2;
+    assert( p->pPars->fSeqMap || pCut->nLeaves > 1 );
+    aResult2 = If_CutPowerRef( p, pCut, pRoot );
+    aResult  = If_CutPowerDeref( p, pCut, pRoot );
+    assert( aResult > aResult2 - p->fEpsilon );
+    assert( aResult < aResult2 + p->fEpsilon );
+    return aResult;
+}
+
+/**Function*************************************************************
+
+  Synopsis    [Computes area of the first level.]
+
+  Description [The cut need to be derefed.]
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+float If_CutPowerRefed( If_Man_t * p, If_Cut_t * pCut, If_Obj_t * pRoot )
+{
+    float aResult, aResult2;
+    assert( p->pPars->fSeqMap || pCut->nLeaves > 1 );
+    aResult2 = If_CutPowerDeref( p, pCut, pRoot );
+    aResult  = If_CutPowerRef( p, pCut, pRoot );
+    assert( aResult > aResult2 - p->fEpsilon );
+    assert( aResult < aResult2 + p->fEpsilon );
+    return aResult;
+}
+
+/**Function*************************************************************
+
+  Synopsis    [Computes the cone of the cut in AIG with choices.]
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+int If_CutGetCutMinLevel( If_Man_t * p, If_Cut_t * pCut )
+{
+    If_Obj_t * pLeaf;
+    int i, nMinLevel = IF_INFINITY;
+    If_CutForEachLeaf( p, pCut, pLeaf, i )
+        nMinLevel = IF_MIN( nMinLevel, (int)pLeaf->Level );
+    return nMinLevel;
+}
+
+/**Function*************************************************************
+
+  Synopsis    [Computes the cone of the cut in AIG with choices.]
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+int If_CutGetCone_rec( If_Man_t * p, If_Obj_t * pObj, If_Cut_t * pCut )
+{
+    If_Obj_t * pTemp;
+    int i, RetValue;
+    // check if the node is in the cut
+    for ( i = 0; i < (int)pCut->nLeaves; i++ )
+        if ( pCut->pLeaves[i] == pObj->Id )
+            return 1;
+        else if ( pCut->pLeaves[i] > pObj->Id )
+            break;
+    // return if we reached the boundary
+    if ( If_ObjIsCi(pObj) )
+        return 0;
+    // check the choice node
+    for ( pTemp = pObj; pTemp; pTemp = pTemp->pEquiv )
+    {
+        // check if the node itself is bound
+        RetValue = If_CutGetCone_rec( p, If_ObjFanin0(pTemp), pCut );
+        if ( RetValue )
+            RetValue &= If_CutGetCone_rec( p, If_ObjFanin1(pTemp), pCut );
+        if ( RetValue )
+            return 1;
+    }
+    return 0;
+}
+
+/**Function*************************************************************
+
+  Synopsis    [Computes the cone of the cut in AIG with choices.]
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+int If_CutGetCones( If_Man_t * p )
+{
+    If_Obj_t * pObj;
+    int i, Counter = 0;
+    int clk = clock();
+    If_ManForEachObj( p, pObj, i )
+    {
+        if ( If_ObjIsAnd(pObj) && pObj->nRefs )
+        {
+            Counter += !If_CutGetCone_rec( p, pObj, If_ObjCutBest(pObj) );
+//            Abc_Print( 1, "%d ", If_CutGetCutMinLevel( p, If_ObjCutBest(pObj) ) );
+        }
+    }
+    Abc_Print( 1, "Cound not find boundary for %d nodes.\n", Counter );
+    Abc_PrintTime( 1, "Cones", clock() - clk );
+    return 1;
+}
+
+
+/**Function*************************************************************
+
+  Synopsis    [Computes the cone of the cut in AIG with choices.]
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+void If_CutFoundFanins_rec( If_Obj_t * pObj, Vec_Int_t * vLeaves )
+{
+    if ( pObj->nRefs || If_ObjIsCi(pObj) )
+    {
+        Vec_IntPushUnique( vLeaves, pObj->Id );
+        return;
+    }
+    If_CutFoundFanins_rec( If_ObjFanin0(pObj), vLeaves );
+    If_CutFoundFanins_rec( If_ObjFanin1(pObj), vLeaves );
+}
+
+/**Function*************************************************************
+
+  Synopsis    [Computes the cone of the cut in AIG with choices.]
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+int If_CutCountTotalFanins( If_Man_t * p )
+{
+    If_Obj_t * pObj;
+    Vec_Int_t * vLeaves;
+    int i, nFaninsTotal = 0, Counter = 0;
+    int clk = clock();
+    vLeaves = Vec_IntAlloc( 100 );
+    If_ManForEachObj( p, pObj, i )
+    {
+        if ( If_ObjIsAnd(pObj) && pObj->nRefs )
+        {
+            nFaninsTotal += If_ObjCutBest(pObj)->nLeaves;
+            Vec_IntClear( vLeaves );
+            If_CutFoundFanins_rec( If_ObjFanin0(pObj), vLeaves );
+            If_CutFoundFanins_rec( If_ObjFanin1(pObj), vLeaves );
+            Counter += Vec_IntSize(vLeaves);
+        }
+    }
+    Abc_Print( 1, "Total cut inputs = %d. Total fanins incremental = %d.\n", nFaninsTotal, Counter );
+    Abc_PrintTime( 1, "Fanins", clock() - clk );
+    Vec_IntFree( vLeaves );
+    return 1;
 }
 
 ////////////////////////////////////////////////////////////////////////

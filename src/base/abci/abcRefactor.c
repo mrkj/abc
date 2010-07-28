@@ -84,6 +84,7 @@ static Dec_Graph_t *  Abc_NodeRefactor( Abc_ManRef_t * p, Abc_Obj_t * pNode, Vec
 ***********************************************************************/
 int Abc_NtkRefactor( Abc_Ntk_t * pNtk, int nNodeSizeMax, int nConeSizeMax, bool fUpdateLevel, bool fUseZeros, bool fUseDcs, bool fVerbose )
 {
+    extern void           Dec_GraphUpdateNetwork( Abc_Obj_t * pRoot, Dec_Graph_t * pGraph, bool fUpdateLevel, int nGain );
     ProgressBar * pProgress;
     Abc_ManRef_t * pManRef;
     Abc_ManCut_t * pManCut;
@@ -183,6 +184,7 @@ pManRef->timeTotal = clock() - clkStart;
 ***********************************************************************/
 Dec_Graph_t * Abc_NodeRefactor( Abc_ManRef_t * p, Abc_Obj_t * pNode, Vec_Ptr_t * vFanins, bool fUpdateLevel, bool fUseZeros, bool fUseDcs, bool fVerbose )
 {
+    extern int            Dec_GraphToNetworkCount( Abc_Obj_t * pRoot, Dec_Graph_t * pGraph, int NodeMax, int LevelMax );
     int fVeryVerbose = 0;
     Abc_Obj_t * pFanin;
     Dec_Graph_t * pFForm;
@@ -243,7 +245,7 @@ p->timeSop += clock() - clk;
     // get the factored form
 clk = clock();
     pFForm = Dec_Factor( pSop );
-    free( pSop );
+    ABC_FREE( pSop );
 p->timeFact += clock() - clk;
 
     // mark the fanin boundary 
@@ -265,7 +267,7 @@ clk = clock();
     nNodesAdded = Dec_GraphToNetworkCount( pNode, pFForm, nNodesSaved, Required );
 p->timeEval += clock() - clk;
     // quit if there is no improvement
-    if ( nNodesAdded == -1 || nNodesAdded == nNodesSaved && !fUseZeros )
+    if ( nNodesAdded == -1 || (nNodesAdded == nNodesSaved && !fUseZeros) )
     {
         Cudd_RecursiveDeref( p->dd, bNodeFunc );
         Dec_GraphFree( pFForm );
@@ -308,7 +310,7 @@ p->timeEval += clock() - clk;
 Abc_ManRef_t * Abc_NtkManRefStart( int nNodeSizeMax, int nConeSizeMax, bool fUseDcs, bool fVerbose )
 {
     Abc_ManRef_t * p;
-    p = ALLOC( Abc_ManRef_t, 1 );
+    p = ABC_ALLOC( Abc_ManRef_t, 1 );
     memset( p, 0, sizeof(Abc_ManRef_t) );
     p->vCube        = Vec_StrAlloc( 100 );
     p->vVisited     = Vec_PtrAlloc( 100 );
@@ -340,7 +342,7 @@ void Abc_NtkManRefStop( Abc_ManRef_t * p )
     Extra_StopManager( p->dd );
     Vec_PtrFree( p->vVisited );
     Vec_StrFree( p->vCube    );
-    free( p );
+    ABC_FREE( p );
 }
 
 /**Function*************************************************************
@@ -360,15 +362,15 @@ void Abc_NtkManRefPrintStats( Abc_ManRef_t * p )
     printf( "Nodes considered  = %8d.\n", p->nNodesConsidered );
     printf( "Nodes refactored  = %8d.\n", p->nNodesRefactored );
     printf( "Gain              = %8d. (%6.2f %%).\n", p->nNodesBeg-p->nNodesEnd, 100.0*(p->nNodesBeg-p->nNodesEnd)/p->nNodesBeg );
-    PRT( "Cuts       ", p->timeCut );
-    PRT( "Resynthesis", p->timeRes );
-    PRT( "    BDD    ", p->timeBdd );
-    PRT( "    DCs    ", p->timeDcs );
-    PRT( "    SOP    ", p->timeSop );
-    PRT( "    FF     ", p->timeFact );
-    PRT( "    Eval   ", p->timeEval );
-    PRT( "AIG update ", p->timeNtk );
-    PRT( "TOTAL      ", p->timeTotal );
+    ABC_PRT( "Cuts       ", p->timeCut );
+    ABC_PRT( "Resynthesis", p->timeRes );
+    ABC_PRT( "    BDD    ", p->timeBdd );
+    ABC_PRT( "    DCs    ", p->timeDcs );
+    ABC_PRT( "    SOP    ", p->timeSop );
+    ABC_PRT( "    FF     ", p->timeFact );
+    ABC_PRT( "    Eval   ", p->timeEval );
+    ABC_PRT( "AIG update ", p->timeNtk );
+    ABC_PRT( "TOTAL      ", p->timeTotal );
 }
 
 

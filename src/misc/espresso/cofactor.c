@@ -79,7 +79,7 @@ IN register pcube c;
     Tc_save[1] = (pcube) Tc;                    /* save pointer to last */
     return Tc_save;
 }
-
+
 /*
     scofactor -- compute the cofactor of a cover with respect to a cube,
     where the cube is "active" in only a single variable.
@@ -124,7 +124,7 @@ IN int var;
     Tc_save[1] = (pcube) Tc;                    /* save pointer to last */
     return Tc_save;
 }
-
+
 void massive_count(T)
 IN pcube *T;
 {
@@ -143,7 +143,7 @@ IN pcube *T;
     register pcube p, cof = T[0], full = cube.fullset;
     for(T1 = T+2; (p = *T1++) != NULL; )
 	for(i = LOOP(p); i > 0; i--)
-	    if (val = full[i] & ~ (p[i] | cof[i])) {
+	    if ((val = full[i] & ~ (p[i] | cof[i]))) {
 		cnt = count + ((i-1) << LOGBPI);
 #if BPI == 32
 	    if (val & 0xFF000000) {
@@ -230,6 +230,7 @@ IN pcube *T;
 	    best = var, mostactive = active, mostzero = cdata.var_zeros[best],
 	    mostbalanced = maxactive;
 	else if (active == mostactive)
+	{
 	    /* secondary condition is to maximize the number zeros */
 	    /* for binary variables, this is the same as minimum # of 2's */
 	    if (cdata.var_zeros[var] > mostzero)
@@ -240,6 +241,7 @@ IN pcube *T;
 		/* for binary vars, this means roughly equal # 0's and 1's */
 		if (maxactive < mostbalanced)
 		    best = var, mostbalanced = maxactive;
+	}
 
 	cdata.parts_active[var] = active;
 	cdata.is_unate[var] = (active == 1);
@@ -249,7 +251,7 @@ IN pcube *T;
     cdata.best = best;
  }
 }
-
+
 int binate_split_select(T, cleft, cright, debug_flag)
 IN pcube *T;
 IN register pcube cleft, cright;
@@ -357,8 +359,8 @@ pcube *A1;
     A->count = CUBELISTSIZE(A1);
     return A;
 }
-
-simplify_cubelist(T)
+
+void simplify_cubelist(T)
 pcube *T;
 {
     register pcube *Tdest;

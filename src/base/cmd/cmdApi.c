@@ -56,7 +56,7 @@ void Cmd_CommandAdd( Abc_Frame_t * pAbc, char * sGroup, char * sName, void * pFu
     }
 
     // create the new command
-    pCommand = ALLOC( Abc_Command, 1 );
+    pCommand = ABC_ALLOC( Abc_Command, 1 );
     pCommand->sName   = Extra_UtilStrsav( sName );
     pCommand->sGroup  = Extra_UtilStrsav( sGroup );
     pCommand->pFunc   = pFunc;
@@ -90,7 +90,7 @@ int Cmd_CommandExecute( Abc_Frame_t * pAbc, char * sCommand )
 		loop = 0;
 		fStatus = CmdApplyAlias( pAbc, &argc, &argv, &loop );
 		if ( fStatus == 0 ) 
-			fStatus = CmdCommandDispatch( pAbc, argc, argv );
+			fStatus = CmdCommandDispatch( pAbc, &argc, &argv );
        	CmdFreeArgv( argc, argv );
     } 
     while ( fStatus == 0 && *sCommandNext != '\0' );

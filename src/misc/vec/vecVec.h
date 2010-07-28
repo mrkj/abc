@@ -99,12 +99,12 @@ struct Vec_Vec_t_
 static inline Vec_Vec_t * Vec_VecAlloc( int nCap )
 {
     Vec_Vec_t * p;
-    p = ALLOC( Vec_Vec_t, 1 );
+    p = ABC_ALLOC( Vec_Vec_t, 1 );
     if ( nCap > 0 && nCap < 8 )
         nCap = 8;
     p->nSize  = 0;
     p->nCap   = nCap;
-    p->pArray = p->nCap? ALLOC( void *, p->nCap ) : NULL;
+    p->pArray = p->nCap? ABC_ALLOC( void *, p->nCap ) : NULL;
     return p;
 }
 
@@ -207,6 +207,67 @@ static inline void Vec_VecFree( Vec_Vec_t * p )
 
 /**Function*************************************************************
 
+  Synopsis    []
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+static inline void Vec_VecFreeP( Vec_Vec_t ** p )
+{
+    if ( *p == NULL )
+        return;
+    Vec_VecFree( *p );
+    *p = NULL;
+}
+
+/**Function*************************************************************
+
+  Synopsis    [Frees the vector.]
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+static inline Vec_Vec_t * Vec_VecDupPtr( Vec_Vec_t * p )
+{
+    Vec_Ptr_t * vNew, * vVec;
+    int i;
+    vNew = Vec_PtrAlloc( Vec_VecSize(p) );
+    Vec_VecForEachLevel( p, vVec, i )
+        Vec_PtrPush( vNew, Vec_PtrDup(vVec) );
+    return (Vec_Vec_t *)vNew;
+}
+
+/**Function*************************************************************
+
+  Synopsis    [Frees the vector.]
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+static inline Vec_Vec_t * Vec_VecDupInt( Vec_Vec_t * p )
+{
+    Vec_Ptr_t * vNew, * vVec;
+    int i;
+    vNew = Vec_PtrAlloc( Vec_VecSize(p) );
+    Vec_VecForEachLevel( p, vVec, i )
+        Vec_PtrPush( vNew, Vec_IntDup((Vec_Int_t *)vVec) );
+    return (Vec_Vec_t *)vNew;
+}
+
+/**Function*************************************************************
+
   Synopsis    [Frees the vector of vectors.]
 
   Description []
@@ -298,7 +359,7 @@ static inline void Vec_VecPushUnique( Vec_Vec_t * p, int Level, void * Entry )
   SeeAlso     []
 
 ***********************************************************************/
-static inline int Vec_VecSortCompare1( Vec_Ptr_t ** pp1, Vec_Ptr_t ** pp2 )
+static int Vec_VecSortCompare1( Vec_Ptr_t ** pp1, Vec_Ptr_t ** pp2 )
 {
     if ( Vec_PtrSize(*pp1) < Vec_PtrSize(*pp2) )
         return -1;
@@ -318,7 +379,7 @@ static inline int Vec_VecSortCompare1( Vec_Ptr_t ** pp1, Vec_Ptr_t ** pp2 )
   SeeAlso     []
 
 ***********************************************************************/
-static inline int Vec_VecSortCompare2( Vec_Ptr_t ** pp1, Vec_Ptr_t ** pp2 )
+static int Vec_VecSortCompare2( Vec_Ptr_t ** pp1, Vec_Ptr_t ** pp2 )
 {
     if ( Vec_PtrSize(*pp1) > Vec_PtrSize(*pp2) )
         return -1;

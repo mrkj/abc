@@ -21,10 +21,6 @@
 #ifndef __DEC_H__
 #define __DEC_H__
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 ////////////////////////////////////////////////////////////////////////
 ///                          INCLUDES                                ///
 ////////////////////////////////////////////////////////////////////////
@@ -32,6 +28,10 @@ extern "C" {
 ////////////////////////////////////////////////////////////////////////
 ///                         PARAMETERS                               ///
 ////////////////////////////////////////////////////////////////////////
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 ////////////////////////////////////////////////////////////////////////
 ///                         BASIC TYPES                              ///
@@ -50,7 +50,8 @@ struct Dec_Node_t_
     Dec_Edge_t        eEdge0;          // the left child of the node
     Dec_Edge_t        eEdge1;          // the right child of the node
     // other info
-    void *            pFunc;           // the function of the node (BDD or AIG)
+    union { int       iFunc;           // the literal of the node (AIG)
+    void *            pFunc; };        // the function of the node (BDD or AIG)
     unsigned          Level    : 14;   // the level of this node in the global AIG
     // printing info 
     unsigned          fNodeOr  :  1;   // marks the original OR node
@@ -103,10 +104,6 @@ struct Dec_Man_t_
 ////////////////////////////////////////////////////////////////////////
 
 /*=== decAbc.c ========================================================*/
-extern Abc_Obj_t *    Dec_GraphToNetwork( Abc_Ntk_t * pNtk, Dec_Graph_t * pGraph );
-extern Abc_Obj_t *    Dec_GraphToNetworkNoStrash( Abc_Ntk_t * pNtk, Dec_Graph_t * pGraph );
-extern int            Dec_GraphToNetworkCount( Abc_Obj_t * pRoot, Dec_Graph_t * pGraph, int NodeMax, int LevelMax );
-extern void           Dec_GraphUpdateNetwork( Abc_Obj_t * pRoot, Dec_Graph_t * pGraph, bool fUpdateLevel, int nGain );
 /*=== decFactor.c ========================================================*/
 extern Dec_Graph_t *  Dec_Factor( char * pSop );
 /*=== decMan.c ========================================================*/
@@ -115,7 +112,6 @@ extern void           Dec_ManStop( Dec_Man_t * p );
 /*=== decPrint.c ========================================================*/
 extern void           Dec_GraphPrint( FILE * pFile, Dec_Graph_t * pGraph, char * pNamesIn[], char * pNameOut );
 /*=== decUtil.c ========================================================*/
-extern DdNode *       Dec_GraphDeriveBdd( DdManager * dd, Dec_Graph_t * pGraph );
 extern unsigned       Dec_GraphDeriveTruth( Dec_Graph_t * pGraph );
 
 ////////////////////////////////////////////////////////////////////////
@@ -182,10 +178,13 @@ static inline Dec_Edge_t Dec_IntToEdge( unsigned Edge )
   SeeAlso     []
 
 ***********************************************************************/
+static inline unsigned    Dec_EdgeToInt_( Dec_Edge_t m )  { union { Dec_Edge_t x; unsigned y; } v; v.x = m; return v.y;  }
+/*
 static inline unsigned Dec_EdgeToInt_( Dec_Edge_t eEdge )   
 {
     return *(unsigned *)&eEdge;
 }
+*/
 
 /**Function*************************************************************
 
@@ -198,10 +197,13 @@ static inline unsigned Dec_EdgeToInt_( Dec_Edge_t eEdge )
   SeeAlso     []
 
 ***********************************************************************/
+static inline Dec_Edge_t  Dec_IntToEdge_( unsigned m )    { union { Dec_Edge_t x; unsigned y; } v; v.y = m; return v.x;  }
+/*
 static inline Dec_Edge_t Dec_IntToEdge_( unsigned Edge )   
 {
     return *(Dec_Edge_t *)&Edge;
 }
+*/
 
 /**Function*************************************************************
 
@@ -217,12 +219,12 @@ static inline Dec_Edge_t Dec_IntToEdge_( unsigned Edge )
 static inline Dec_Graph_t * Dec_GraphCreate( int nLeaves )   
 {
     Dec_Graph_t * pGraph;
-    pGraph = ALLOC( Dec_Graph_t, 1 );
+    pGraph = ABC_ALLOC( Dec_Graph_t, 1 );
     memset( pGraph, 0, sizeof(Dec_Graph_t) );
     pGraph->nLeaves = nLeaves;
     pGraph->nSize = nLeaves;
     pGraph->nCap = 2 * nLeaves + 50;
-    pGraph->pNodes = ALLOC( Dec_Node_t, pGraph->nCap );
+    pGraph->pNodes = ABC_ALLOC( Dec_Node_t, pGraph->nCap );
     memset( pGraph->pNodes, 0, sizeof(Dec_Node_t) * pGraph->nSize );
     return pGraph;
 }
@@ -241,7 +243,7 @@ static inline Dec_Graph_t * Dec_GraphCreate( int nLeaves )
 static inline Dec_Graph_t * Dec_GraphCreateConst0()   
 {
     Dec_Graph_t * pGraph;
-    pGraph = ALLOC( Dec_Graph_t, 1 );
+    pGraph = ABC_ALLOC( Dec_Graph_t, 1 );
     memset( pGraph, 0, sizeof(Dec_Graph_t) );
     pGraph->fConst = 1;
     pGraph->eRoot.fCompl = 1;
@@ -262,7 +264,7 @@ static inline Dec_Graph_t * Dec_GraphCreateConst0()
 static inline Dec_Graph_t * Dec_GraphCreateConst1()   
 {
     Dec_Graph_t * pGraph;
-    pGraph = ALLOC( Dec_Graph_t, 1 );
+    pGraph = ABC_ALLOC( Dec_Graph_t, 1 );
     memset( pGraph, 0, sizeof(Dec_Graph_t) );
     pGraph->fConst = 1;
     return pGraph;
@@ -302,8 +304,8 @@ static inline Dec_Graph_t * Dec_GraphCreateLeaf( int iLeaf, int nLeaves, int fCo
 ***********************************************************************/
 static inline void Dec_GraphFree( Dec_Graph_t * pGraph )   
 {
-    FREE( pGraph->pNodes );
-    free( pGraph );
+    ABC_FREE( pGraph->pNodes );
+    ABC_FREE( pGraph );
 }
 
 /**Function*************************************************************
@@ -317,7 +319,7 @@ static inline void Dec_GraphFree( Dec_Graph_t * pGraph )
   SeeAlso     []
 
 ***********************************************************************/
-static inline bool Dec_GraphIsConst( Dec_Graph_t * pGraph )   
+static inline int Dec_GraphIsConst( Dec_Graph_t * pGraph )   
 {
     return pGraph->fConst;
 }
@@ -333,7 +335,7 @@ static inline bool Dec_GraphIsConst( Dec_Graph_t * pGraph )
   SeeAlso     []
 
 ***********************************************************************/
-static inline bool Dec_GraphIsConst0( Dec_Graph_t * pGraph )   
+static inline int Dec_GraphIsConst0( Dec_Graph_t * pGraph )   
 {
     return pGraph->fConst && pGraph->eRoot.fCompl;
 }
@@ -349,7 +351,7 @@ static inline bool Dec_GraphIsConst0( Dec_Graph_t * pGraph )
   SeeAlso     []
 
 ***********************************************************************/
-static inline bool Dec_GraphIsConst1( Dec_Graph_t * pGraph )   
+static inline int Dec_GraphIsConst1( Dec_Graph_t * pGraph )   
 {
     return pGraph->fConst && !pGraph->eRoot.fCompl;
 }
@@ -365,7 +367,7 @@ static inline bool Dec_GraphIsConst1( Dec_Graph_t * pGraph )
   SeeAlso     []
 
 ***********************************************************************/
-static inline bool Dec_GraphIsComplement( Dec_Graph_t * pGraph )   
+static inline int Dec_GraphIsComplement( Dec_Graph_t * pGraph )   
 {
     return pGraph->eRoot.fCompl;
 }
@@ -478,7 +480,7 @@ static inline int Dec_GraphNodeInt( Dec_Graph_t * pGraph, Dec_Node_t * pNode )
   SeeAlso     []
 
 ***********************************************************************/
-static inline bool Dec_GraphIsVar( Dec_Graph_t * pGraph )   
+static inline int Dec_GraphIsVar( Dec_Graph_t * pGraph )   
 {
     return pGraph->eRoot.Node < (unsigned)pGraph->nLeaves;
 }
@@ -494,7 +496,7 @@ static inline bool Dec_GraphIsVar( Dec_Graph_t * pGraph )
   SeeAlso     []
 
 ***********************************************************************/
-static inline bool Dec_GraphNodeIsVar( Dec_Graph_t * pGraph, Dec_Node_t * pNode )   
+static inline int Dec_GraphNodeIsVar( Dec_Graph_t * pGraph, Dec_Node_t * pNode )   
 {
     return Dec_GraphNodeInt(pGraph,pNode) < pGraph->nLeaves;
 }
@@ -565,7 +567,7 @@ static inline Dec_Node_t * Dec_GraphAppendNode( Dec_Graph_t * pGraph )
     Dec_Node_t * pNode;
     if ( pGraph->nSize == pGraph->nCap )
     {
-        pGraph->pNodes = REALLOC( Dec_Node_t, pGraph->pNodes, 2 * pGraph->nCap ); 
+        pGraph->pNodes = ABC_REALLOC( Dec_Node_t, pGraph->pNodes, 2 * pGraph->nCap ); 
         pGraph->nCap   = 2 * pGraph->nCap;
     }
     pNode = pGraph->pNodes + pGraph->nSize++;

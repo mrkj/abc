@@ -28,7 +28,7 @@ static void            Fpga_TableResize( Fpga_Man_t * p );
 static Fpga_Node_t *   Fpga_TableLookup( Fpga_Man_t * p, Fpga_Node_t * p1, Fpga_Node_t * p2 );
 
 // hash key for the structural hash table
-static inline unsigned Fpga_HashKey2( Fpga_Node_t * p0, Fpga_Node_t * p1, int TableSize ) { return ((unsigned)(p0) + (unsigned)(p1) * 12582917) % TableSize; }
+static inline unsigned Fpga_HashKey2( Fpga_Node_t * p0, Fpga_Node_t * p1, int TableSize ) { return (unsigned)(((ABC_PTRUINT_T)(p0) + (ABC_PTRUINT_T)(p1) * 12582917) % TableSize); }
 
 ////////////////////////////////////////////////////////////////////////
 ///                     FUNCTION DEFINITIONS                         ///
@@ -52,7 +52,9 @@ Fpga_Node_t **  Fpga_ManReadOutputs( Fpga_Man_t * p )                     { retu
 Fpga_Node_t *   Fpga_ManReadConst1 ( Fpga_Man_t * p )                     { return p->pConst1;    }
 float *         Fpga_ManReadInputArrivals( Fpga_Man_t * p )               { return p->pInputArrivals;}
 int             Fpga_ManReadVerbose( Fpga_Man_t * p )                     { return p->fVerbose;   }
+int             Fpga_ManReadVarMax( Fpga_Man_t * p )                      { return p->pLutLib->LutMax;     }
 float *         Fpga_ManReadLutAreas( Fpga_Man_t * p )                    { return p->pLutLib->pLutAreas;  }
+Fpga_NodeVec_t* Fpga_ManReadMapping( Fpga_Man_t * p )                     { return p->vMapping;   }
 void            Fpga_ManSetTimeToMap( Fpga_Man_t * p, int Time )          { p->timeToMap = Time;  }
 void            Fpga_ManSetTimeToNet( Fpga_Man_t * p, int Time )          { p->timeToNet = Time;  }
 void            Fpga_ManSetTimeTotal( Fpga_Man_t * p, int Time )          { p->timeTotal = Time;  }
@@ -165,7 +167,7 @@ Fpga_Man_t * Fpga_ManCreate( int nInputs, int nOutputs, int fVerbose )
     int i;
 
     // start the manager
-    p = ALLOC( Fpga_Man_t, 1 );
+    p = ABC_ALLOC( Fpga_Man_t, 1 );
     memset( p, 0, sizeof(Fpga_Man_t) );
     p->pLutLib   = Abc_FrameReadLibLut();
     p->nVarsMax  = p->pLutLib->LutMax;
@@ -191,13 +193,13 @@ Fpga_Man_t * Fpga_ManCreate( int nInputs, int nOutputs, int fVerbose )
 
     // create the PI nodes
     p->nInputs = nInputs;
-    p->pInputs = ALLOC( Fpga_Node_t *, nInputs );
+    p->pInputs = ABC_ALLOC( Fpga_Node_t *, nInputs );
     for ( i = 0; i < nInputs; i++ )
         p->pInputs[i] = Fpga_NodeCreate( p, NULL, NULL );
 
     // create the place for the output nodes
     p->nOutputs = nOutputs;
-    p->pOutputs = ALLOC( Fpga_Node_t *, nOutputs );
+    p->pOutputs = ABC_ALLOC( Fpga_Node_t *, nOutputs );
     memset( p->pOutputs, 0, sizeof(Fpga_Node_t *) * nOutputs );
     return p;
 }
@@ -228,12 +230,12 @@ void Fpga_ManFree( Fpga_Man_t * p )
         Fpga_NodeVecFree( p->vNodesAll );
     Extra_MmFixedStop( p->mmNodes );
     Extra_MmFixedStop( p->mmCuts );
-    FREE( p->ppOutputNames );
-    FREE( p->pInputArrivals );
-    FREE( p->pInputs );
-    FREE( p->pOutputs );
-    FREE( p->pBins );
-    FREE( p );
+    ABC_FREE( p->ppOutputNames );
+    ABC_FREE( p->pInputArrivals );
+    ABC_FREE( p->pInputs );
+    ABC_FREE( p->pOutputs );
+    ABC_FREE( p->pBins );
+    ABC_FREE( p );
 }
 
 
@@ -250,8 +252,8 @@ void Fpga_ManFree( Fpga_Man_t * p )
 ***********************************************************************/
 void Fpga_ManPrintTimeStats( Fpga_Man_t * p )
 {
-    extern char * pNetName;
-    extern int TotalLuts;
+//    extern char * pNetName;
+//    extern int TotalLuts;
 //    FILE * pTable;
 
     
@@ -267,14 +269,14 @@ void Fpga_ManPrintTimeStats( Fpga_Man_t * p )
 
 //    printf( "N-canonical = %d. Matchings = %d.  ", p->nCanons, p->nMatches );
 //    printf( "Choice nodes = %d. Choices = %d.\n", p->nChoiceNodes, p->nChoices );
-    PRT( "ToMap", p->timeToMap );
-    PRT( "Cuts ", p->timeCuts );
-    PRT( "Match", p->timeMatch );
-    PRT( "Area ", p->timeRecover );
-    PRT( "ToNet", p->timeToNet );
-    PRT( "TOTAL", p->timeTotal );
-    if ( p->time1 ) { PRT( "time1", p->time1 ); }
-    if ( p->time2 ) { PRT( "time2", p->time2 ); }
+    ABC_PRT( "ToMap", p->timeToMap );
+    ABC_PRT( "Cuts ", p->timeCuts );
+    ABC_PRT( "Match", p->timeMatch );
+    ABC_PRT( "Area ", p->timeRecover );
+    ABC_PRT( "ToNet", p->timeToNet );
+    ABC_PRT( "TOTAL", p->timeTotal );
+    if ( p->time1 ) { ABC_PRT( "time1", p->time1 ); }
+    if ( p->time2 ) { ABC_PRT( "time2", p->time2 ); }
 }
 
 /**Function*************************************************************
@@ -342,7 +344,7 @@ void Fpga_TableCreate( Fpga_Man_t * pMan )
 {
     assert( pMan->pBins == NULL );
     pMan->nBins = Cudd_Prime(50000);
-    pMan->pBins = ALLOC( Fpga_Node_t *, pMan->nBins );
+    pMan->pBins = ABC_ALLOC( Fpga_Node_t *, pMan->nBins );
     memset( pMan->pBins, 0, sizeof(Fpga_Node_t *) * pMan->nBins );
     pMan->nNodes = 0;
 }
@@ -427,7 +429,7 @@ clk = clock();
     // get the new table size
     nBinsNew = Cudd_Prime(2 * pMan->nBins); 
     // allocate a new array
-    pBinsNew = ALLOC( Fpga_Node_t *, nBinsNew );
+    pBinsNew = ABC_ALLOC( Fpga_Node_t *, nBinsNew );
     memset( pBinsNew, 0, sizeof(Fpga_Node_t *) * nBinsNew );
     // rehash the entries from the old table
     Counter = 0;
@@ -444,10 +446,10 @@ clk = clock();
     if ( pMan->fVerbose )
     {
 //        printf( "Increasing the unique table size from %6d to %6d. ", pMan->nBins, nBinsNew );
-//        PRT( "Time", clock() - clk );
+//        ABC_PRT( "Time", clock() - clk );
     }
     // replace the table and the parameters
-    free( pMan->pBins );
+    ABC_FREE( pMan->pBins );
     pMan->pBins = pBinsNew;
     pMan->nBins = nBinsNew;
 }

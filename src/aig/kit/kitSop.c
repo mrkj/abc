@@ -174,7 +174,9 @@ void Kit_SopDivideByCube( Kit_Sop_t * cSop, Kit_Sop_t * cDiv, Kit_Sop_t * vQuo, 
 ***********************************************************************/
 void Kit_SopDivideInternal( Kit_Sop_t * cSop, Kit_Sop_t * cDiv, Kit_Sop_t * vQuo, Kit_Sop_t * vRem, Vec_Int_t * vMemory )
 {
-    unsigned uCube, uDiv, uCube2, uDiv2, uQuo;
+    unsigned uCube, uDiv;
+    unsigned uCube2 = 0; // Suppress "might be used uninitialized"
+    unsigned uDiv2, uQuo;
     int i, i2, k, k2, nCubesRem;
     assert( Kit_SopCubeNum(cSop) >= Kit_SopCubeNum(cDiv) );
     // consider special case
@@ -294,7 +296,7 @@ static inline unsigned Kit_SopCommonCube( Kit_Sop_t * cSop )
 
 /**Function*************************************************************
 
-  Synopsis    [Makes the cover cube-free.]
+  Synopsis    [Makes the cover cube-ABC_FREE.]
 
   Description []
                
@@ -317,7 +319,7 @@ void Kit_SopMakeCubeFree( Kit_Sop_t * cSop )
 
 /**Function*************************************************************
 
-  Synopsis    [Checks if the cover is cube-free.]
+  Synopsis    [Checks if the cover is cube-ABC_FREE.]
 
   Description []
                

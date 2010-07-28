@@ -77,12 +77,12 @@ struct Vec_Ptr_t_
 static inline Vec_Ptr_t * Vec_PtrAlloc( int nCap )
 {
     Vec_Ptr_t * p;
-    p = ALLOC( Vec_Ptr_t, 1 );
+    p = ABC_ALLOC( Vec_Ptr_t, 1 );
     if ( nCap > 0 && nCap < 8 )
         nCap = 8;
     p->nSize  = 0;
     p->nCap   = nCap;
-    p->pArray = p->nCap? ALLOC( void *, p->nCap ) : NULL;
+    p->pArray = p->nCap? ABC_ALLOC( void *, p->nCap ) : NULL;
     return p;
 }
 
@@ -120,7 +120,7 @@ static inline Vec_Ptr_t * Vec_PtrStart( int nSize )
 static inline Vec_Ptr_t * Vec_PtrAllocArray( void ** pArray, int nSize )
 {
     Vec_Ptr_t * p;
-    p = ALLOC( Vec_Ptr_t, 1 );
+    p = ABC_ALLOC( Vec_Ptr_t, 1 );
     p->nSize  = nSize;
     p->nCap   = nSize;
     p->pArray = pArray;
@@ -141,76 +141,11 @@ static inline Vec_Ptr_t * Vec_PtrAllocArray( void ** pArray, int nSize )
 static inline Vec_Ptr_t * Vec_PtrAllocArrayCopy( void ** pArray, int nSize )
 {
     Vec_Ptr_t * p;
-    p = ALLOC( Vec_Ptr_t, 1 );
+    p = ABC_ALLOC( Vec_Ptr_t, 1 );
     p->nSize  = nSize;
     p->nCap   = nSize;
-    p->pArray = ALLOC( void *, nSize );
+    p->pArray = ABC_ALLOC( void *, nSize );
     memcpy( p->pArray, pArray, sizeof(void *) * nSize );
-    return p;
-}
-
-/**Function*************************************************************
-
-  Synopsis    [Allocates the array of simulation info.]
-
-  Description [Allocates the array containing given number of entries, 
-  each of which contains given number of unsigned words of simulation data.
-  The resulting array can be freed using regular procedure Vec_PtrFree().
-  It is the responsibility of the user to ensure this array is never grown.]
-               
-  SideEffects []
-
-  SeeAlso     []
-
-***********************************************************************/
-static inline Vec_Ptr_t * Vec_PtrAllocSimInfo( int nEntries, int nWords )
-{
-    void ** pMemory;
-    unsigned * pInfo;
-    int i;
-    pMemory = (void **)ALLOC( char, (sizeof(void *) + sizeof(unsigned) * nWords) * nEntries );
-    pInfo = (unsigned *)(pMemory + nEntries);
-    for ( i = 0; i < nEntries; i++ )
-        pMemory[i] = pInfo + i * nWords;
-    return Vec_PtrAllocArray( pMemory, nEntries );
-}
-
-/**Function*************************************************************
-
-  Synopsis    [Allocates the array of truth tables for the given number of vars.]
-
-  Description []
-               
-  SideEffects []
-
-  SeeAlso     []
-
-***********************************************************************/
-static inline Vec_Ptr_t * Vec_PtrAllocTruthTables( int nVars )
-{
-    Vec_Ptr_t * p;
-    unsigned Masks[5] = { 0xAAAAAAAA, 0xCCCCCCCC, 0xF0F0F0F0, 0xFF00FF00, 0xFFFF0000 };
-    unsigned * pTruth;
-    int i, k, nWords;
-    nWords = (nVars <= 5 ? 1 : (1 << (nVars - 5)));
-    p = Vec_PtrAllocSimInfo( nVars, nWords );
-    for ( i = 0; i < nVars; i++ )
-    {
-        pTruth = (unsigned *)p->pArray[i];
-        if ( i < 5 )
-        {
-            for ( k = 0; k < nWords; k++ )
-                pTruth[k] = Masks[i];
-        }
-        else
-        {
-            for ( k = 0; k < nWords; k++ )
-                if ( k & (1 << (i-5)) )
-                    pTruth[k] = ~(unsigned)0;
-                else
-                    pTruth[k] = 0;
-        }
-    }
     return p;
 }
 
@@ -228,10 +163,10 @@ static inline Vec_Ptr_t * Vec_PtrAllocTruthTables( int nVars )
 static inline Vec_Ptr_t * Vec_PtrDup( Vec_Ptr_t * pVec )
 {
     Vec_Ptr_t * p;
-    p = ALLOC( Vec_Ptr_t, 1 );
+    p = ABC_ALLOC( Vec_Ptr_t, 1 );
     p->nSize  = pVec->nSize;
     p->nCap   = pVec->nCap;
-    p->pArray = p->nCap? ALLOC( void *, p->nCap ) : NULL;
+    p->pArray = p->nCap? ABC_ALLOC( void *, p->nCap ) : NULL;
     memcpy( p->pArray, pVec->pArray, sizeof(void *) * pVec->nSize );
     return p;
 }
@@ -250,7 +185,7 @@ static inline Vec_Ptr_t * Vec_PtrDup( Vec_Ptr_t * pVec )
 static inline Vec_Ptr_t * Vec_PtrDupArray( Vec_Ptr_t * pVec )
 {
     Vec_Ptr_t * p;
-    p = ALLOC( Vec_Ptr_t, 1 );
+    p = ABC_ALLOC( Vec_Ptr_t, 1 );
     p->nSize  = pVec->nSize;
     p->nCap   = pVec->nCap;
     p->pArray = pVec->pArray;
@@ -273,8 +208,27 @@ static inline Vec_Ptr_t * Vec_PtrDupArray( Vec_Ptr_t * pVec )
 ***********************************************************************/
 static inline void Vec_PtrFree( Vec_Ptr_t * p )
 {
-    FREE( p->pArray );
-    FREE( p );
+    ABC_FREE( p->pArray );
+    ABC_FREE( p );
+}
+
+/**Function*************************************************************
+
+  Synopsis    []
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+static inline void Vec_PtrFreeP( Vec_Ptr_t ** p )
+{
+    if ( *p == NULL )
+        return;
+    ABC_FREE( (*p)->pArray );
+    ABC_FREE( (*p) );
 }
 
 /**Function*************************************************************
@@ -348,37 +302,6 @@ static inline void * Vec_PtrEntry( Vec_Ptr_t * p, int i )
 
 /**Function*************************************************************
 
-  Synopsis    [Resizes the array of simulation info.]
-
-  Description []
-               
-  SideEffects []
-
-  SeeAlso     []
-
-***********************************************************************/
-static inline void Vec_PtrDoubleSimInfo( Vec_Ptr_t * vInfo )
-{
-    Vec_Ptr_t * vInfoNew;
-    int nWords;
-    assert( Vec_PtrSize(vInfo) > 2 );
-    // get the new array
-    nWords = (unsigned *)Vec_PtrEntry(vInfo,1) - (unsigned *)Vec_PtrEntry(vInfo,0);
-    vInfoNew = Vec_PtrAllocSimInfo( 2*Vec_PtrSize(vInfo), nWords );
-    // copy the simulation info
-    memcpy( Vec_PtrEntry(vInfoNew,0), Vec_PtrEntry(vInfo,0), Vec_PtrSize(vInfo) * nWords * 4 );
-    // replace the array
-    free( vInfo->pArray );
-    vInfo->pArray = vInfoNew->pArray;
-    vInfo->nSize *= 2;
-    vInfo->nCap *= 2;
-    // free the old array
-    vInfoNew->pArray = NULL;
-    free( vInfoNew );
-}
-
-/**Function*************************************************************
-
   Synopsis    []
 
   Description []
@@ -443,7 +366,7 @@ static inline void Vec_PtrGrow( Vec_Ptr_t * p, int nCapMin )
 {
     if ( p->nCap >= nCapMin )
         return;
-    p->pArray = REALLOC( void *, p->pArray, nCapMin ); 
+    p->pArray = ABC_REALLOC( void *, p->pArray, nCapMin ); 
     p->nCap   = nCapMin;
 }
 
@@ -478,18 +401,18 @@ static inline void Vec_PtrFill( Vec_Ptr_t * p, int nSize, void * Entry )
   SeeAlso     []
 
 ***********************************************************************/
-static inline void Vec_PtrFillExtra( Vec_Ptr_t * p, int nSize, void * Entry )
+static inline void Vec_PtrFillExtra( Vec_Ptr_t * p, int nSize, void * Fill )
 {
     int i;
-    if ( p->nSize >= nSize )
+    if ( nSize <= p->nSize )
         return;
-    assert( p->nSize < nSize );
-    if ( 2 * p->nSize > nSize )
+    assert( nSize > p->nSize );
+    if ( nSize < 2 * p->nSize )
         Vec_PtrGrow( p, 2 * nSize );
     else
         Vec_PtrGrow( p, nSize );
     for ( i = p->nSize; i < nSize; i++ )
-        p->pArray[i] = Entry;
+        p->pArray[i] = Fill;
     p->nSize = nSize;
 }
 
@@ -562,6 +485,27 @@ static inline void Vec_PtrClear( Vec_Ptr_t * p )
 
 /**Function*************************************************************
 
+  Synopsis    [Deallocates array of memory pointers.]
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+static inline void Vec_PtrFreeFree( Vec_Ptr_t * p )
+{
+    void * pTemp;
+    int i;
+    if ( p == NULL ) return;
+    Vec_PtrForEachEntry( p, pTemp, i )
+        ABC_FREE( pTemp );
+    Vec_PtrFree( p );
+}
+
+/**Function*************************************************************
+
   Synopsis    [Copies the interger array.]
 
   Description []
@@ -600,6 +544,33 @@ static inline void Vec_PtrPush( Vec_Ptr_t * p, void * Entry )
             Vec_PtrGrow( p, 2 * p->nCap );
     }
     p->pArray[p->nSize++] = Entry;
+}
+
+/**Function*************************************************************
+
+  Synopsis    []
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+static inline void Vec_PtrPushFirst( Vec_Ptr_t * p, void * Entry )
+{
+    int i;
+    if ( p->nSize == p->nCap )
+    {
+        if ( p->nCap < 16 )
+            Vec_PtrGrow( p, 16 );
+        else
+            Vec_PtrGrow( p, 2 * p->nCap );
+    }
+    p->nSize++;
+    for ( i = p->nSize - 1; i >= 1; i-- )
+        p->pArray[i] = p->pArray[i-1];
+    p->pArray[0] = Entry;
 }
 
 /**Function*************************************************************
@@ -712,7 +683,7 @@ static inline void Vec_PtrReorder( Vec_Ptr_t * p, int nItems )
 
 /**Function*************************************************************
 
-  Synopsis    [Sorting the entries by their integer value.]
+  Synopsis    [Reverses the order of entries.]
 
   Description []
                
@@ -721,12 +692,36 @@ static inline void Vec_PtrReorder( Vec_Ptr_t * p, int nItems )
   SeeAlso     []
 
 ***********************************************************************/
-static inline void Vec_PtrSort( Vec_Ptr_t * p, int (*Vec_PtrSortCompare)() )
+static inline void Vec_PtrReverseOrder( Vec_Ptr_t * p )
 {
-    if ( p->nSize < 2 )
-        return;
-    qsort( (void *)p->pArray, p->nSize, sizeof(void *), 
-            (int (*)(const void *, const void *)) Vec_PtrSortCompare );
+    void * Temp;
+    int i;
+    for ( i = 0; i < p->nSize/2; i++ )
+    {
+        Temp = p->pArray[i];
+        p->pArray[i] = p->pArray[p->nSize-1-i];
+        p->pArray[p->nSize-1-i] = Temp;
+    }
+}
+
+/**Function*************************************************************
+
+  Synopsis    [Comparison procedure for two integers.]
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+static int Vec_PtrSortComparePtr( void ** pp1, void ** pp2 )
+{
+    if ( *pp1 < *pp2 )
+        return -1;
+    if ( *pp1 > *pp2 ) 
+        return 1;
+    return 0; 
 }
 
 /**Function*************************************************************
@@ -740,17 +735,221 @@ static inline void Vec_PtrSort( Vec_Ptr_t * p, int (*Vec_PtrSortCompare)() )
   SeeAlso     []
 
 ***********************************************************************/
-static inline void Vec_PtrUniqify( Vec_Ptr_t * p, int (*Vec_PtrSortCompare)() )
+static void Vec_PtrSort( Vec_Ptr_t * p, int (*Vec_PtrSortCompare)() ) ___unused;
+static void Vec_PtrSort( Vec_Ptr_t * p, int (*Vec_PtrSortCompare)() )
+{
+    if ( p->nSize < 2 )
+        return;
+    if ( Vec_PtrSortCompare == NULL )
+        qsort( (void *)p->pArray, p->nSize, sizeof(void *), 
+                (int (*)(const void *, const void *)) Vec_PtrSortComparePtr );
+    else
+        qsort( (void *)p->pArray, p->nSize, sizeof(void *), 
+                (int (*)(const void *, const void *)) Vec_PtrSortCompare );
+}
+
+/**Function*************************************************************
+
+  Synopsis    [Sorting the entries by their integer value.]
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+static void Vec_PtrUniqify( Vec_Ptr_t * p, int (*Vec_PtrSortCompare)() ) ___unused;
+static void Vec_PtrUniqify( Vec_Ptr_t * p, int (*Vec_PtrSortCompare)() )
 {
     int i, k;
     if ( p->nSize < 2 )
         return;
-    qsort( (void *)p->pArray, p->nSize, sizeof(void *), 
-            (int (*)(const void *, const void *)) Vec_PtrSortCompare );
+    Vec_PtrSort( p, Vec_PtrSortCompare );
     for ( i = k = 1; i < p->nSize; i++ )
         if ( p->pArray[i] != p->pArray[i-1] )
             p->pArray[k++] = p->pArray[i];
     p->nSize = k;
+}
+
+
+
+/**Function*************************************************************
+
+  Synopsis    [Allocates the array of simulation info.]
+
+  Description [Allocates the array containing given number of entries, 
+  each of which contains given number of unsigned words of simulation data.
+  The resulting array can be freed using regular procedure Vec_PtrFree().
+  It is the responsibility of the user to ensure this array is never grown.]
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+static inline Vec_Ptr_t * Vec_PtrAllocSimInfo( int nEntries, int nWords )
+{
+    void ** pMemory;
+    unsigned * pInfo;
+    int i;
+    pMemory = (void **)ABC_ALLOC( char, (sizeof(void *) + sizeof(unsigned) * nWords) * nEntries );
+    pInfo = (unsigned *)(pMemory + nEntries);
+    for ( i = 0; i < nEntries; i++ )
+        pMemory[i] = pInfo + i * nWords;
+    return Vec_PtrAllocArray( pMemory, nEntries );
+}
+
+/**Function*************************************************************
+
+  Synopsis    [Cleans simulation info of each entry beginning with iWord.]
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+static inline int Vec_PtrReadWordsSimInfo( Vec_Ptr_t * p )
+{
+    return (unsigned *)Vec_PtrEntry(p,1) - (unsigned *)Vec_PtrEntry(p,0);
+}
+
+/**Function*************************************************************
+
+  Synopsis    [Cleans simulation info of each entry beginning with iWord.]
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+static inline void Vec_PtrCleanSimInfo( Vec_Ptr_t * vInfo, int iWord, int nWords )
+{
+    int i;
+    for ( i = 0; i < vInfo->nSize; i++ )
+        memset( (char*)Vec_PtrEntry(vInfo,i) + 4*iWord, 0, 4*(nWords-iWord) );
+}
+
+/**Function*************************************************************
+
+  Synopsis    [Cleans simulation info of each entry beginning with iWord.]
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+static inline void Vec_PtrFillSimInfo( Vec_Ptr_t * vInfo, int iWord, int nWords )
+{
+    int i;
+    for ( i = 0; i < vInfo->nSize; i++ )
+        memset( (char*)Vec_PtrEntry(vInfo,i) + 4*iWord, 0xFF, 4*(nWords-iWord) );
+}
+
+/**Function*************************************************************
+
+  Synopsis    [Resizes the array of simulation info.]
+
+  Description [Doubles the number of objects for which siminfo is allocated.]
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+static inline void Vec_PtrDoubleSimInfo( Vec_Ptr_t * vInfo )
+{
+    Vec_Ptr_t * vInfoNew;
+    int nWords;
+    assert( Vec_PtrSize(vInfo) > 1 );
+    // get the new array
+    nWords = (unsigned *)Vec_PtrEntry(vInfo,1) - (unsigned *)Vec_PtrEntry(vInfo,0);
+    vInfoNew = Vec_PtrAllocSimInfo( 2*Vec_PtrSize(vInfo), nWords );
+    // copy the simulation info
+    memcpy( Vec_PtrEntry(vInfoNew,0), Vec_PtrEntry(vInfo,0), Vec_PtrSize(vInfo) * nWords * 4 );
+    // replace the array
+    ABC_FREE( vInfo->pArray );
+    vInfo->pArray = vInfoNew->pArray;
+    vInfo->nSize *= 2;
+    vInfo->nCap *= 2;
+    // free the old array
+    vInfoNew->pArray = NULL;
+    ABC_FREE( vInfoNew );
+}
+
+/**Function*************************************************************
+
+  Synopsis    [Resizes the array of simulation info.]
+
+  Description [Doubles the number of simulation patterns stored for each object.]
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+static inline void Vec_PtrReallocSimInfo( Vec_Ptr_t * vInfo )
+{
+    Vec_Ptr_t * vInfoNew;
+    int nWords, i;
+    assert( Vec_PtrSize(vInfo) > 1 );
+    // get the new array
+    nWords = (unsigned *)Vec_PtrEntry(vInfo,1) - (unsigned *)Vec_PtrEntry(vInfo,0);
+    vInfoNew = Vec_PtrAllocSimInfo( Vec_PtrSize(vInfo), 2*nWords );
+    // copy the simulation info
+    for ( i = 0; i < vInfo->nSize; i++ )
+        memcpy( Vec_PtrEntry(vInfoNew,i), Vec_PtrEntry(vInfo,i), nWords * 4 );
+    // replace the array
+    ABC_FREE( vInfo->pArray );
+    vInfo->pArray = vInfoNew->pArray;
+    // free the old array
+    vInfoNew->pArray = NULL;
+    ABC_FREE( vInfoNew );
+}
+
+/**Function*************************************************************
+
+  Synopsis    [Allocates the array of truth tables for the given number of vars.]
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+static inline Vec_Ptr_t * Vec_PtrAllocTruthTables( int nVars )
+{
+    Vec_Ptr_t * p;
+    unsigned Masks[5] = { 0xAAAAAAAA, 0xCCCCCCCC, 0xF0F0F0F0, 0xFF00FF00, 0xFFFF0000 };
+    unsigned * pTruth;
+    int i, k, nWords;
+    nWords = (nVars <= 5 ? 1 : (1 << (nVars - 5)));
+    p = Vec_PtrAllocSimInfo( nVars, nWords );
+    for ( i = 0; i < nVars; i++ )
+    {
+        pTruth = (unsigned *)p->pArray[i];
+        if ( i < 5 )
+        {
+            for ( k = 0; k < nWords; k++ )
+                pTruth[k] = Masks[i];
+        }
+        else
+        {
+            for ( k = 0; k < nWords; k++ )
+                if ( k & (1 << (i-5)) )
+                    pTruth[k] = ~(unsigned)0;
+                else
+                    pTruth[k] = 0;
+        }
+    }
+    return p;
 }
 
 #endif

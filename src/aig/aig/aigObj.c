@@ -46,6 +46,12 @@ Aig_Obj_t * Aig_ObjCreatePi( Aig_Man_t * p )
     pObj->Type = AIG_OBJ_PI;
     Vec_PtrPush( p->vPis, pObj );
     p->nObjs[AIG_OBJ_PI]++;
+    if ( p->pManHaig && p->fCreatePios )
+    {
+        p->pManHaig->nRegs++;
+        pObj->pHaig = Aig_ObjCreatePi( p->pManHaig );
+//        printf( "Creating PI HAIG node %d equivalent to PI %d.\n", pObj->pHaig->Id, pObj->Id );
+    }
     return pObj;
 }
 
@@ -68,6 +74,11 @@ Aig_Obj_t * Aig_ObjCreatePo( Aig_Man_t * p, Aig_Obj_t * pDriver )
     Vec_PtrPush( p->vPos, pObj );
     Aig_ObjConnect( p, pObj, pDriver, NULL );
     p->nObjs[AIG_OBJ_PO]++;
+    if ( p->pManHaig && p->fCreatePios )
+    {
+        pObj->pHaig = Aig_ObjCreatePo( p->pManHaig, Aig_ObjHaig( pDriver ) );
+//        printf( "Creating PO HAIG node %d equivalent to PO %d.\n", pObj->pHaig->Id, pObj->Id );
+    }
     return pObj;
 }
 
@@ -88,7 +99,7 @@ Aig_Obj_t * Aig_ObjCreate( Aig_Man_t * p, Aig_Obj_t * pGhost )
     Aig_Obj_t * pObj;
     assert( !Aig_IsComplement(pGhost) );
     assert( Aig_ObjIsHash(pGhost) );
-    assert( pGhost == &p->Ghost );
+//    assert( pGhost == &p->Ghost );
     // get memory for the new object
     pObj = Aig_ManFetchMemory( p );
     pObj->Type = pGhost->Type;
@@ -97,6 +108,23 @@ Aig_Obj_t * Aig_ObjCreate( Aig_Man_t * p, Aig_Obj_t * pGhost )
     // update node counters of the manager
     p->nObjs[Aig_ObjType(pObj)]++;
     assert( pObj->pData == NULL );
+    if ( p->pManHaig )
+    {
+        pGhost->pFanin0 = Aig_ObjHaig( pGhost->pFanin0 );
+        pGhost->pFanin1 = Aig_ObjHaig( pGhost->pFanin1 );
+        pObj->pHaig = Aig_ObjCreate( p->pManHaig, pGhost );
+        assert( !Aig_IsComplement(pObj->pHaig) );
+//        printf( "Creating  HAIG node %d equivalent to node %d.\n", pObj->pHaig->Id, pObj->Id );
+    }
+    // create the power counter
+    if ( p->vProbs )
+    {
+        float Prob0 = Aig_Int2Float( Vec_IntEntry( p->vProbs, Aig_ObjFaninId0(pObj) ) );
+        float Prob1 = Aig_Int2Float( Vec_IntEntry( p->vProbs, Aig_ObjFaninId1(pObj) ) );
+        Prob0 = Aig_ObjFaninC0(pObj)? 1.0 - Prob0 : Prob0;
+        Prob1 = Aig_ObjFaninC1(pObj)? 1.0 - Prob1 : Prob1;
+        Vec_IntSetEntry( p->vProbs, pObj->Id, Aig_Float2Int(Prob0 * Prob1) );
+    }
     return pObj;
 }
 
@@ -137,11 +165,12 @@ void Aig_ObjConnect( Aig_Man_t * p, Aig_Obj_t * pObj, Aig_Obj_t * pFan0, Aig_Obj
     pObj->Level = Aig_ObjLevelNew( pObj );
     pObj->fPhase = Aig_ObjPhaseReal(pFan0) & Aig_ObjPhaseReal(pFan1);
     // add the node to the structural hash table
-    if ( Aig_ObjIsHash(pObj) )
+    if ( p->pTable && Aig_ObjIsHash(pObj) )
         Aig_TableInsert( p, pObj );
     // add the node to the dynamically updated topological order
 //    if ( p->pOrderData && Aig_ObjIsNode(pObj) )
 //        Aig_ObjOrderInsert( p, pObj->Id );
+    assert( !Aig_ObjIsNode(pObj) || pObj->Level > 0 );
 }
 
 /**Function*************************************************************
@@ -172,7 +201,7 @@ void Aig_ObjDisconnect( Aig_Man_t * p, Aig_Obj_t * pObj )
         Aig_ObjDeref(Aig_ObjFanin1(pObj));
     }
     // remove the node from the structural hash table
-    if ( Aig_ObjIsHash(pObj) )
+    if ( p->pTable && Aig_ObjIsHash(pObj) )
         Aig_TableDelete( p, pObj );
     // add the first fanin
     pObj->pFanin0 = NULL;
@@ -257,6 +286,8 @@ void Aig_ObjPatchFanin0( Aig_Man_t * p, Aig_Obj_t * pObj, Aig_Obj_t * pFaninNew 
     Aig_ObjDeref( pFaninOld );
     // update the fanin
     pObj->pFanin0 = pFaninNew;
+    pObj->Level = Aig_ObjLevelNew( pObj );
+    pObj->fPhase = Aig_ObjPhaseReal(pObj->pFanin0);
     // increment ref and add fanout
     if ( p->pFanData )
         Aig_ObjAddFanout( p, Aig_ObjFanin0(pObj), pObj );
@@ -264,6 +295,92 @@ void Aig_ObjPatchFanin0( Aig_Man_t * p, Aig_Obj_t * pObj, Aig_Obj_t * pFaninNew 
     // get rid of old fanin
     if ( !Aig_ObjIsPi(pFaninOld) && !Aig_ObjIsConst1(pFaninOld) && Aig_ObjRefs(pFaninOld) == 0 )
         Aig_ObjDelete_rec( p, pFaninOld, 1 );
+}
+
+/**Function*************************************************************
+
+  Synopsis    [Verbose printing of the AIG node.]
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+void Aig_ObjPrint( Aig_Man_t * p, Aig_Obj_t * pObj )
+{
+    int fHaig = 0;
+    int fShowFanouts = 0;
+    Aig_Obj_t * pTemp;
+    if ( pObj == NULL )
+    {
+        printf( "Object is NULL." );
+        return;
+    }
+    if ( Aig_IsComplement(pObj) )
+    {
+        printf( "Compl " );
+        pObj = Aig_Not(pObj);
+    }
+    assert( !Aig_IsComplement(pObj) );
+    printf( "Node %4d : ", Aig_ObjId(pObj) );
+    if ( Aig_ObjIsConst1(pObj) )
+        printf( "constant 1" );
+    else if ( Aig_ObjIsPi(pObj) )
+        printf( "PI" );
+    else if ( Aig_ObjIsPo(pObj) )
+        printf( "PO( %4d%s )", Aig_ObjFanin0(pObj)->Id, (Aig_ObjFaninC0(pObj)? "\'" : " ") );
+    else if ( Aig_ObjIsBuf(pObj) )
+        printf( "BUF( %d%s )", Aig_ObjFanin0(pObj)->Id, (Aig_ObjFaninC0(pObj)? "\'" : " ") );
+    else
+        printf( "AND( %4d%s, %4d%s )", 
+            Aig_ObjFanin0(pObj)->Id, (Aig_ObjFaninC0(pObj)? "\'" : " "), 
+            Aig_ObjFanin1(pObj)->Id, (Aig_ObjFaninC1(pObj)? "\'" : " ") );
+    printf( " (refs = %3d)", Aig_ObjRefs(pObj) );
+    if ( fShowFanouts && p->pFanData )
+    {
+        Aig_Obj_t * pFanout;
+        int i;
+        int iFan = -1; // Suppress "might be used uninitialized"
+        printf( "\nFanouts:\n" );
+        Aig_ObjForEachFanout( p, pObj, pFanout, iFan, i )
+        {
+            printf( "    " );
+            printf( "Node %4d : ", Aig_ObjId(pFanout) );
+            if ( Aig_ObjIsPo(pFanout) )
+                printf( "PO( %4d%s )", Aig_ObjFanin0(pFanout)->Id, (Aig_ObjFaninC0(pFanout)? "\'" : " ") );
+            else if ( Aig_ObjIsBuf(pFanout) )
+                printf( "BUF( %d%s )", Aig_ObjFanin0(pFanout)->Id, (Aig_ObjFaninC0(pFanout)? "\'" : " ") );
+            else
+                printf( "AND( %4d%s, %4d%s )", 
+                    Aig_ObjFanin0(pFanout)->Id, (Aig_ObjFaninC0(pFanout)? "\'" : " "), 
+                    Aig_ObjFanin1(pFanout)->Id, (Aig_ObjFaninC1(pFanout)? "\'" : " ") );
+            printf( "\n" );
+        }
+        return;
+    }
+    if ( fHaig )
+    {
+        if ( pObj->pHaig == NULL )
+            printf( " HAIG node not given" );
+        else
+            printf( " HAIG node = %d%s", Aig_Regular(pObj->pHaig)->Id, (Aig_IsComplement(pObj->pHaig)? "\'" : " ") );
+        return;
+    }
+    // there are choices
+    if ( p->pEquivs && p->pEquivs[pObj->Id] )
+    {
+        // print equivalence class
+        printf( "  { %4d ", pObj->Id );
+        for ( pTemp = p->pEquivs[pObj->Id]; pTemp; pTemp = p->pEquivs[pTemp->Id] )
+            printf( " %4d%s", pTemp->Id, (pTemp->fPhase != pObj->fPhase)? "\'" : " " );
+        printf( " }" );
+        return;
+    }
+    // this is a secondary node
+    if ( p->pReprs && p->pReprs[pObj->Id] )
+        printf( "  class of %d", pObj->Id );
 }
 
 /**Function*************************************************************
@@ -277,7 +394,7 @@ void Aig_ObjPatchFanin0( Aig_Man_t * p, Aig_Obj_t * pObj, Aig_Obj_t * pFaninNew 
   SeeAlso     []
 
 ***********************************************************************/
-void Aig_NodeFixBufferFanins( Aig_Man_t * p, Aig_Obj_t * pObj, int fNodesOnly, int fUpdateLevel )
+void Aig_NodeFixBufferFanins( Aig_Man_t * p, Aig_Obj_t * pObj, int fUpdateLevel )
 {
     Aig_Obj_t * pFanReal0, * pFanReal1, * pResult;
     p->nBufFixes++;
@@ -302,7 +419,7 @@ void Aig_NodeFixBufferFanins( Aig_Man_t * p, Aig_Obj_t * pObj, int fNodesOnly, i
     else 
         assert( 0 );
     // replace the node with buffer by the node without buffer
-    Aig_ObjReplace( p, pObj, pResult, fNodesOnly, fUpdateLevel );
+    Aig_ObjReplace( p, pObj, pResult, fUpdateLevel );
 }
 
 /**Function*************************************************************
@@ -316,7 +433,7 @@ void Aig_NodeFixBufferFanins( Aig_Man_t * p, Aig_Obj_t * pObj, int fNodesOnly, i
   SeeAlso     [] 
 
 ***********************************************************************/
-int Aig_ManPropagateBuffers( Aig_Man_t * p, int fNodesOnly, int fUpdateLevel )
+int Aig_ManPropagateBuffers( Aig_Man_t * p, int fUpdateLevel )
 {
     Aig_Obj_t * pObj;
     int nSteps;
@@ -326,7 +443,7 @@ int Aig_ManPropagateBuffers( Aig_Man_t * p, int fNodesOnly, int fUpdateLevel )
         // get the node with a buffer fanin
         for ( pObj = Vec_PtrEntryLast(p->vBufs); Aig_ObjIsBuf(pObj); pObj = Aig_ObjFanout0(p, pObj) );
         // replace this node by a node without buffer
-        Aig_NodeFixBufferFanins( p, pObj, fNodesOnly, fUpdateLevel );
+        Aig_NodeFixBufferFanins( p, pObj, fUpdateLevel );
         // stop if a cycle occured
         if ( nSteps > 1000000 )
         {
@@ -351,7 +468,7 @@ int Aig_ManPropagateBuffers( Aig_Man_t * p, int fNodesOnly, int fUpdateLevel )
   SeeAlso     []
 
 ***********************************************************************/
-void Aig_ObjReplace( Aig_Man_t * p, Aig_Obj_t * pObjOld, Aig_Obj_t * pObjNew, int fNodesOnly, int fUpdateLevel )
+void Aig_ObjReplace( Aig_Man_t * p, Aig_Obj_t * pObjOld, Aig_Obj_t * pObjNew, int fUpdateLevel )
 {
     Aig_Obj_t * pObjNewR = Aig_Regular(pObjNew);
     // the object to be replaced cannot be complemented
@@ -365,13 +482,31 @@ void Aig_ObjReplace( Aig_Man_t * p, Aig_Obj_t * pObjOld, Aig_Obj_t * pObjNew, in
     // make sure object is not pointing to itself
     assert( pObjOld != Aig_ObjFanin0(pObjNewR) );
     assert( pObjOld != Aig_ObjFanin1(pObjNewR) );
+    if ( pObjOld == Aig_ObjFanin0(pObjNewR) || pObjOld == Aig_ObjFanin1(pObjNewR) )
+    {
+        printf( "Aig_ObjReplace(): Internal error!\n" );
+        exit(1);
+    }
+    // map the HAIG nodes
+    if ( p->pManHaig != NULL )
+    {
+//        printf( "Setting HAIG node %d equivalent to HAIG node %d (over = %d).\n", 
+//            pObjNewR->pHaig->Id, pObjOld->pHaig->Id, pObjNewR->pHaig->pHaig != NULL );
+        assert( pObjNewR->pHaig != NULL );
+        assert( !Aig_IsComplement(pObjNewR->pHaig) );
+        assert( p->pManHaig->vEquPairs != NULL );
+        Vec_IntPush( p->pManHaig->vEquPairs, pObjNewR->pHaig->Id );
+        Vec_IntPush( p->pManHaig->vEquPairs, pObjOld->pHaig->Id );
+    }
+    else
+        pObjOld->pHaig = pObjNewR->pHaig? pObjNewR->pHaig : pObjOld->pHaig;
     // recursively delete the old node - but leave the object there
     pObjNewR->nRefs++;
     Aig_ObjDelete_rec( p, pObjOld, 0 );
     pObjNewR->nRefs--;
     // if the new object is complemented or already used, create a buffer
     p->nObjs[pObjOld->Type]--;
-    if ( Aig_IsComplement(pObjNew) || Aig_ObjRefs(pObjNew) > 0 || (fNodesOnly && !Aig_ObjIsNode(pObjNew)) )
+    if ( Aig_IsComplement(pObjNew) || Aig_ObjRefs(pObjNew) > 0 || !Aig_ObjIsNode(pObjNew) )
     {
         pObjOld->Type = AIG_OBJ_BUF;
         Aig_ObjConnect( p, pObjOld, pObjNew, NULL );
@@ -404,8 +539,8 @@ void Aig_ObjReplace( Aig_Man_t * p, Aig_Obj_t * pObjOld, Aig_Obj_t * pObjNew, in
     if ( p->pFanData && Aig_ObjIsBuf(pObjOld) )
     {
         Vec_PtrPush( p->vBufs, pObjOld );
-        p->nBufMax = AIG_MAX( p->nBufMax, Vec_PtrSize(p->vBufs) );
-        Aig_ManPropagateBuffers( p, fNodesOnly, fUpdateLevel );
+        p->nBufMax = ABC_MAX( p->nBufMax, Vec_PtrSize(p->vBufs) );
+        Aig_ManPropagateBuffers( p, fUpdateLevel );
     }
 }
 

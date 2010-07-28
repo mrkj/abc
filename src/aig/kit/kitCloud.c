@@ -35,6 +35,9 @@ struct Kit_Mux_t_
     unsigned      i  :  1;          // complemented attr of top node
 };
 
+static inline int        Kit_Mux2Int( Kit_Mux_t m )  { union { Kit_Mux_t x; int y; } v; v.x = m; return v.y;  }
+static inline Kit_Mux_t  Kit_Int2Mux( int m )        { union { Kit_Mux_t x; int y; } v; v.y = m; return v.x;  }
+
 ////////////////////////////////////////////////////////////////////////
 ///                     FUNCTION DEFINITIONS                         ///
 ////////////////////////////////////////////////////////////////////////
@@ -180,7 +183,7 @@ int Kit_CreateCloud( CloudManager * dd, CloudNode * pFunc, Vec_Int_t * vNodes )
         Mux.c = Cloud_IsComplement(dd->ppNodes[i]->e); 
         Mux.i = (i == nNodes - 1)? Cloud_IsComplement(pFunc) : 0;
         // put the MUX into the array
-        Vec_IntPush( vNodes, *((int *)&Mux) );
+        Vec_IntPush( vNodes, Kit_Mux2Int(Mux) );
     }
     assert( Vec_IntSize(vNodes) == nNodes );
     // reset signatures
@@ -230,7 +233,7 @@ unsigned * Kit_CloudToTruth( Vec_Int_t * vNodes, int nVars, Vec_Ptr_t * vStore, 
     Kit_TruthFill( pThis, nVars );
     Vec_IntForEachEntryStart( vNodes, Entry, i, 1 )
     {
-        Mux = *((Kit_Mux_t *)&Entry);
+        Mux = Kit_Int2Mux(Entry);
         assert( (int)Mux.e < i && (int)Mux.t < i && (int)Mux.v < nVars );          
         pFan0 = Vec_PtrEntry( vStore, Mux.e );
         pFan1 = Vec_PtrEntry( vStore, Mux.t );
@@ -278,7 +281,7 @@ unsigned * Kit_TruthCompose( CloudManager * dd, unsigned * pTruth, int nVars,
     Kit_TruthFill( pThis, nVarsAll );
     Vec_IntForEachEntryStart( vNodes, Entry, i, 1 )
     {
-        Mux = *((Kit_Mux_t *)&Entry);
+        Mux = Kit_Int2Mux(Entry);
         pFan0 = Vec_PtrEntry( vStore, Mux.e );
         pFan1 = Vec_PtrEntry( vStore, Mux.t );
         pThis = Vec_PtrEntry( vStore, i );
@@ -304,20 +307,22 @@ unsigned * Kit_TruthCompose( CloudManager * dd, unsigned * pTruth, int nVars,
 void Kit_TruthCofSupports( Vec_Int_t * vBddDir, Vec_Int_t * vBddInv, int nVars, Vec_Int_t * vMemory, unsigned * puSupps )
 {
     Kit_Mux_t Mux;
-    unsigned * puSuppAll, * pThis, * pFan0, * pFan1;
+    unsigned * puSuppAll;
+    unsigned * pThis = NULL; // Suppress "might be used uninitialized"
+    unsigned * pFan0, * pFan1;
     int i, v, Var, Entry, nSupps;
     nSupps = 2 * nVars;
 
     // extend storage
     if ( Vec_IntSize( vMemory ) < nSupps * Vec_IntSize(vBddDir) )
         Vec_IntGrow( vMemory, nSupps * Vec_IntSize(vBddDir) );
-    puSuppAll = Vec_IntArray( vMemory );
+    puSuppAll = (unsigned *)Vec_IntArray( vMemory );
     // clear storage for the const node
     memset( puSuppAll, 0, sizeof(unsigned) * nSupps );
     // compute supports from nodes
     Vec_IntForEachEntryStart( vBddDir, Entry, i, 1 )
     {
-        Mux = *((Kit_Mux_t *)&Entry);
+        Mux = Kit_Int2Mux(Entry);
         Var = nVars - 1 - Mux.v;
         pFan0 = puSuppAll + nSupps * Mux.e;
         pFan1 = puSuppAll + nSupps * Mux.t;
@@ -336,13 +341,13 @@ void Kit_TruthCofSupports( Vec_Int_t * vBddDir, Vec_Int_t * vBddInv, int nVars, 
     // extend storage
     if ( Vec_IntSize( vMemory ) < nSupps * Vec_IntSize(vBddInv) )
         Vec_IntGrow( vMemory, nSupps * Vec_IntSize(vBddInv) );
-    puSuppAll = Vec_IntArray( vMemory );
+    puSuppAll = (unsigned *)Vec_IntArray( vMemory );
     // clear storage for the const node
     memset( puSuppAll, 0, sizeof(unsigned) * nSupps );
     // compute supports from nodes
     Vec_IntForEachEntryStart( vBddInv, Entry, i, 1 )
     {
-        Mux = *((Kit_Mux_t *)&Entry);
+        Mux = Kit_Int2Mux(Entry);
 //        Var = nVars - 1 - Mux.v;
         Var = Mux.v;
         pFan0 = puSuppAll + nSupps * Mux.e;

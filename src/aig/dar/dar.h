@@ -21,10 +21,6 @@
 #ifndef __DAR_H__
 #define __DAR_H__
 
-#ifdef __cplusplus
-extern "C" {
-#endif 
-
 ////////////////////////////////////////////////////////////////////////
 ///                          INCLUDES                                ///
 ////////////////////////////////////////////////////////////////////////
@@ -32,6 +28,10 @@ extern "C" {
 ////////////////////////////////////////////////////////////////////////
 ///                         PARAMETERS                               ///
 ////////////////////////////////////////////////////////////////////////
+
+#ifdef __cplusplus
+extern "C" {
+#endif 
 
 ////////////////////////////////////////////////////////////////////////
 ///                         BASIC TYPES                              ///
@@ -47,6 +47,8 @@ struct Dar_RwrPar_t_
     int              fFanout;        // support fanout representation
     int              fUpdateLevel;   // update level 
     int              fUseZeros;      // performs zero-cost replacement
+    int              fPower;         // enables power-aware rewriting
+    int              fRecycle;       // enables cut recycling
     int              fVerbose;       // enables verbose output
     int              fVeryVerbose;   // enables very verbose output
 };
@@ -80,19 +82,21 @@ extern void            Dar_LibStart();
 extern void            Dar_LibStop();
 /*=== darBalance.c ========================================================*/
 extern Aig_Man_t *     Dar_ManBalance( Aig_Man_t * p, int fUpdateLevel );
+extern Aig_Man_t *     Dar_ManBalanceXor( Aig_Man_t * pAig, int fExor, int fUpdateLevel, int fVerbose );
+extern void            Dar_BalancePrintStats( Aig_Man_t * p );
 /*=== darCore.c ========================================================*/
 extern void            Dar_ManDefaultRwrParams( Dar_RwrPar_t * pPars );
 extern int             Dar_ManRewrite( Aig_Man_t * pAig, Dar_RwrPar_t * pPars );
-extern Aig_MmFixed_t * Dar_ManComputeCuts( Aig_Man_t * pAig, int nCutsMax );
+extern Aig_MmFixed_t * Dar_ManComputeCuts( Aig_Man_t * pAig, int nCutsMax, int fVerbose );
 /*=== darRefact.c ========================================================*/
 extern void            Dar_ManDefaultRefParams( Dar_RefPar_t * pPars );
 extern int             Dar_ManRefactor( Aig_Man_t * pAig, Dar_RefPar_t * pPars );
 /*=== darScript.c ========================================================*/
 extern Aig_Man_t *     Dar_ManRewriteDefault( Aig_Man_t * pAig );
 extern Aig_Man_t *     Dar_ManRwsat( Aig_Man_t * pAig, int fBalance, int fVerbose );
-extern Aig_Man_t *     Dar_ManCompress( Aig_Man_t * pAig, int fBalance, int fUpdateLevel, int fVerbose );
-extern Aig_Man_t *     Dar_ManCompress2( Aig_Man_t * pAig, int fBalance, int fUpdateLevel, int fVerbose );
-extern Aig_Man_t *     Dar_ManChoice( Aig_Man_t * pAig, int fBalance, int fUpdateLevel, int fVerbose );
+extern Aig_Man_t *     Dar_ManCompress( Aig_Man_t * pAig, int fBalance, int fUpdateLevel, int fPower, int fVerbose );
+extern Aig_Man_t *     Dar_ManCompress2( Aig_Man_t * pAig, int fBalance, int fUpdateLevel, int fFanout, int fPower, int fVerbose );
+extern Aig_Man_t *     Dar_ManChoice( Aig_Man_t * pAig, int fBalance, int fUpdateLevel, int fConstruct, int nConfMax, int nLevelMax, int fVerbose );
 
 #ifdef __cplusplus
 }

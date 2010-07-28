@@ -19,7 +19,9 @@
 ***********************************************************************/
 
 #include "abc.h"
-#include "cut.h"
+#include "cut.h" 
+
+#define LARGE_LEVEL 1000000
 
 ////////////////////////////////////////////////////////////////////////
 ///                        DECLARATIONS                              ///
@@ -212,7 +214,7 @@ void Abc_NodeLutMap( Cut_Man_t * pManCuts, Abc_Obj_t * pObj )
     assert( pCut != NULL );
     assert( pObj->Level == 0 );
     // go through the cuts
-    pObj->Level = ABC_INFINITY;
+    pObj->Level = LARGE_LEVEL;
     for ( pCut = pCut->pNext; pCut; pCut = pCut->pNext )
     {
         DelayMax = 0;
@@ -226,7 +228,7 @@ void Abc_NodeLutMap( Cut_Man_t * pManCuts, Abc_Obj_t * pObj )
         if ( (int)pObj->Level > DelayMax )
             pObj->Level = DelayMax;
     }
-    assert( pObj->Level < ABC_INFINITY );
+    assert( pObj->Level < LARGE_LEVEL );
     pObj->Level++;
 //    printf( "%d(%d) ", pObj->Id, pObj->Level );
 }
@@ -284,7 +286,7 @@ Abc_ManScl_t * Abc_ManSclStart( int nLutSize, int nCutSizeMax, int nNodesMax )
     Abc_ManScl_t * p;
     int i, k;
     assert( sizeof(unsigned) == 4 );
-    p = ALLOC( Abc_ManScl_t, 1 );
+    p = ABC_ALLOC( Abc_ManScl_t, 1 );
     memset( p, 0, sizeof(Abc_ManScl_t) );
     p->nLutSize    = nLutSize;
     p->nCutSizeMax = nCutSizeMax;
@@ -319,10 +321,10 @@ Abc_ManScl_t * Abc_ManSclStart( int nLutSize, int nCutSizeMax, int nNodesMax )
 void Abc_ManSclStop( Abc_ManScl_t * p )
 {
 //    Vec_IntFree( p->vBound );
-    free( p->uVars );
-    free( p->uSims );
-    free( p->uCofs );
-    free( p );
+    ABC_FREE( p->uVars );
+    ABC_FREE( p->uSims );
+    ABC_FREE( p->uCofs );
+    ABC_FREE( p );
 }
 
 
@@ -340,7 +342,7 @@ void Abc_ManSclStop( Abc_ManScl_t * p )
 unsigned * Abc_NodeSuperChoiceTruth( Abc_ManScl_t * pManScl )
 {
     Abc_Obj_t * pObj;
-    unsigned * puData0, * puData1, * puData;
+    unsigned * puData0, * puData1, * puData = NULL;
     char * pSop;
     int i, k;
     // set elementary truth tables
@@ -635,7 +637,7 @@ void Abc_NodeDecomposeSort( Abc_Obj_t ** pLeaves, int nVars, int * pBSet, int nL
     for ( i = 0; i < nLutSize; i++ )
     {
         kBest = -1;
-        LevelMin = ABC_INFINITY;
+        LevelMin = LARGE_LEVEL;
         for ( k = 0; k < nVars; k++ )
             if ( pTemp[k] && LevelMin > (int)pTemp[k]->Level )
             {
@@ -704,7 +706,7 @@ int Abc_NodeDecomposeStep( Abc_ManScl_t * p )
             pTruthClass = p->uCofs[ nCofs + pCofClasses[k][0] ];
             if ( Extra_TruthIsEqual( pTruthCof, pTruthClass, nVars ) )
             {
-                pCofClasses[k][ nCofClasses[k]++ ] = i;
+                pCofClasses[k][(int)nCofClasses[k]++ ] = i;
                 break;
             }
         }

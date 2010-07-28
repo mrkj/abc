@@ -131,7 +131,7 @@ void Fra_AddClausesSuper( Fra_Man_t * p, Aig_Obj_t * pNode, Vec_Ptr_t * vSuper )
     assert( Aig_ObjIsNode( pNode ) );
     // create storage for literals
     nLits = Vec_PtrSize(vSuper) + 1;
-    pLits = ALLOC( int, nLits );
+    pLits = ABC_ALLOC( int, nLits );
     // suppose AND-gate is A & B = C
     // add !A => !C   or   A + !C
     Vec_PtrForEachEntry( vSuper, pFanin, i )
@@ -147,7 +147,7 @@ void Fra_AddClausesSuper( Fra_Man_t * p, Aig_Obj_t * pNode, Vec_Ptr_t * vSuper )
     pLits[nLits-1] = toLitCond(Fra_ObjSatNum(pNode), 0);
     RetValue = sat_solver_addclause( p->pSat, pLits, pLits + nLits );
     assert( RetValue );
-    free( pLits );
+    ABC_FREE( pLits );
 }
 
 /**Function*************************************************************
@@ -209,7 +209,6 @@ Vec_Ptr_t * Fra_CollectSuper( Aig_Obj_t * pObj, int fUseMuxes )
 ***********************************************************************/
 void Fra_ObjAddToFrontier( Fra_Man_t * p, Aig_Obj_t * pObj, Vec_Ptr_t * vFrontier )
 {
-    Fra_Man_t * pTemp = pObj->pData;
     assert( !Aig_IsComplement(pObj) );
     if ( Fra_ObjSatNum(pObj) )
         return;
@@ -217,7 +216,6 @@ void Fra_ObjAddToFrontier( Fra_Man_t * p, Aig_Obj_t * pObj, Vec_Ptr_t * vFrontie
     assert( Fra_ObjFaninVec(pObj) == NULL );
     if ( Aig_ObjIsConst1(pObj) )
         return;
-//printf( "Assigning node %d number %d\n", pObj->Id, p->nSatVars );
     Fra_ObjSetSatNum( pObj, p->nSatVars++ );
     if ( Aig_ObjIsNode(pObj) )
         Vec_PtrPush( vFrontier, pObj );

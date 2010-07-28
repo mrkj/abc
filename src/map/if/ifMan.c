@@ -48,16 +48,16 @@ If_Man_t * If_ManStart( If_Par_t * pPars )
 {
     If_Man_t * p;
     // start the manager
-    p = ALLOC( If_Man_t, 1 );
+    p = ABC_ALLOC( If_Man_t, 1 );
     memset( p, 0, sizeof(If_Man_t) );
-    p->pPars = pPars;
-    p->fEpsilon = (float)0.001;
+    p->pPars    = pPars;
+    p->fEpsilon = pPars->Epsilon;
     // allocate arrays for nodes
-    p->vCis    = Vec_PtrAlloc( 100 );
-    p->vCos    = Vec_PtrAlloc( 100 );
-    p->vObjs   = Vec_PtrAlloc( 100 );
-    p->vMapped = Vec_PtrAlloc( 100 );
-    p->vTemp   = Vec_PtrAlloc( 100 );
+    p->vCis     = Vec_PtrAlloc( 100 );
+    p->vCos     = Vec_PtrAlloc( 100 );
+    p->vObjs    = Vec_PtrAlloc( 100 );
+//    p->vMapped = Vec_PtrAlloc( 100 );
+    p->vTemp    = Vec_PtrAlloc( 100 );
     // prepare the memory manager
     p->nTruthWords = p->pPars->fTruth? If_CutTruthWords( p->pPars->nLutSize ) : 0;
     p->nPermWords  = p->pPars->fUsePerm? If_CutPermWords( p->pPars->nLutSize ) : 0;
@@ -68,16 +68,16 @@ If_Man_t * If_ManStart( If_Par_t * pPars )
 //    p->pMemSet     = Mem_FixedStart( p->nSetBytes );
     // report expected memory usage
     if ( p->pPars->fVerbose )
-        printf( "Memory (bytes): Truth = %4d. Cut = %4d. Obj = %4d. Set = %4d.\n", 
-            4 * p->nTruthWords, p->nCutBytes, p->nObjBytes, p->nSetBytes );
+        Abc_Print( 1, "K = %d. Memory (bytes): Truth = %4d. Cut = %4d. Obj = %4d. Set = %4d.\n", 
+            p->pPars->nLutSize, 4 * p->nTruthWords, p->nCutBytes, p->nObjBytes, p->nSetBytes );
     // room for temporary truth tables
-    p->puTemp[0] = p->pPars->fTruth? ALLOC( unsigned, 4 * p->nTruthWords ) : NULL;
+    p->puTemp[0] = p->pPars->fTruth? ABC_ALLOC( unsigned, 4 * p->nTruthWords ) : NULL;
     p->puTemp[1] = p->puTemp[0] + p->nTruthWords;
     p->puTemp[2] = p->puTemp[1] + p->nTruthWords;
     p->puTemp[3] = p->puTemp[2] + p->nTruthWords;
     // create the constant node
-    p->pConst1 = If_ManSetupObj( p );
-    p->pConst1->Type = IF_CONST1;
+    p->pConst1   = If_ManSetupObj( p );
+    p->pConst1->Type   = IF_CONST1;
     p->pConst1->fPhase = 1;
     p->nObjs[IF_CONST1]++;
     return p;
@@ -96,11 +96,11 @@ If_Man_t * If_ManStart( If_Par_t * pPars )
 ***********************************************************************/
 void If_ManRestart( If_Man_t * p )
 {
-    FREE( p->pMemCi );
+    ABC_FREE( p->pMemCi );
     Vec_PtrClear( p->vCis );
     Vec_PtrClear( p->vCos );
     Vec_PtrClear( p->vObjs );
-    Vec_PtrClear( p->vMapped );
+//    Vec_PtrClear( p->vMapped );
     Vec_PtrClear( p->vTemp );
     Mem_FixedRestart( p->pMemObj );
     // create the constant node
@@ -124,23 +124,32 @@ void If_ManRestart( If_Man_t * p )
 ***********************************************************************/
 void If_ManStop( If_Man_t * p )
 {
+    if ( p->nCutsUseless && p->pPars->fVerbose )
+    Abc_Print( 1, "Useless cuts = %7d  (out of %7d)  (%6.2f %%)\n", p->nCutsUseless, p->nCutsTotal, 100.0*p->nCutsUseless/(p->nCutsTotal+1) );
+//    Abc_PrintTime( 1, "Truth", p->timeTruth );
+//    Abc_Print( 1, "Small support = %d.\n", p->nSmallSupp );
     Vec_PtrFree( p->vCis );
     Vec_PtrFree( p->vCos );
     Vec_PtrFree( p->vObjs );
-    Vec_PtrFree( p->vMapped );
+//    Vec_PtrFree( p->vMapped );
     Vec_PtrFree( p->vTemp );
+    if ( p->vObjsRev )    Vec_PtrFree( p->vObjsRev );
     if ( p->vLatchOrder ) Vec_PtrFree( p->vLatchOrder );
-    if ( p->vLags ) Vec_IntFree( p->vLags );
+    if ( p->vLags )       Vec_IntFree( p->vLags );
     Mem_FixedStop( p->pMemObj, 0 );
-    FREE( p->pMemCi );
-    FREE( p->pMemAnd );
-    FREE( p->puTemp[0] );
+    ABC_FREE( p->pMemCi );
+    ABC_FREE( p->pMemAnd );
+    ABC_FREE( p->puTemp[0] );
     // free pars memory
     if ( p->pPars->pTimesArr )
-        FREE( p->pPars->pTimesArr );
+        ABC_FREE( p->pPars->pTimesArr );
     if ( p->pPars->pTimesReq )
-        FREE( p->pPars->pTimesReq );
-    free( p );
+        ABC_FREE( p->pPars->pTimesReq );
+    if ( p->pManTim )
+        Tim_ManStop( p->pManTim );
+    if ( p->vSwitching )
+        Vec_IntFree( p->vSwitching );
+    ABC_FREE( p );
 }
 
 /**Function*************************************************************
@@ -159,6 +168,7 @@ If_Obj_t * If_ManCreateCi( If_Man_t * p )
     If_Obj_t * pObj;
     pObj = If_ManSetupObj( p );
     pObj->Type = IF_CI;
+    pObj->IdPio = Vec_PtrSize( p->vCis );
     Vec_PtrPush( p->vCis, pObj );
     p->nObjs[IF_CI]++;
     return pObj;
@@ -179,10 +189,15 @@ If_Obj_t * If_ManCreateCo( If_Man_t * p, If_Obj_t * pDriver )
 {
     If_Obj_t * pObj;
     pObj = If_ManSetupObj( p );
+    pObj->IdPio = Vec_PtrSize( p->vCos );
     Vec_PtrPush( p->vCos, pObj );
     pObj->Type = IF_CO;
     pObj->fCompl0 = If_IsComplement(pDriver); pDriver = If_Regular(pDriver);
     pObj->pFanin0 = pDriver; pDriver->nRefs++; 
+    pObj->fPhase  = (pObj->fCompl0 ^ pDriver->fPhase);
+    pObj->Level   = pDriver->Level;
+    if ( p->nLevelMax < (int)pObj->Level )
+        p->nLevelMax = (int)pObj->Level;
     p->nObjs[IF_CO]++;
     return pObj;
 }
@@ -310,7 +325,7 @@ void If_ManSetupCut( If_Man_t * p, If_Cut_t * pCut )
     if ( p->pPars->fUsePerm )
         pCut->pPerm  = (char *)(pCut->pLeaves + p->pPars->nLutSize);
     if ( p->pPars->fTruth )
-        pCut->pTruth = pCut->pLeaves + p->pPars->nLutSize + p->nPermWords;
+        pCut->pTruth = (unsigned *)pCut->pLeaves + p->pPars->nLutSize + p->nPermWords;
 }
 
 /**Function*************************************************************
@@ -415,7 +430,7 @@ void If_ManSetupCiCutSets( If_Man_t * p )
     If_ManForEachCi( p, pObj, i )
         If_ManSetupCutTriv( p, &pObj->CutBest, pObj->Id );
     // create elementary cutsets for the CIs
-    p->pMemCi = (If_Set_t *)malloc( If_ManCiNum(p) * (sizeof(If_Set_t) + sizeof(void *)) );
+    p->pMemCi = (If_Set_t *)ABC_ALLOC( char, If_ManCiNum(p) * (sizeof(If_Set_t) + sizeof(void *)) );
     If_ManForEachCi( p, pObj, i )
     {
         pObj->pCutSet = (If_Set_t *)((char *)p->pMemCi + i * (sizeof(If_Set_t) + sizeof(void *)));
@@ -514,7 +529,7 @@ void If_ManDerefChoiceCutSet( If_Man_t * p, If_Obj_t * pObj )
     // consider the nodes in the choice class
     for ( pTemp = pObj; pTemp; pTemp = pTemp->pEquiv )
     {
-        assert( pTemp == pObj || pTemp->nVisits == 1 );
+//        assert( pTemp == pObj || pTemp->nVisits == 1 );
         if ( --pTemp->nVisits == 0 )
         {
 //            Mem_FixedEntryRecycle( p->pMemSet, (char *)pTemp->pCutSet );
@@ -540,7 +555,7 @@ void If_ManSetupSetAll( If_Man_t * p, int nCrossCut )
     If_Set_t * pCutSet;
     int i, nCutSets;
     nCutSets = 128 + nCrossCut;
-    p->pFreeList = p->pMemAnd = pCutSet = (If_Set_t *)malloc( nCutSets * p->nSetBytes );
+    p->pFreeList = p->pMemAnd = pCutSet = (If_Set_t *)ABC_ALLOC( char, nCutSets * p->nSetBytes );
     for ( i = 0; i < nCutSets; i++ )
     {
         If_ManSetupSet( p, pCutSet );
@@ -554,12 +569,12 @@ void If_ManSetupSetAll( If_Man_t * p, int nCrossCut )
 
     if ( p->pPars->fVerbose )
     {
-        printf( "Node = %7d.  Ch = %5d.  Total mem = %7.2f Mb. Peak cut mem = %7.2f Mb.\n", 
+        Abc_Print( 1, "Node = %7d.  Ch = %5d.  Total mem = %7.2f Mb. Peak cut mem = %7.2f Mb.\n", 
             If_ManAndNum(p), p->nChoices,
             1.0 * (p->nObjBytes + 2*sizeof(void *)) * If_ManObjNum(p) / (1<<20), 
             1.0 * p->nSetBytes * nCrossCut / (1<<20) );
     }
-//    printf( "Cross cut = %d.\n", nCrossCut );
+//    Abc_Print( 1, "Cross cut = %d.\n", nCrossCut );
 
 }
 

@@ -130,7 +130,7 @@ Dec_Edge_t Dec_Factor_rec( Dec_Graph_t * pFForm, Mvc_Cover_t * pCover )
         return eNode;
     }
 
-    // make the quotient cube free
+    // make the quotient cube ABC_FREE
     Mvc_CoverMakeCubeFree( pQuo );
 
     // divide the cover by the quotient
@@ -231,7 +231,6 @@ Dec_Edge_t Dec_FactorTrivial( Dec_Graph_t * pFForm, Mvc_Cover_t * pCover )
     Dec_Man_t * pManDec = Abc_FrameReadManDec();
     Vec_Int_t * vEdgeCubes = pManDec->vCubes;
     Vec_Int_t * vEdgeLits  = pManDec->vLits;
-    Mvc_Manager_t * pMem = pManDec->pMvcMem;
     Dec_Edge_t eNode;
     Mvc_Cube_t * pCube;
     // create the factored form for each cube
@@ -364,6 +363,7 @@ Mvc_Cover_t * Dec_ConvertSopToMvc( char * pSop )
 ***********************************************************************/
 int Dec_FactorVerify( char * pSop, Dec_Graph_t * pFForm )
 {
+    extern DdNode *       Dec_GraphDeriveBdd( DdManager * dd, Dec_Graph_t * pGraph );
     DdManager * dd = Abc_FrameReadManDd();
     DdNode * bFunc1, * bFunc2;
     int RetValue;

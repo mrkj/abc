@@ -16,6 +16,7 @@
 
 ***********************************************************************/
 
+#include <ctype.h>
 #include "mioInt.h"
 
 ////////////////////////////////////////////////////////////////////////
@@ -33,10 +34,6 @@ static Mio_Pin_t *  Mio_LibraryReadPin( char ** ppToken, bool fExtendedFormat );
 static char *       chomp( char *s );
 static void         Mio_LibraryDetectSpecialGates( Mio_Library_t * pLib );
 static void         Io_ReadFileRemoveComments( char * pBuffer, int * pnDots, int * pnLines );
-
-#ifdef WIN32
-extern int          isspace( int c );  // to silence the warning in VS
-#endif
 
 /**Function*************************************************************
 
@@ -97,7 +94,7 @@ Mio_Library_t * Mio_LibraryReadOne( Abc_Frame_t * pAbc, char * FileName, bool fE
     char * pBuffer = 0;
 
     // allocate the genlib structure
-    pLib = ALLOC( Mio_Library_t, 1 );
+    pLib = ABC_ALLOC( Mio_Library_t, 1 );
     memset( pLib, 0, sizeof(Mio_Library_t) );
     pLib->pName = Extra_UtilStrsav( FileName );
     pLib->tName2Gate = st_init_table(strcmp, st_strhash);
@@ -125,7 +122,7 @@ Mio_Library_t * Mio_LibraryReadOne( Abc_Frame_t * pAbc, char * FileName, bool fE
         // move the file current reading position to the beginning
         rewind( pFile ); 
         // load the contents of the file into memory
-        pBuffer   = ALLOC( char, nFileSize + 10 );
+        pBuffer   = ABC_ALLOC( char, nFileSize + 10 );
         fread( pBuffer, nFileSize, 1, pFile );
         // terminate the string with '\0'
         pBuffer[ nFileSize ] = '\0';
@@ -140,10 +137,10 @@ Mio_Library_t * Mio_LibraryReadOne( Abc_Frame_t * pAbc, char * FileName, bool fE
     if ( Mio_LibraryReadInternal( pLib, pBuffer, fExtendedFormat, tExcludeGate, fVerbose ) )
     {
         Mio_LibraryDelete( pLib );
-        free( pBuffer );
+        ABC_FREE( pBuffer );
         return NULL;
     }
-    free( pBuffer );
+    ABC_FREE( pBuffer );
 
     // derive the functinality of gates
     if ( Mio_LibraryParseFormulas( pLib ) )
@@ -246,7 +243,7 @@ Mio_Gate_t * Mio_LibraryReadGate( char ** ppToken, bool fExtendedFormat )
     char * pToken = *ppToken;
 
     // allocate the gate structure
-    pGate = ALLOC( Mio_Gate_t, 1 );
+    pGate = ABC_ALLOC( Mio_Gate_t, 1 );
     memset( pGate, 0, sizeof(Mio_Gate_t) );
 
     // read the name
@@ -265,7 +262,7 @@ Mio_Gate_t * Mio_LibraryReadGate( char ** ppToken, bool fExtendedFormat )
 
     // then rest of the expression 
     pToken = strtok( NULL, ";" );
-    pGate->pForm = Extra_UtilStrsav( pToken );
+    pGate->pForm = chomp( pToken );
 
     // read the pin info
     // start the linked list of pins
@@ -314,7 +311,7 @@ Mio_Pin_t * Mio_LibraryReadPin( char ** ppToken, bool fExtendedFormat )
     char * pToken = *ppToken;
 
     // allocate the gate structure
-    pPin = ALLOC( Mio_Pin_t, 1 );
+    pPin = ABC_ALLOC( Mio_Pin_t, 1 );
     memset( pPin, 0, sizeof(Mio_Pin_t) );
 
     // read the name
@@ -392,21 +389,106 @@ Mio_Pin_t * Mio_LibraryReadPin( char ** ppToken, bool fExtendedFormat )
   SeeAlso     []
 
 ***********************************************************************/
-char *chomp( char *s )
+char * chomp( char *s )
 {
-    char *b = ALLOC(char, strlen(s)+1), *c = b;
-    while (*s && isspace(*s))
-        ++s;
-    while (*s && !isspace(*s))
-        *c++ = *s++;
-    *c = 0;
-    return b;
+    char *a, *b, *c;
+    // remove leading spaces
+    for ( b = s; *b; b++ )
+        if ( !isspace(*b) )
+            break;
+    // strsav the string
+    a = strcpy( ABC_ALLOC(char, strlen(b)+1), b );
+    // remove trailing spaces
+    for ( c = a+strlen(a); c > a; c-- )
+        if ( *c == 0 || isspace(*c) )
+            *c = 0;
+        else
+            break;
+    return a;
 }   
         
 /**Function*************************************************************
 
-  Synopsis    [Duplicates string and returns it with leading and 
-               trailing spaces removed.]
+  Synopsis    []
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+int Mio_LibraryCompareGatesByArea( Mio_Gate_t ** pp1, Mio_Gate_t ** pp2 )
+{
+    double Diff = (*pp1)->dArea - (*pp2)->dArea;
+    if ( Diff < 0.0 )
+        return -1;
+    if ( Diff > 0.0 ) 
+        return 1;
+    return 0; 
+}
+        
+/**Function*************************************************************
+
+  Synopsis    []
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+int Mio_LibraryCompareGatesByName( Mio_Gate_t ** pp1, Mio_Gate_t ** pp2 )
+{
+    int Diff = strcmp( (*pp1)->pName, (*pp2)->pName );
+    if ( Diff < 0.0 )
+        return -1;
+    if ( Diff > 0.0 ) 
+        return 1;
+    return 0; 
+}
+        
+/**Function*************************************************************
+
+  Synopsis    []
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+void Mio_LibrarySortGates( Mio_Library_t * pLib )
+{
+    Mio_Gate_t ** ppGates, * pGate;
+    int i = 0;
+    ppGates = ABC_ALLOC( Mio_Gate_t *, pLib->nGates );
+    Mio_LibraryForEachGate( pLib, pGate )
+        ppGates[i++] = pGate;
+    assert( i == pLib->nGates );
+    // sort gates by area
+    pLib->ppGates0 = ABC_ALLOC( Mio_Gate_t *, pLib->nGates );
+    for ( i = 0; i < pLib->nGates; i++ )
+        pLib->ppGates0[i] = ppGates[i];
+    qsort( (void *)ppGates, pLib->nGates, sizeof(void *), 
+            (int (*)(const void *, const void *)) Mio_LibraryCompareGatesByArea );
+    for ( i = 0; i < pLib->nGates; i++ )
+        ppGates[i]->pNext = (i < pLib->nGates-1)? ppGates[i+1] : NULL;
+    pLib->pGates = ppGates[0];
+    ABC_FREE( ppGates );
+    // sort gates by name
+    pLib->ppGatesName = ABC_ALLOC( Mio_Gate_t *, pLib->nGates );
+    for ( i = 0; i < pLib->nGates; i++ )
+        pLib->ppGatesName[i] = pLib->ppGates0[i];
+    qsort( (void *)pLib->ppGatesName, pLib->nGates, sizeof(void *), 
+            (int (*)(const void *, const void *)) Mio_LibraryCompareGatesByName );
+}
+        
+/**Function*************************************************************
+
+  Synopsis    []
 
   Description []
                
@@ -419,6 +501,8 @@ void Mio_LibraryDetectSpecialGates( Mio_Library_t * pLib )
 {
     Mio_Gate_t * pGate;
     DdNode * bFuncBuf, * bFuncInv, * bFuncNand2, * bFuncAnd2;
+
+    Mio_LibrarySortGates( pLib );
 
     bFuncBuf   = pLib->dd->vars[0];                                              Cudd_Ref( bFuncBuf );
     bFuncInv   = Cudd_Not( pLib->dd->vars[0] );                                  Cudd_Ref( bFuncInv );

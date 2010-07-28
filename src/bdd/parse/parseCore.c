@@ -58,7 +58,9 @@
 #define PARSE_SYM_XOR1    '<'   // logic EXOR   (the 1st symbol) 
 #define PARSE_SYM_XOR2    '+'   // logic EXOR   (the 2nd symbol)
 #define PARSE_SYM_XOR3    '>'   // logic EXOR   (the 3rd symbol)
-#define PARSE_SYM_OR      '+'   // logic OR
+#define PARSE_SYM_XOR     '^'   // logic XOR
+#define PARSE_SYM_OR1     '+'   // logic OR
+#define PARSE_SYM_OR2     '|'   // logic OR
 #define PARSE_SYM_EQU1    '<'   // equvalence   (the 1st symbol)
 #define PARSE_SYM_EQU2    '='   // equvalence   (the 2nd symbol)
 #define PARSE_SYM_EQU3    '>'   // equvalence   (the 3rd symbol)
@@ -118,7 +120,8 @@ DdNode * Parse_FormulaParser( FILE * pOutput, char * pFormulaInit, int nVars, in
     char * pTemp;
     int nParans, fFound, Flag;
 	int Oper, Oper1, Oper2;
-    int i, v, fLower;
+    int i, fLower;
+    int v = -1; // Suppress "might be used uninitialized"
 
     // make sure that the number of vars and ranks is correct
     if ( nVars * (nRanks + 1) > dd->size )
@@ -153,7 +156,7 @@ DdNode * Parse_FormulaParser( FILE * pOutput, char * pFormulaInit, int nVars, in
     }
 
     // copy the formula
-    pFormula = ALLOC( char, strlen(pFormulaInit) + 3 );
+    pFormula = ABC_ALLOC( char, strlen(pFormulaInit) + 3 );
     sprintf( pFormula, "(%s)", pFormulaInit );
 
     // start the stacks
@@ -220,7 +223,9 @@ DdNode * Parse_FormulaParser( FILE * pOutput, char * pFormulaInit, int nVars, in
 
         case PARSE_SYM_AND1:
         case PARSE_SYM_AND2:
-        case PARSE_SYM_OR:
+        case PARSE_SYM_OR1:
+        case PARSE_SYM_OR2:
+        case PARSE_SYM_XOR:
 			if ( Flag != PARSE_FLAG_VAR )
 			{
 				fprintf( pOutput, "Parse_FormulaParser(): There is no variable before AND, EXOR, or OR.\n" );
@@ -229,8 +234,10 @@ DdNode * Parse_FormulaParser( FILE * pOutput, char * pFormulaInit, int nVars, in
 			}
 			if ( *pTemp == PARSE_SYM_AND1 || *pTemp == PARSE_SYM_AND2 )
 				Parse_StackOpPush( pStackOp, PARSE_OPER_AND );
-			else //if ( Str[Pos] == PARSE_SYM_OR )
+			else if ( *pTemp == PARSE_SYM_OR1 || *pTemp == PARSE_SYM_OR2 )
 				Parse_StackOpPush( pStackOp, PARSE_OPER_OR );
+			else //if ( Str[Pos] == PARSE_SYM_XOR )
+				Parse_StackOpPush( pStackOp, PARSE_OPER_XOR );
 			Flag = PARSE_FLAG_OPER; 
             break;
 
@@ -328,7 +335,7 @@ DdNode * Parse_FormulaParser( FILE * pOutput, char * pFormulaInit, int nVars, in
                     if ( Parse_ParserPerformTopOp( dd, pStackFn, Oper ) == NULL )
 	                {
 		                fprintf( pOutput, "Parse_FormulaParser(): Unknown operation\n" );
-                        free( pFormula );
+                        ABC_FREE( pFormula );
 		                return NULL;
 	                }
 			    }
@@ -355,6 +362,7 @@ DdNode * Parse_FormulaParser( FILE * pOutput, char * pFormulaInit, int nVars, in
 
 		default:
             // scan the next name
+/*
             fFound = 0;
             for ( i = 0; pTemp[i] && pTemp[i] != ' ' && pTemp[i] != '\t' && pTemp[i] != '\r' && pTemp[i] != '\n'; i++ )
             {
@@ -368,13 +376,32 @@ DdNode * Parse_FormulaParser( FILE * pOutput, char * pFormulaInit, int nVars, in
                 if ( fFound )
                     break;
             }
+*/ 
+            // bug fix by SV (9/11/08)
+            fFound = 0;
+            for ( i = 0; pTemp[i] && pTemp[i] != ' ' && pTemp[i] != '\t' && pTemp[i] != '\r' && pTemp[i] != '\n' && 
+                         pTemp[i] != PARSE_SYM_AND1 && pTemp[i] != PARSE_SYM_AND2 && pTemp[i] != PARSE_SYM_XOR1 &&
+                         pTemp[i] != PARSE_SYM_XOR2 && pTemp[i] != PARSE_SYM_XOR3 && pTemp[i] != PARSE_SYM_XOR  &&
+                         pTemp[i] != PARSE_SYM_OR1  && pTemp[i] != PARSE_SYM_OR2  && pTemp[i] != PARSE_SYM_CLOSE &&
+                         pTemp[i] != PARSE_SYM_NEGAFT;
+                  i++ )
+            {}
+            for ( v = 0; v < nVars; v++ ) 
+            {
+                if ( strncmp( pTemp, ppVarNames[v], i ) == 0 && strlen(ppVarNames[v]) == (unsigned)(i) )
+                {
+                    pTemp += i-1;
+                    fFound = 1;
+                    break;
+                }
+            }
+
             if ( !fFound )
 			{ 
 				fprintf( pOutput, "Parse_FormulaParser(): The parser cannot find var \"%s\" in the input var list.\n", pTemp ); 
 				Flag = PARSE_FLAG_ERROR; 
                 break; 
 			}
-
 			// assume operation AND, if vars follow one another
 			if ( Flag == PARSE_FLAG_VAR )
 				Parse_StackOpPush( pStackOp, PARSE_OPER_AND );
@@ -420,7 +447,7 @@ DdNode * Parse_FormulaParser( FILE * pOutput, char * pFormulaInit, int nVars, in
                     if ( Parse_ParserPerformTopOp( dd, pStackFn, Oper2 ) == NULL )
 	                {
 		                fprintf( pOutput, "Parse_FormulaParser(): Unknown operation\n" );
-                        free( pFormula );
+                        ABC_FREE( pFormula );
 		                return NULL;
 	                }
 					Parse_StackOpPush( pStackOp,  Oper1 );     // push the last operation back
@@ -445,7 +472,7 @@ DdNode * Parse_FormulaParser( FILE * pOutput, char * pFormulaInit, int nVars, in
                     Parse_StackFnFree(pStackFn);
                     Parse_StackOpFree(pStackOp);
                     Cudd_Deref( bFunc );
-                    free( pFormula );
+                    ABC_FREE( pFormula );
 					return bFunc;
                 }
 				else
@@ -456,7 +483,7 @@ DdNode * Parse_FormulaParser( FILE * pOutput, char * pFormulaInit, int nVars, in
 	    else
 			fprintf( pOutput, "Parse_FormulaParser(): The input string is empty\n" );
     }
-    free( pFormula );
+    ABC_FREE( pFormula );
 	return NULL;
 }
 

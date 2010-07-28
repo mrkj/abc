@@ -112,7 +112,7 @@ DdNode * Extra_TransferLevelByLevel( DdManager * ddSource, DdManager * ddDestina
 
     nMin = ddMin(ddSource->size, ddDestination->size);
     nMax = ddMax(ddSource->size, ddDestination->size);
-    pPermute = ALLOC( int, nMax );
+    pPermute = ABC_ALLOC( int, nMax );
     // set up the variable permutation
     for ( i = 0; i < nMin; i++ )
         pPermute[ ddSource->invperm[i] ] = ddDestination->invperm[i];
@@ -122,7 +122,7 @@ DdNode * Extra_TransferLevelByLevel( DdManager * ddSource, DdManager * ddDestina
             pPermute[ ddSource->invperm[i] ] = -1;
     }
     bRes = Extra_TransferPermute( ddSource, ddDestination, f, pPermute );
-    FREE( pPermute );
+    ABC_FREE( pPermute );
     return bRes;
 }
 
@@ -145,7 +145,7 @@ DdNode * Extra_bddRemapUp(
     DdNode * bSupp, * bTemp, * bRes;
     int Counter;
 
-    pPermute = ALLOC( int, dd->size );
+    pPermute = ABC_ALLOC( int, dd->size );
 
     // get support
     bSupp = Cudd_Support( dd, bF );    Cudd_Ref( bSupp );
@@ -164,7 +164,7 @@ DdNode * Extra_bddRemapUp(
 
     // return
     Cudd_Deref( bRes );
-    free( pPermute );
+    ABC_FREE( pPermute );
     return bRes;
 }
 
@@ -220,7 +220,8 @@ void Extra_StopManager( DdManager * dd )
     int RetValue;
     // check for remaining references in the package
     RetValue = Cudd_CheckZeroRef( dd );
-    if ( RetValue > 0 )
+    if ( RetValue > 10 )
+//    if ( RetValue )
         printf( "\nThe number of referenced nodes = %d\n\n", RetValue );
 //  Cudd_PrintInfo( dd, stdout );
     Cudd_Quit( dd );
@@ -281,6 +282,7 @@ void Extra_bddPrint( DdManager * dd, DdNode * F )
 
 //  printf("\n");
 }
+
 /**Function********************************************************************
 
   Synopsis    [Returns the size of the support.]
@@ -583,7 +585,7 @@ DdNode *  Extra_bddFindOneCube( DdManager * dd, DdNode * bF )
     int v;
 
     // get the vector of variables in the cube
-    s_Temp = ALLOC( char, dd->size );
+    s_Temp = ABC_ALLOC( char, dd->size );
     Cudd_bddPickOneCube( dd, bF, s_Temp );
 
     // start the cube
@@ -602,7 +604,7 @@ DdNode *  Extra_bddFindOneCube( DdManager * dd, DdNode * bF )
             Cudd_RecursiveDeref( dd, bTemp );
         }
     Cudd_Deref(bCube);
-    free( s_Temp );
+    ABC_FREE( s_Temp );
     return bCube;
 }
 
@@ -744,7 +746,7 @@ DdNode * Extra_bddSupportNegativeCube( DdManager * dd, DdNode * f )
 
 	/* Allocate and initialize support array for ddSupportStep. */
 	size = ddMax( dd->size, dd->sizeZ );
-	support = ALLOC( int, size );
+	support = ABC_ALLOC( int, size );
 	if ( support == NULL )
 	{
 		dd->errorCode = CUDD_MEMORY_OUT;
@@ -792,7 +794,7 @@ DdNode * Extra_bddSupportNegativeCube( DdManager * dd, DdNode * f )
 	}
 	while ( dd->reordered == 1 );
 
-	FREE( support );
+	ABC_FREE( support );
 	if ( res != NULL )
 		cuddDeref( res );
 	return ( res );
@@ -961,6 +963,34 @@ void Extra_bddPermuteArray( DdManager * manager, DdNode ** bNodesIn, DdNode ** b
 }	/* end of Extra_bddPermuteArray */
 
 
+/**Function********************************************************************
+
+  Synopsis    [Computes the positive polarty cube composed of the first vars in the array.]
+
+  Description []
+
+  SideEffects []
+
+  SeeAlso     []
+
+******************************************************************************/
+DdNode * Extra_bddComputeCube( DdManager * dd, DdNode ** bXVars, int nVars )
+{
+    DdNode * bRes;
+    DdNode * bTemp;
+    int i;
+
+    bRes = b1; Cudd_Ref( bRes );
+    for ( i = 0; i < nVars; i++ )
+    {
+        bRes = Cudd_bddAnd( dd, bTemp = bRes, bXVars[i] );  Cudd_Ref( bRes );
+        Cudd_RecursiveDeref( dd, bTemp );
+    }
+
+    Cudd_Deref( bRes );
+    return bRes;
+}
+
 /*---------------------------------------------------------------------------*/
 /* Definition of internal functions                                          */
 /*---------------------------------------------------------------------------*/
@@ -986,7 +1016,7 @@ DdNode * extraBddMove(
     if ( Cudd_IsConstant(bF) )
         return bF;
 
-    if ( bRes = cuddCacheLookup2(dd, extraBddMove, bF, bDist) )
+    if ( (bRes = cuddCacheLookup2(dd, extraBddMove, bF, bDist)) )
         return bRes;
     else
     {

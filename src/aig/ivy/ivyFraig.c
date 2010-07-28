@@ -50,9 +50,9 @@ struct Ivy_FraigMan_t_
 {
     // general info 
     Ivy_FraigParams_t * pParams;        // various parameters
-    // temporary backtrack limits because "sint64" cannot be defined in Ivy_FraigParams_t ...
-    sint64              nBTLimitGlobal; // global limit on the number of backtracks
-    sint64              nInsLimitGlobal;// global limit on the number of clause inspects
+    // temporary backtrack limits because "ABC_INT64_T" cannot be defined in Ivy_FraigParams_t ...
+    ABC_INT64_T              nBTLimitGlobal; // global limit on the number of backtracks
+    ABC_INT64_T              nInsLimitGlobal;// global limit on the number of clause inspects
     // AIG manager
     Ivy_Man_t *         pManAig;        // the starting AIG manager
     Ivy_Man_t *         pManFraig;      // the final AIG manager
@@ -126,11 +126,11 @@ struct Prove_ParamsStruct_t_
     // last-gasp mitering
     int     nMiteringLimitLast;    // final mitering limit
     // global SAT solver limits
-    sint64  nTotalBacktrackLimit;  // global limit on the number of backtracks
-    sint64  nTotalInspectLimit;    // global limit on the number of clause inspects
+    ABC_INT64_T  nTotalBacktrackLimit;  // global limit on the number of backtracks
+    ABC_INT64_T  nTotalInspectLimit;    // global limit on the number of clause inspects
     // global resources applied
-    sint64  nTotalBacktracksMade;  // the total number of backtracks made
-    sint64  nTotalInspectsMade;    // the total number of inspects made
+    ABC_INT64_T  nTotalBacktracksMade;  // the total number of backtracks made
+    ABC_INT64_T  nTotalInspectsMade;    // the total number of inspects made
 };
 
 static inline Ivy_FraigSim_t * Ivy_ObjSim( Ivy_Obj_t * pObj )                            { return (Ivy_FraigSim_t *)pObj->pFanout;  }
@@ -141,7 +141,7 @@ static inline Ivy_Obj_t * Ivy_ObjNodeHashNext( Ivy_Obj_t * pObj )               
 static inline Ivy_Obj_t * Ivy_ObjEquivListNext( Ivy_Obj_t * pObj )                       { return pObj->pPrevFan0;  }
 static inline Ivy_Obj_t * Ivy_ObjEquivListPrev( Ivy_Obj_t * pObj )                       { return pObj->pPrevFan1;  }
 static inline Ivy_Obj_t * Ivy_ObjFraig( Ivy_Obj_t * pObj )                               { return pObj->pEquiv;     }
-static inline int         Ivy_ObjSatNum( Ivy_Obj_t * pObj )                              { return (int)pObj->pNextFan0;         }
+static inline int         Ivy_ObjSatNum( Ivy_Obj_t * pObj )                              { return (int)(ABC_PTRUINT_T)pObj->pNextFan0;         }
 static inline Vec_Ptr_t * Ivy_ObjFaninVec( Ivy_Obj_t * pObj )                            { return (Vec_Ptr_t *)pObj->pNextFan1; }
 
 static inline void        Ivy_ObjSetSim( Ivy_Obj_t * pObj, Ivy_FraigSim_t * pSim )       { pObj->pFanout = (Ivy_Obj_t *)pSim; }
@@ -152,7 +152,7 @@ static inline void        Ivy_ObjSetNodeHashNext( Ivy_Obj_t * pObj, Ivy_Obj_t * 
 static inline void        Ivy_ObjSetEquivListNext( Ivy_Obj_t * pObj, Ivy_Obj_t * pNext ) { pObj->pPrevFan0 = pNext; }
 static inline void        Ivy_ObjSetEquivListPrev( Ivy_Obj_t * pObj, Ivy_Obj_t * pPrev ) { pObj->pPrevFan1 = pPrev; }
 static inline void        Ivy_ObjSetFraig( Ivy_Obj_t * pObj, Ivy_Obj_t * pNode )         { pObj->pEquiv    = pNode; }
-static inline void        Ivy_ObjSetSatNum( Ivy_Obj_t * pObj, int Num )                  { pObj->pNextFan0 = (Ivy_Obj_t *)Num;     }
+static inline void        Ivy_ObjSetSatNum( Ivy_Obj_t * pObj, int Num )                  { pObj->pNextFan0 = (Ivy_Obj_t *)(ABC_PTRUINT_T)Num;     }
 static inline void        Ivy_ObjSetFaninVec( Ivy_Obj_t * pObj, Vec_Ptr_t * vFanins )    { pObj->pNextFan1 = (Ivy_Obj_t *)vFanins; }
 
 static inline unsigned    Ivy_ObjRandomSim()                       { return (rand() << 24) ^ (rand() << 12) ^ rand(); }
@@ -181,7 +181,7 @@ static inline unsigned    Ivy_ObjRandomSim()                       { return (ran
 
 static Ivy_FraigMan_t * Ivy_FraigStart( Ivy_Man_t * pManAig, Ivy_FraigParams_t * pParams );
 static Ivy_FraigMan_t * Ivy_FraigStartSimple( Ivy_Man_t * pManAig, Ivy_FraigParams_t * pParams );
-static Ivy_Man_t *   Ivy_FraigPerform_int( Ivy_Man_t * pManAig, Ivy_FraigParams_t * pParams, sint64 nBTLimitGlobal, sint64 nInsLimitGlobal, sint64 * pnSatConfs, sint64 * pnSatInspects );
+static Ivy_Man_t *   Ivy_FraigPerform_int( Ivy_Man_t * pManAig, Ivy_FraigParams_t * pParams, ABC_INT64_T nBTLimitGlobal, ABC_INT64_T nInsLimitGlobal, ABC_INT64_T * pnSatConfs, ABC_INT64_T * pnSatInspects );
 static void          Ivy_FraigPrint( Ivy_FraigMan_t * p );
 static void          Ivy_FraigStop( Ivy_FraigMan_t * p );
 static void          Ivy_FraigSimulate( Ivy_FraigMan_t * p );
@@ -199,8 +199,8 @@ static int *         Ivy_FraigCreateModel( Ivy_FraigMan_t * p );
 
 static int Ivy_FraigNodesAreEquivBdd( Ivy_Obj_t * pObj1, Ivy_Obj_t * pObj2 );
 
-static sint64 s_nBTLimitGlobal = 0;
-static sint64 s_nInsLimitGlobal = 0;
+static ABC_INT64_T s_nBTLimitGlobal = 0;
+static ABC_INT64_T s_nInsLimitGlobal = 0;
 
 ////////////////////////////////////////////////////////////////////////
 ///                     FUNCTION DEFINITIONS                         ///
@@ -252,8 +252,8 @@ int Ivy_FraigProve( Ivy_Man_t ** ppManAig, void * pPars )
     Prove_Params_t * pParams = pPars;
     Ivy_FraigParams_t Params, * pIvyParams = &Params; 
     Ivy_Man_t * pManAig, * pManTemp;
-    int RetValue, nIter, clk, timeStart = clock();//, Counter;
-    sint64 nSatConfs, nSatInspects;
+    int RetValue, nIter, clk;//, Counter;
+    ABC_INT64_T nSatConfs = 0, nSatInspects = 0;
 
     // start the network and parameters
     pManAig = *ppManAig;
@@ -265,12 +265,10 @@ int Ivy_FraigProve( Ivy_Man_t ** ppManAig, void * pPars )
     {
         printf( "RESOURCE LIMITS: Iterations = %d. Rewriting = %s. Fraiging = %s.\n",
             pParams->nItersMax, pParams->fUseRewriting? "yes":"no", pParams->fUseFraiging? "yes":"no" );
-        printf( "Mitering = %d (%3.1f).  Rewriting = %d (%3.1f).  Fraiging = %d (%3.1f).\n", 
+        printf( "Miter = %d (%3.1f).  Rwr = %d (%3.1f).  Fraig = %d (%3.1f).  Last = %d.\n", 
             pParams->nMiteringLimitStart,  pParams->nMiteringLimitMulti, 
             pParams->nRewritingLimitStart, pParams->nRewritingLimitMulti,
-            pParams->nFraigingLimitStart,  pParams->nFraigingLimitMulti );
-        printf( "Mitering last = %d.\n", 
-            pParams->nMiteringLimitLast );
+            pParams->nFraigingLimitStart,  pParams->nFraigingLimitMulti, pParams->nMiteringLimitLast );
     }
 
     // if SAT only, solve without iteration
@@ -326,12 +324,17 @@ int Ivy_FraigProve( Ivy_Man_t ** ppManAig, void * pPars )
         if ( RetValue >= 0 )
             break;
 
+        // catch the situation when ref pattern detects the bug
+        RetValue = Ivy_FraigMiterStatus( pManAig );
+        if ( RetValue >= 0 )
+            break;
+
         // try fraiging followed by mitering
         if ( pParams->fUseFraiging )
         {
             clk = clock();
             pIvyParams->nBTLimitNode  = (int)(pParams->nFraigingLimitStart * pow(pParams->nFraigingLimitMulti,nIter));
-            pIvyParams->nBTLimitMiter = (int)(pParams->nMiteringLimitStart * pow(pParams->nMiteringLimitMulti,nIter)) / Ivy_ManPoNum(pManAig);
+            pIvyParams->nBTLimitMiter = 1 + (int)(pParams->nMiteringLimitStart * pow(pParams->nMiteringLimitMulti,nIter)) / Ivy_ManPoNum(pManAig);
             pManAig = Ivy_FraigPerform_int( pManTemp = pManAig, pIvyParams, pParams->nTotalBacktrackLimit, pParams->nTotalInspectLimit, &nSatConfs, &nSatInspects );  Ivy_ManStop( pManTemp );
             RetValue = Ivy_FraigMiterStatus( pManAig );
             Ivy_FraigMiterPrint( pManAig, "Fraiging   ", clk, pParams->fVerbose );
@@ -384,7 +387,7 @@ int Ivy_FraigProve( Ivy_Man_t ** ppManAig, void * pPars )
     // assign the model if it was proved by rewriting (const 1 miter)
     if ( RetValue == 0 && pManAig->pData == NULL )
     {
-        pManAig->pData = ALLOC( int, Ivy_ManPiNum(pManAig) );
+        pManAig->pData = ABC_ALLOC( int, Ivy_ManPiNum(pManAig) );
         memset( pManAig->pData, 0, sizeof(int) * Ivy_ManPiNum(pManAig) );
     }
     *ppManAig = pManAig;
@@ -402,7 +405,7 @@ int Ivy_FraigProve( Ivy_Man_t ** ppManAig, void * pPars )
   SeeAlso     []
 
 ***********************************************************************/
-Ivy_Man_t * Ivy_FraigPerform_int( Ivy_Man_t * pManAig, Ivy_FraigParams_t * pParams, sint64 nBTLimitGlobal, sint64 nInsLimitGlobal, sint64 * pnSatConfs, sint64 * pnSatInspects )
+Ivy_Man_t * Ivy_FraigPerform_int( Ivy_Man_t * pManAig, Ivy_FraigParams_t * pParams, ABC_INT64_T nBTLimitGlobal, ABC_INT64_T nInsLimitGlobal, ABC_INT64_T * pnSatConfs, ABC_INT64_T * pnSatInspects )
 { 
     Ivy_FraigMan_t * p;
     Ivy_Man_t * pManAigNew;
@@ -501,7 +504,7 @@ clk = clock();
 p->timeTotal = clock() - clk;
 
 //printf( "Final nodes = %6d. ", Ivy_ManNodeNum(pManAigNew) );
-//PRT( "Time", p->timeTotal );
+//ABC_PRT( "Time", p->timeTotal );
     Ivy_FraigStop( p );
     return pManAigNew;
 }
@@ -521,7 +524,7 @@ Ivy_FraigMan_t * Ivy_FraigStartSimple( Ivy_Man_t * pManAig, Ivy_FraigParams_t * 
 {
     Ivy_FraigMan_t * p;
     // allocat the fraiging manager
-    p = ALLOC( Ivy_FraigMan_t, 1 );
+    p = ABC_ALLOC( Ivy_FraigMan_t, 1 );
     memset( p, 0, sizeof(Ivy_FraigMan_t) );
     p->pParams   = pParams;
     p->pManAig   = pManAig;
@@ -552,16 +555,16 @@ Ivy_FraigMan_t * Ivy_FraigStart( Ivy_Man_t * pManAig, Ivy_FraigParams_t * pParam
 //        pObj->pEquiv = pObj->pFanout = pObj->pNextFan0 = pObj->pNextFan1 = pObj->pPrevFan0 = pObj->pPrevFan1 = NULL;
         assert( !pObj->pEquiv && !pObj->pFanout );
     // allocat the fraiging manager
-    p = ALLOC( Ivy_FraigMan_t, 1 );
+    p = ABC_ALLOC( Ivy_FraigMan_t, 1 );
     memset( p, 0, sizeof(Ivy_FraigMan_t) );
     p->pParams   = pParams;
     p->pManAig   = pManAig;
     p->pManFraig = Ivy_ManStartFrom( pManAig );
     // allocate simulation info
     p->nSimWords    = pParams->nSimWords;
-//    p->pSimWords    = ALLOC( unsigned, Ivy_ManObjNum(pManAig) * p->nSimWords ); 
+//    p->pSimWords    = ABC_ALLOC( unsigned, Ivy_ManObjNum(pManAig) * p->nSimWords ); 
     EntrySize    = sizeof(Ivy_FraigSim_t) + sizeof(unsigned) * p->nSimWords;
-    p->pSimWords = (char *)malloc( Ivy_ManObjNum(pManAig) * EntrySize ); 
+    p->pSimWords = (char *)ABC_ALLOC( char, Ivy_ManObjNum(pManAig) * EntrySize ); 
     memset( p->pSimWords, 0, EntrySize );
     k = 0;
     Ivy_ManForEachObj( pManAig, pObj, i )
@@ -589,8 +592,8 @@ Ivy_FraigMan_t * Ivy_FraigStart( Ivy_Man_t * pManAig, Ivy_FraigParams_t * pParam
     assert( k == Ivy_ManObjNum(pManAig) );
     // allocate storage for sim pattern
     p->nPatWords = Ivy_BitWordNum( Ivy_ManPiNum(pManAig) );
-    p->pPatWords = ALLOC( unsigned, p->nPatWords ); 
-    p->pPatScores = ALLOC( int, 32 * p->nSimWords ); 
+    p->pPatWords = ABC_ALLOC( unsigned, p->nPatWords ); 
+    p->pPatScores = ABC_ALLOC( int, 32 * p->nSimWords ); 
     p->vPiVars   = Vec_PtrAlloc( 100 );
     // set random number generator
     srand( 0xABCABC );
@@ -614,10 +617,10 @@ void Ivy_FraigStop( Ivy_FraigMan_t * p )
         Ivy_FraigPrint( p );
     if ( p->vPiVars ) Vec_PtrFree( p->vPiVars );
     if ( p->pSat ) sat_solver_delete( p->pSat );
-    FREE( p->pPatScores );
-    FREE( p->pPatWords );
-    FREE( p->pSimWords );
-    free( p );
+    ABC_FREE( p->pPatScores );
+    ABC_FREE( p->pPatWords );
+    ABC_FREE( p->pSimWords );
+    ABC_FREE( p );
 }
 
 /**Function*************************************************************
@@ -637,21 +640,21 @@ void Ivy_FraigPrint( Ivy_FraigMan_t * p )
     nMemory = (double)Ivy_ManObjNum(p->pManAig)*p->nSimWords*sizeof(unsigned)/(1<<20);
     printf( "SimWords = %d. Rounds = %d. Mem = %0.2f Mb.  ", p->nSimWords, p->nSimRounds, nMemory );
     printf( "Classes: Beg = %d. End = %d.\n", p->nClassesBeg, p->nClassesEnd );
-    printf( "Limits: BTNode = %d. BTMiter = %d.\n", p->pParams->nBTLimitNode, p->pParams->nBTLimitMiter );
+//    printf( "Limits: BTNode = %d. BTMiter = %d.\n", p->pParams->nBTLimitNode, p->pParams->nBTLimitMiter );
     printf( "Proof = %d. Counter-example = %d. Fail = %d. FailReal = %d. Zero = %d.\n", 
         p->nSatProof, p->nSatCallsSat, p->nSatFails, p->nSatFailsReal, p->nClassesZero );
     printf( "Final = %d. Miter = %d. Total = %d. Mux = %d. (Exor = %d.) SatVars = %d.\n", 
         Ivy_ManNodeNum(p->pManFraig), p->nNodesMiter, Ivy_ManNodeNum(p->pManAig), 0, 0, p->nSatVars );
     if ( p->pSat ) Sat_SolverPrintStats( stdout, p->pSat );
-    PRT( "AIG simulation  ", p->timeSim  );
-    PRT( "AIG traversal   ", p->timeTrav  );
-    PRT( "SAT solving     ", p->timeSat   );
-    PRT( "    Unsat       ", p->timeSatUnsat );
-    PRT( "    Sat         ", p->timeSatSat   );
-    PRT( "    Fail        ", p->timeSatFail  );
-    PRT( "Class refining  ", p->timeRef   );
-    PRT( "TOTAL RUNTIME   ", p->timeTotal );
-    if ( p->time1 ) { PRT( "time1           ", p->time1 ); }
+    ABC_PRT( "AIG simulation  ", p->timeSim  );
+    ABC_PRT( "AIG traversal   ", p->timeTrav  );
+    ABC_PRT( "SAT solving     ", p->timeSat   );
+    ABC_PRT( "    Unsat       ", p->timeSatUnsat );
+    ABC_PRT( "    Sat         ", p->timeSatSat   );
+    ABC_PRT( "    Fail        ", p->timeSatFail  );
+    ABC_PRT( "Class refining  ", p->timeRef   );
+    ABC_PRT( "TOTAL RUNTIME   ", p->timeTotal );
+    if ( p->time1 ) { ABC_PRT( "time1           ", p->time1 ); }
 }
 
 
@@ -1169,7 +1172,7 @@ void Ivy_FraigCreateClasses( Ivy_FraigMan_t * p )
     pConst1 = Ivy_ManConst1(p->pManAig);
     // allocate the table
     nTableSize = Ivy_ManObjNum(p->pManAig) / 2 + 13;
-    pTable = ALLOC( Ivy_Obj_t *, nTableSize ); 
+    pTable = ABC_ALLOC( Ivy_Obj_t *, nTableSize ); 
     memset( pTable, 0, sizeof(Ivy_Obj_t *) * nTableSize );
     // collect nodes into the table
     Ivy_ManForEachObj( p->pManAig, pObj, i )
@@ -1216,7 +1219,7 @@ void Ivy_FraigCreateClasses( Ivy_FraigMan_t * p )
         Ivy_FraigAddClass( &p->lClasses, pObj );
     }
     // free the table
-    free( pTable );
+    ABC_FREE( pTable );
 }
 
 /**Function*************************************************************
@@ -1311,7 +1314,7 @@ void Ivy_FraigCheckOutputSimsSavePattern( Ivy_FraigMan_t * p, Ivy_Obj_t * pObj )
     // determine the best pattern
     BestPat = i * 32 + k;
     // fill in the counter-example data
-    pModel = ALLOC( int, Ivy_ManPiNum(p->pManFraig) );
+    pModel = ABC_ALLOC( int, Ivy_ManPiNum(p->pManFraig) );
     Ivy_ManForEachPi( p->pManAig, pObj, i )
     {
         pModel[i] = Ivy_InfoHasBit(Ivy_ObjSim(pObj)->pData, BestPat);
@@ -1340,10 +1343,10 @@ int Ivy_FraigCheckOutputSims( Ivy_FraigMan_t * p )
     Ivy_Obj_t * pObj;
     int i;
     // make sure the reference simulation pattern does not detect the bug
-    pObj = Ivy_ManPo( p->pManAig, 0 );
-    assert( Ivy_ObjFanin0(pObj)->fPhase == (unsigned)Ivy_ObjFaninC0(pObj) ); // Ivy_ObjFaninPhase(Ivy_ObjChild0(pObj)) == 0
+//    pObj = Ivy_ManPo( p->pManAig, 0 );
     Ivy_ManForEachPo( p->pManAig, pObj, i )
     {
+        assert( Ivy_ObjFanin0(pObj)->fPhase == (unsigned)Ivy_ObjFaninC0(pObj) ); // Ivy_ObjFaninPhase(Ivy_ObjChild0(pObj)) == 0
         // complement simulation info
 //        if ( Ivy_ObjFanin0(pObj)->fPhase ^ Ivy_ObjFaninC0(pObj) ) // Ivy_ObjFaninPhase(Ivy_ObjChild0(pObj))
 //            Ivy_NodeComplementSim( p, Ivy_ObjFanin0(pObj) );
@@ -1510,7 +1513,7 @@ int * Ivy_FraigCreateModel( Ivy_FraigMan_t * p )
     int * pModel;
     Ivy_Obj_t * pObj;
     int i;
-    pModel = ALLOC( int, Ivy_ManPiNum(p->pManFraig) );
+    pModel = ABC_ALLOC( int, Ivy_ManPiNum(p->pManFraig) );
     Ivy_ManForEachPi( p->pManFraig, pObj, i )
         pModel[i] = ( p->pSat->model.ptr[Ivy_ObjSatNum(pObj)] == l_True );
     return pModel;
@@ -1782,7 +1785,7 @@ void Ivy_FraigMiterPrint( Ivy_Man_t * pNtk, char * pString, int clk, int fVerbos
     if ( !fVerbose )
         return;
     printf( "Nodes = %7d.  Levels = %4d.  ", Ivy_ManNodeNum(pNtk), Ivy_ManLevels(pNtk) );
-    PRT( pString, clock() - clk );
+    ABC_PRT( pString, clock() - clk );
 }
 
 /**Function*************************************************************
@@ -1817,6 +1820,14 @@ int Ivy_FraigMiterStatus( Ivy_Man_t * pMan )
             CountConst0++;
             continue;
         }
+/*
+        // check if the output is a primary input
+        if ( Ivy_ObjIsPi(Ivy_Regular(pObjNew)) )
+        {
+            CountNonConst0++;
+            continue;
+        }
+*/
         // check if the output can be constant 0
         if ( Ivy_Regular(pObjNew)->fPhase != (unsigned)Ivy_IsComplement(pObjNew) )
         {
@@ -1862,7 +1873,7 @@ void Ivy_FraigMiterProve( Ivy_FraigMan_t * p )
     {
         if ( i && fVerbose )
         {
-            PRT( "Time", clock() -clk );
+            ABC_PRT( "Time", clock() -clk );
         }
         pObjNew = Ivy_ObjChild0Equiv(pObj);
         // check if the output is constant 1
@@ -1871,7 +1882,7 @@ void Ivy_FraigMiterProve( Ivy_FraigMan_t * p )
             if ( fVerbose )
                 printf( "Output %2d (out of %2d) is constant 1.  ", i, Ivy_ManPoNum(p->pManAig) );
             // assing constant 0 model
-            p->pManFraig->pData = ALLOC( int, Ivy_ManPiNum(p->pManFraig) );
+            p->pManFraig->pData = ABC_ALLOC( int, Ivy_ManPiNum(p->pManFraig) );
             memset( p->pManFraig->pData, 0, sizeof(int) * Ivy_ManPiNum(p->pManFraig) );
             break;
         }
@@ -1888,7 +1899,7 @@ void Ivy_FraigMiterProve( Ivy_FraigMan_t * p )
             if ( fVerbose )
                 printf( "Output %2d (out of %2d) cannot be constant 0.  ", i, Ivy_ManPoNum(p->pManAig) );
             // assing constant 0 model
-            p->pManFraig->pData = ALLOC( int, Ivy_ManPiNum(p->pManFraig) );
+            p->pManFraig->pData = ABC_ALLOC( int, Ivy_ManPiNum(p->pManFraig) );
             memset( p->pManFraig->pData, 0, sizeof(int) * Ivy_ManPiNum(p->pManFraig) );
             break;
         }
@@ -1925,7 +1936,7 @@ void Ivy_FraigMiterProve( Ivy_FraigMan_t * p )
     }
     if ( fVerbose )
     {
-        PRT( "Time", clock() -clk );
+        ABC_PRT( "Time", clock() -clk );
     }
 }
 
@@ -2011,9 +2022,9 @@ Ivy_Obj_t * Ivy_FraigAnd( Ivy_FraigMan_t * p, Ivy_Obj_t * pObjOld )
     if ( Ivy_ObjClassNodeRepr(pObjOld) == NULL || // this is a unique node
          (!p->pParams->fDoSparse && Ivy_ObjClassNodeRepr(pObjOld) == p->pManAig->pConst1) ) // this is a sparse node
     {
-        assert( Ivy_Regular(pFanin0New) != Ivy_Regular(pFanin1New) );
-        assert( pObjNew != Ivy_Regular(pFanin0New) );
-        assert( pObjNew != Ivy_Regular(pFanin1New) );
+//        assert( Ivy_Regular(pFanin0New) != Ivy_Regular(pFanin1New) );
+//        assert( pObjNew != Ivy_Regular(pFanin0New) );
+//        assert( pObjNew != Ivy_Regular(pFanin1New) );
         return pObjNew;
     }
     // get the fraiged representative
@@ -2072,7 +2083,7 @@ void Ivy_FraigPrintActivity( Ivy_FraigMan_t * p )
 ***********************************************************************/
 int Ivy_FraigNodesAreEquiv( Ivy_FraigMan_t * p, Ivy_Obj_t * pOld, Ivy_Obj_t * pNew )
 {
-    int pLits[4], RetValue, RetValue1, nBTLimit, clk, clk2 = clock();
+    int pLits[4], RetValue, RetValue1, nBTLimit, clk; //, clk2 = clock();
 
     // make sure the nodes are not complemented
     assert( !Ivy_IsComplement(pNew) );
@@ -2118,7 +2129,7 @@ clk = clock();
     pLits[1] = toLitCond( Ivy_ObjSatNum(pNew), pOld->fPhase == pNew->fPhase );
 //Sat_SolverWriteDimacs( p->pSat, "temp.cnf", pLits, pLits + 2, 1 );
     RetValue1 = sat_solver_solve( p->pSat, pLits, pLits + 2, 
-        (sint64)nBTLimit, (sint64)0, 
+        (ABC_INT64_T)nBTLimit, (ABC_INT64_T)0, 
         p->nBTLimitGlobal, p->nInsLimitGlobal );
 p->timeSat += clock() - clk;
     if ( RetValue1 == l_False )
@@ -2162,7 +2173,7 @@ clk = clock();
     pLits[0] = toLitCond( Ivy_ObjSatNum(pOld), 1 );
     pLits[1] = toLitCond( Ivy_ObjSatNum(pNew), pOld->fPhase ^ pNew->fPhase );
     RetValue1 = sat_solver_solve( p->pSat, pLits, pLits + 2, 
-        (sint64)nBTLimit, (sint64)0, 
+        (ABC_INT64_T)nBTLimit, (ABC_INT64_T)0, 
         p->nBTLimitGlobal, p->nInsLimitGlobal );
 p->timeSat += clock() - clk;
     if ( RetValue1 == l_False )
@@ -2194,12 +2205,12 @@ p->timeSatFail += clock() - clk;
     // check BDD proof
     {
         int RetVal;
-        PRT( "Sat", clock() - clk2 );
+        ABC_PRT( "Sat", clock() - clk2 );
         clk2 = clock();
         RetVal = Ivy_FraigNodesAreEquivBdd( pOld, pNew );
 //        printf( "%d ", RetVal );
         assert( RetVal );
-        PRT( "Bdd", clock() - clk2 );
+        ABC_PRT( "Bdd", clock() - clk2 );
         printf( "\n" );
     }
 */
@@ -2221,7 +2232,8 @@ p->timeSatFail += clock() - clk;
 ***********************************************************************/
 int Ivy_FraigNodeIsConst( Ivy_FraigMan_t * p, Ivy_Obj_t * pNew )
 {
-    int pLits[2], RetValue1, RetValue, clk;
+    int pLits[2], RetValue1, clk;
+    int RetValue;
 
     // make sure the nodes are not complemented
     assert( !Ivy_IsComplement(pNew) );
@@ -2249,7 +2261,7 @@ int Ivy_FraigNodeIsConst( Ivy_FraigMan_t * p, Ivy_Obj_t * pNew )
 clk = clock();
     pLits[0] = toLitCond( Ivy_ObjSatNum(pNew), pNew->fPhase );
     RetValue1 = sat_solver_solve( p->pSat, pLits, pLits + 1, 
-        (sint64)p->pParams->nBTLimitMiter, (sint64)0, 
+        (ABC_INT64_T)p->pParams->nBTLimitMiter, (ABC_INT64_T)0, 
         p->nBTLimitGlobal, p->nInsLimitGlobal );
 p->timeSat += clock() - clk;
     if ( RetValue1 == l_False )
@@ -2385,7 +2397,7 @@ void Ivy_FraigAddClausesSuper( Ivy_FraigMan_t * p, Ivy_Obj_t * pNode, Vec_Ptr_t 
     assert( Ivy_ObjIsNode( pNode ) );
     // create storage for literals
     nLits = Vec_PtrSize(vSuper) + 1;
-    pLits = ALLOC( int, nLits );
+    pLits = ABC_ALLOC( int, nLits );
     // suppose AND-gate is A & B = C
     // add !A => !C   or   A + !C
     Vec_PtrForEachEntry( vSuper, pFanin, i )
@@ -2401,7 +2413,7 @@ void Ivy_FraigAddClausesSuper( Ivy_FraigMan_t * p, Ivy_Obj_t * pNode, Vec_Ptr_t 
     pLits[nLits-1] = toLitCond(Ivy_ObjSatNum(pNode), 0);
     RetValue = sat_solver_addclause( p->pSat, pLits, pLits + nLits );
     assert( RetValue );
-    free( pLits );
+    ABC_FREE( pLits );
 }
 
 /**Function*************************************************************
@@ -2528,6 +2540,7 @@ void Ivy_FraigNodeAddToSolver( Ivy_FraigMan_t * p, Ivy_Obj_t * pOld, Ivy_Obj_t *
         Ivy_ObjSetFaninVec( pNode, vFanins );
     }
     Vec_PtrFree( vFrontier );
+    sat_solver_simplify( p->pSat );
 }
 
 /**Function*************************************************************
@@ -2652,7 +2665,7 @@ DdNode * Ivy_FraigNodesAreEquivBdd_int( DdManager * dd, DdNode * bFunc, Vec_Ptr_
     }
     // collect the permutation
     NewSize = IVY_MAX(dd->size, Vec_PtrSize(vTemp));
-    pFuncs = ALLOC( DdNode *, NewSize );
+    pFuncs = ABC_ALLOC( DdNode *, NewSize );
     Vec_PtrForEachEntry( vFront, pObj, i )
     {
         if ( (int)pObj->Level != Level )
@@ -2682,9 +2695,9 @@ DdNode * Ivy_FraigNodesAreEquivBdd_int( DdManager * dd, DdNode * bFunc, Vec_Ptr_
     // deref
     for ( i = 0; i < dd->size; i++ )
         Cudd_RecursiveDeref( dd, pFuncs[i] );
-    free( pFuncs );
+    ABC_FREE( pFuncs );
 
-    free( vFront->pArray );
+    ABC_FREE( vFront->pArray );
     *vFront = *vTemp;
 
     vTemp->nCap = vTemp->nSize = 0;

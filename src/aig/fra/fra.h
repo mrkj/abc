@@ -21,10 +21,6 @@
 #ifndef __FRA_H__
 #define __FRA_H__
 
-#ifdef __cplusplus
-extern "C" {
-#endif 
-
 ////////////////////////////////////////////////////////////////////////
 ///                          INCLUDES                                ///
 ////////////////////////////////////////////////////////////////////////
@@ -39,17 +35,23 @@ extern "C" {
 #include "aig.h"
 #include "dar.h"
 #include "satSolver.h"
-#include "bar.h"
+#include "ioa.h"
 
 ////////////////////////////////////////////////////////////////////////
 ///                         PARAMETERS                               ///
 ////////////////////////////////////////////////////////////////////////
+
+#ifdef __cplusplus
+extern "C" {
+#endif 
 
 ////////////////////////////////////////////////////////////////////////
 ///                         BASIC TYPES                              ///
 ////////////////////////////////////////////////////////////////////////
 
 typedef struct Fra_Par_t_   Fra_Par_t;
+typedef struct Fra_Ssw_t_   Fra_Ssw_t;
+typedef struct Fra_Sec_t_   Fra_Sec_t;
 typedef struct Fra_Man_t_   Fra_Man_t;
 typedef struct Fra_Cla_t_   Fra_Cla_t;
 typedef struct Fra_Sml_t_   Fra_Sml_t;
@@ -72,13 +74,73 @@ struct Fra_Par_t_
     int              fConeBias;         // bias variables in the cone (good for unsat runs)
     int              nBTLimitNode;      // conflict limit at a node
     int              nBTLimitMiter;     // conflict limit at an output
+    int              nLevelMax;         // the max level to consider seriously
     int              nFramesP;          // the number of timeframes to in the prefix
     int              nFramesK;          // the number of timeframes to unroll
     int              nMaxImps;          // the maximum number of implications to consider
+    int              nMaxLevs;          // the maximum number of levels to consider
     int              fRewrite;          // use rewriting for constraint reduction
     int              fLatchCorr;        // computes latch correspondence only
     int              fUseImps;          // use implications
+    int              fUse1Hot;          // use one-hotness conditions
     int              fWriteImps;        // record implications
+    int              fDontShowBar;      // does not show progressbar during fraiging
+};
+
+// seq SAT sweeping parameters
+struct Fra_Ssw_t_
+{
+    int              nPartSize;         // size of the partition
+    int              nOverSize;         // size of the overlap between partitions
+    int              nFramesP;          // number of frames in the prefix
+    int              nFramesK;          // number of frames for induction (1=simple) 
+    int              nMaxImps;          // max implications to consider
+    int              nMaxLevs;          // max levels to consider
+    int              nMinDomSize;       // min clock domain considered for optimization
+    int              fUseImps;          // use implications  
+    int              fRewrite;          // enable rewriting of the specualatively reduced model
+    int              fFraiging;         // enable comb SAT sweeping as preprocessing 
+    int              fLatchCorr;        // perform register correspondence
+    int              fWriteImps;        // write implications into a file
+    int              fUse1Hot;          // use one-hotness constraints
+    int              fVerbose;          // enable verbose output 
+    int              fSilent;           // disable any output 
+    int              nIters;            // the number of iterations performed
+    float            TimeLimit;         // the runtime budget for this call
+};
+
+// SEC parametesr
+struct Fra_Sec_t_
+{
+    int              fTryComb;          // try CEC call as a preprocessing step
+    int              fTryBmc;           // try BMC call as a preprocessing step 
+    int              nFramesMax;        // the max number of frames used for induction
+    int              nBTLimit;          // the conflict limit at a node
+    int              nBTLimitGlobal;    // the global conflict limit
+    int              nBTLimitInter;     // the conflict limit for interpolation
+    int              nBddVarsMax;       // the state space limit for BDD reachability
+    int              nBddMax;           // the max number of BDD nodes
+    int              nBddIterMax;       // the limit on the number of BDD iterations
+    int              fPhaseAbstract;    // enables phase abstraction
+    int              fRetimeFirst;      // enables most-forward retiming at the beginning
+    int              fRetimeRegs;       // enables min-register retiming at the beginning
+    int              fFraiging;         // enables fraiging at the beginning
+    int              fInduction;        // enable the use of induction
+    int              fInterpolation;    // enables interpolation
+    int              fInterSeparate;    // enables interpolation for each outputs separately
+    int              fReachability;     // enables BDD based reachability
+    int              fReorderImage;     // enables BDD reordering during image computation
+    int              fStopOnFirstFail;  // enables stopping after first output of a miter has failed to prove
+    int              fUseNewProver;     // the new prover
+    int              fSilent;           // disables all output
+    int              fVerbose;          // enables verbose reporting of statistics
+    int              fVeryVerbose;      // enables very verbose reporting  
+    int              TimeLimit;         // enables the timeout
+    int              fReadUnsolved;     // inserts the unsolved model back
+    int              nSMnumber;         // the number of model written
+    // internal parameters
+    int              fRecursive;        // set to 1 when SEC is called recursively
+    int              fReportSolution;   // enables report solution in a special form
 };
 
 // FRAIG equivalence classes
@@ -139,12 +201,14 @@ struct Fra_Man_t_
     int              nPatWords;         // the number of words in the counter example
     unsigned *       pPatWords;         // the counter example
     Vec_Int_t *      vCex;
+    // one-hotness conditions
+    Vec_Int_t *      vOneHots;          
     // satisfiability solving
     sat_solver *     pSat;              // SAT solver
     int              nSatVars;          // the number of variables currently used
     Vec_Ptr_t *      vPiVars;           // the PIs of the cone used 
-    sint64           nBTLimitGlobal;    // resource limit
-    sint64           nInsLimitGlobal;   // resource limit
+    ABC_INT64_T           nBTLimitGlobal;    // resource limit
+    ABC_INT64_T           nInsLimitGlobal;   // resource limit
     Vec_Ptr_t **     pMemFanins;        // the arrays of fanins for some FRAIG nodes
     int *            pMemSatNums;       // the array of SAT numbers for some FRAIG nodes
     int              nMemAlloc;         // allocated size of the arrays for FRAIG varnums and fanins
@@ -188,7 +252,7 @@ struct Fra_Man_t_
 ////////////////////////////////////////////////////////////////////////
 
 static inline unsigned *   Fra_ObjSim( Fra_Sml_t * p, int Id )                           { return p->pData + p->nWordsTotal * Id; }
-static inline unsigned     Fra_ObjRandomSim()                                            { return (rand() << 24) ^ (rand() << 12) ^ rand();                                                   }
+static inline unsigned     Fra_ObjRandomSim()                                            { return Aig_ManRandom(0);               }
 
 static inline Aig_Obj_t *  Fra_ObjFraig( Aig_Obj_t * pObj, int i )                       { return ((Fra_Man_t *)pObj->pData)->pMemFraig[((Fra_Man_t *)pObj->pData)->nFramesAll*pObj->Id + i];  }
 static inline void         Fra_ObjSetFraig( Aig_Obj_t * pObj, int i, Aig_Obj_t * pNode ) { ((Fra_Man_t *)pObj->pData)->pMemFraig[((Fra_Man_t *)pObj->pData)->nFramesAll*pObj->Id + i] = pNode; }
@@ -217,17 +281,22 @@ static inline int          Fra_ImpCreate( int Left, int Right )                 
 ///                    FUNCTION DECLARATIONS                         ///
 ////////////////////////////////////////////////////////////////////////
 
+/*=== fraCec.c ========================================================*/
+extern int                 Fra_FraigSat( Aig_Man_t * pMan, ABC_INT64_T nConfLimit, ABC_INT64_T nInsLimit, int fFlipBits, int fAndOuts, int fVerbose );
+extern int                 Fra_FraigCec( Aig_Man_t ** ppAig, int nConfLimit, int fVerbose );
+extern int                 Fra_FraigCecPartitioned( Aig_Man_t * pMan1, Aig_Man_t * pMan2, int nConfLimit, int nPartSize, int fSmart, int fVerbose );
 /*=== fraClass.c ========================================================*/
 extern int                 Fra_BmcNodeIsConst( Aig_Obj_t * pObj );
 extern int                 Fra_BmcNodesAreEqual( Aig_Obj_t * pObj0, Aig_Obj_t * pObj1 );
 extern void                Fra_BmcStop( Fra_Bmc_t * p );
 extern void                Fra_BmcPerform( Fra_Man_t * p, int nPref, int nDepth );
+extern void                Fra_BmcPerformSimple( Aig_Man_t * pAig, int nFrames, int nBTLimit, int fRewrite, int fVerbose );
 /*=== fraClass.c ========================================================*/
 extern Fra_Cla_t *         Fra_ClassesStart( Aig_Man_t * pAig );
 extern void                Fra_ClassesStop( Fra_Cla_t * p );
 extern void                Fra_ClassesCopyReprs( Fra_Cla_t * p, Vec_Ptr_t * vFailed );
 extern void                Fra_ClassesPrint( Fra_Cla_t * p, int fVeryVerbose );
-extern void                Fra_ClassesPrepare( Fra_Cla_t * p, int fLatchCorr );
+extern void                Fra_ClassesPrepare( Fra_Cla_t * p, int fLatchCorr, int nMaxLevs );
 extern int                 Fra_ClassesRefine( Fra_Cla_t * p );
 extern int                 Fra_ClassesRefine1( Fra_Cla_t * p, int fRefineNewClass, int * pSkipped );
 extern int                 Fra_ClassesCountLits( Fra_Cla_t * p );
@@ -242,9 +311,19 @@ extern void                Fra_CnfNodeAddToSolver( Fra_Man_t * p, Aig_Obj_t * pO
 /*=== fraCore.c ========================================================*/
 extern void                Fra_FraigSweep( Fra_Man_t * pManAig );
 extern int                 Fra_FraigMiterStatus( Aig_Man_t * p );
+extern int                 Fra_FraigMiterAssertedOutput( Aig_Man_t * p );
 extern Aig_Man_t *         Fra_FraigPerform( Aig_Man_t * pManAig, Fra_Par_t * pPars );
-extern Aig_Man_t *         Fra_FraigChoice( Aig_Man_t * pManAig, int nConfMax );
-extern Aig_Man_t *         Fra_FraigEquivence( Aig_Man_t * pManAig, int nConfMax );
+extern Aig_Man_t *         Fra_FraigChoice( Aig_Man_t * pManAig, int nConfMax, int nLevelMax );
+extern Aig_Man_t *         Fra_FraigEquivence( Aig_Man_t * pManAig, int nConfMax, int fProve );
+/*=== fraHot.c ========================================================*/
+extern Vec_Int_t *         Fra_OneHotCompute( Fra_Man_t * p, Fra_Sml_t * pSim );
+extern void                Fra_OneHotAssume( Fra_Man_t * p, Vec_Int_t * vOneHots );
+extern void                Fra_OneHotCheck( Fra_Man_t * p, Vec_Int_t * vOneHots );
+extern int                 Fra_OneHotRefineUsingCex( Fra_Man_t * p, Vec_Int_t * vOneHots );
+extern int                 Fra_OneHotCount( Fra_Man_t * p, Vec_Int_t * vOneHots );
+extern void                Fra_OneHotEstimateCoverage( Fra_Man_t * p, Vec_Int_t * vOneHots );
+extern Aig_Man_t *         Fra_OneHotCreateExdc( Fra_Man_t * p, Vec_Int_t * vOneHots );
+extern void                Fra_OneHotAddKnownConstraint( Fra_Man_t * p, Vec_Ptr_t * vOnehots );
 /*=== fraImp.c ========================================================*/
 extern Vec_Int_t *         Fra_ImpDerive( Fra_Man_t * p, int nImpMaxLimit, int nImpUseLimit, int fLatchCorr );
 extern void                Fra_ImpAddToSolver( Fra_Man_t * p, Vec_Int_t * vImps, int * pSatVarNums );
@@ -255,9 +334,11 @@ extern double              Fra_ImpComputeStateSpaceRatio( Fra_Man_t * p );
 extern int                 Fra_ImpVerifyUsingSimulation( Fra_Man_t * p );
 extern void                Fra_ImpRecordInManager( Fra_Man_t * p, Aig_Man_t * pNew );
 /*=== fraInd.c ========================================================*/
-extern Aig_Man_t *         Fra_FraigInduction( Aig_Man_t * p, int nFramesP, int nFramesK, int nMaxImps, int fRewrite, int fUseImps, int fLatchCorr, int fWriteImps, int fVerbose, int * pnIter );
+extern Aig_Man_t *         Fra_FraigInduction( Aig_Man_t * p, Fra_Ssw_t * pPars );
+/*=== fraIndVer.c =====================================================*/
+extern int                 Fra_InvariantVerify( Aig_Man_t * p, int nFrames, Vec_Int_t * vClauses, Vec_Int_t * vLits );
 /*=== fraLcr.c ========================================================*/
-extern Aig_Man_t *         Fra_FraigLatchCorrespondence( Aig_Man_t * pAig, int nFramesP, int nConfMax, int fProve, int fVerbose, int * pnIter );
+extern Aig_Man_t *         Fra_FraigLatchCorrespondence( Aig_Man_t * pAig, int nFramesP, int nConfMax, int fProve, int fVerbose, int * pnIter, float TimeLimit );
 /*=== fraMan.c ========================================================*/
 extern void                Fra_ParamsDefault( Fra_Par_t * pParams );
 extern void                Fra_ParamsDefaultSeq( Fra_Par_t * pParams );
@@ -270,23 +351,31 @@ extern void                Fra_ManPrint( Fra_Man_t * p );
 /*=== fraSat.c ========================================================*/
 extern int                 Fra_NodesAreEquiv( Fra_Man_t * p, Aig_Obj_t * pOld, Aig_Obj_t * pNew );
 extern int                 Fra_NodesAreImp( Fra_Man_t * p, Aig_Obj_t * pOld, Aig_Obj_t * pNew, int fComplL, int fComplR );
+extern int                 Fra_NodesAreClause( Fra_Man_t * p, Aig_Obj_t * pOld, Aig_Obj_t * pNew, int fComplL, int fComplR );
 extern int                 Fra_NodeIsConst( Fra_Man_t * p, Aig_Obj_t * pNew );
 /*=== fraSec.c ========================================================*/
-extern int                 Fra_FraigSec( Aig_Man_t * p, int nFrames, int fRetimeFirst, int fVerbose, int fVeryVerbose );
+extern void                Fra_SecSetDefaultParams( Fra_Sec_t * p );
+extern int                 Fra_FraigSec( Aig_Man_t * p, Fra_Sec_t * pParSec, Aig_Man_t ** ppResult );
 /*=== fraSim.c ========================================================*/
 extern int                 Fra_SmlNodeHash( Aig_Obj_t * pObj, int nTableSize );
 extern int                 Fra_SmlNodeIsConst( Aig_Obj_t * pObj );
 extern int                 Fra_SmlNodesAreEqual( Aig_Obj_t * pObj0, Aig_Obj_t * pObj1 );
 extern int                 Fra_SmlNodeNotEquWeight( Fra_Sml_t * p, int Left, int Right );
+extern int                 Fra_SmlNodeCountOnes( Fra_Sml_t * p, Aig_Obj_t * pObj );
 extern int                 Fra_SmlCheckOutput( Fra_Man_t * p );
 extern void                Fra_SmlSavePattern( Fra_Man_t * p );
 extern void                Fra_SmlSimulate( Fra_Man_t * p, int fInit );
 extern void                Fra_SmlResimulate( Fra_Man_t * p );
 extern Fra_Sml_t *         Fra_SmlStart( Aig_Man_t * pAig, int nPref, int nFrames, int nWordsFrame );
 extern void                Fra_SmlStop( Fra_Sml_t * p );
-extern Fra_Sml_t *         Fra_SmlSimulateSeq( Aig_Man_t * pAig, int nPref, int nFrames, int nWords );
+extern Fra_Sml_t *         Fra_SmlSimulateSeq( Aig_Man_t * pAig, int nPref, int nFrames, int nWords, int fCheckMiter );
 extern Fra_Sml_t *         Fra_SmlSimulateComb( Aig_Man_t * pAig, int nWords );
-
+extern Abc_Cex_t *         Fra_SmlGetCounterExample( Fra_Sml_t * p );
+extern Abc_Cex_t *         Fra_SmlCopyCounterExample( Aig_Man_t * pAig, Aig_Man_t * pFrames, int * pModel );
+extern void                Fra_SmlFreeCounterExample( Abc_Cex_t * p );
+extern Abc_Cex_t *         Fra_SmlTrivCounterExample( Aig_Man_t * pAig, int iFrameOut );
+extern int                 Fra_SmlRunCounterExample( Aig_Man_t * pAig, Abc_Cex_t * p );
+extern int                 Fra_SmlWriteCounterExample( FILE * pFile, Aig_Man_t * pAig, Abc_Cex_t * p );
 
 #ifdef __cplusplus
 }

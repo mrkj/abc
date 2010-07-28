@@ -21,10 +21,6 @@
 #ifndef __CUT_H__
 #define __CUT_H__
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 ////////////////////////////////////////////////////////////////////////
 ///                          INCLUDES                                ///
 ////////////////////////////////////////////////////////////////////////
@@ -32,6 +28,10 @@ extern "C" {
 ////////////////////////////////////////////////////////////////////////
 ///                         PARAMETERS                               ///
 ////////////////////////////////////////////////////////////////////////
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 #define CUT_SIZE_MIN    3      // the min K of the K-feasible cut computation
 #define CUT_SIZE_MAX   12      // the max K of the K-feasible cut computation
@@ -64,8 +64,10 @@ struct Cut_ParamsStruct_t_
     int                fGlobal;           // compute only global cuts
     int                fLocal;            // compute only local cuts
     int                fRecord;           // record the cut computation flow
+    int                fRecordAig;        // record the cut functions
     int                fFancy;            // perform fancy computations
     int                fMap;              // computes delay of FPGA mapping with cuts
+    int                fAdjust;           // removed useless fanouts of XORs/MUXes
     int                fVerbose;          // the verbosiness flag
 };
 

@@ -16,7 +16,7 @@
 #include "espresso.h"
 static pset_family set_family_garbage = NULL;
 
-static int intcpy(d, s, n)
+static void intcpy(d, s, n)
 register unsigned int *d, *s;
 register long n;
 {
@@ -218,7 +218,7 @@ register pset a, b;
     do if (a[i] & ~b[i]) return FALSE; while (--i > 0);
     return TRUE;
 }
-
+
 /* sf_or -- form the "or" of all sets in a set family */
 pset sf_or(A)
 pset_family A;

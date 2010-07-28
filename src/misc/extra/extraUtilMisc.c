@@ -70,7 +70,6 @@ static void Extra_Permutations_rec( char ** pRes, int nFact, int n, char Array[]
 int Extra_Base2Log( unsigned Num )
 {
     int Res;
-    assert( Num >= 0 );
     if ( Num == 0 ) return 0;
     if ( Num == 1 ) return 1;
     for ( Res = 0, Num--; Num; Num >>= 1, Res++ );
@@ -115,7 +114,6 @@ int Extra_Base2LogDouble( double Num )
 int Extra_Base10Log( unsigned Num )
 {
     int Res;
-    assert( Num >= 0 );
     if ( Num == 0 ) return 0;
     if ( Num == 1 ) return 1;
 	for ( Res = 0, Num--;  Num;  Num /= 10,  Res++ );
@@ -266,7 +264,7 @@ int Extra_Factorial( int n )
   Description [The number of permutations in the array is n!. The number of
   entries in each permutation is n. Therefore, the resulting array is a 
   two-dimentional array of the size: n! x n. To free the resulting array,
-  call free() on the pointer returned by this procedure.]
+  call ABC_FREE() on the pointer returned by this procedure.]
 
   SideEffects []
 
@@ -397,8 +395,8 @@ unsigned Extra_TruthPermute( unsigned Truth, char * pPerms, int nVars, int fReve
 
     assert( nVars < 6 );
     nMints  = (1 << nVars);
-    pMints  = ALLOC( int, nMints );
-    pMintsP = ALLOC( int, nMints );
+    pMints  = ABC_ALLOC( int, nMints );
+    pMintsP = ABC_ALLOC( int, nMints );
     for ( i = 0; i < nMints; i++ )
         pMints[i] = i;
 
@@ -418,8 +416,8 @@ unsigned Extra_TruthPermute( unsigned Truth, char * pPerms, int nVars, int fReve
                 Result |= (1 << pMintsP[m]);
     }
 
-    free( pMints );
-    free( pMintsP );
+    ABC_FREE( pMints );
+    ABC_FREE( pMintsP );
 
     return Result;
 }
@@ -546,7 +544,7 @@ unsigned Extra_TruthCanonP( unsigned uTruth, int nVars )
     }
     else if ( nVarsOld != nVars )
     {
-        free( pPerms );
+        ABC_FREE( pPerms );
         nPerms = Extra_Factorial( nVars );   
         pPerms = Extra_Permutations( nVars );
         nVarsOld = nVars;
@@ -589,7 +587,7 @@ unsigned Extra_TruthCanonNP( unsigned uTruth, int nVars )
     }
     else if ( nVarsOld != nVars )
     {
-        free( pPerms );
+        ABC_FREE( pPerms );
         nPerms = Extra_Factorial( nVars );   
         pPerms = Extra_Permutations( nVars );
         nVarsOld = nVars;
@@ -637,7 +635,7 @@ unsigned Extra_TruthCanonNPN( unsigned uTruth, int nVars )
     }
     else if ( nVarsOld != nVars )
     {
-        free( pPerms );
+        ABC_FREE( pPerms );
         nPerms = Extra_Factorial( nVars );   
         pPerms = Extra_Permutations( nVars );
         nVarsOld = nVars;
@@ -687,10 +685,10 @@ void Extra_Truth4VarNPN( unsigned short ** puCanons, char ** puPhases, char ** p
     int i, k;
 
     nFuncs  = (1 << 16);
-    uCanons = ALLOC( unsigned short, nFuncs );
-    uPhases = ALLOC( char, nFuncs );
-    uPerms  = ALLOC( char, nFuncs );
-    uMap    = ALLOC( unsigned char, nFuncs );
+    uCanons = ABC_ALLOC( unsigned short, nFuncs );
+    uPhases = ABC_ALLOC( char, nFuncs );
+    uPerms  = ABC_ALLOC( char, nFuncs );
+    uMap    = ABC_ALLOC( unsigned char, nFuncs );
     memset( uCanons, 0, sizeof(unsigned short) * nFuncs );
     memset( uPhases, 0, sizeof(char) * nFuncs );
     memset( uPerms,  0, sizeof(char) * nFuncs );
@@ -751,23 +749,23 @@ void Extra_Truth4VarNPN( unsigned short ** puCanons, char ** puPhases, char ** p
     }
     uPhases[(1<<16)-1] = 16;
     assert( nClasses == 222 );
-    free( pPerms4 );
+    ABC_FREE( pPerms4 );
     if ( puCanons ) 
         *puCanons = uCanons;
     else
-        free( uCanons );
+        ABC_FREE( uCanons );
     if ( puPhases ) 
         *puPhases = uPhases;
     else
-        free( uPhases );
+        ABC_FREE( uPhases );
     if ( puPerms ) 
         *puPerms = uPerms;
     else
-        free( uPerms );
+        ABC_FREE( uPerms );
     if ( puMap ) 
         *puMap = uMap;
     else
-        free( uMap );
+        ABC_FREE( uMap );
 }
 
 /**Function*************************************************************
@@ -790,9 +788,9 @@ void Extra_Truth3VarN( unsigned ** puCanons, char *** puPhases, char ** ppCounte
     int nFuncs, nClasses, i;
 
     nFuncs  = (1 << 8);
-    uCanons = ALLOC( unsigned, nFuncs );
+    uCanons = ABC_ALLOC( unsigned, nFuncs );
     memset( uCanons, 0, sizeof(unsigned) * nFuncs );
-    pCounters = ALLOC( char, nFuncs );
+    pCounters = ABC_ALLOC( char, nFuncs );
     memset( pCounters, 0, sizeof(char) * nFuncs );
     uPhases = (char **)Extra_ArrayAlloc( nFuncs, nPhasesMax, sizeof(char) );
     nClasses = 0;
@@ -819,22 +817,22 @@ void Extra_Truth3VarN( unsigned ** puCanons, char *** puPhases, char ** ppCounte
             {
                 assert( uCanons[uPhase] == uTruth32 );
                 if ( pCounters[uPhase] < nPhasesMax )
-                    uPhases[uPhase][ pCounters[uPhase]++ ] = i;
+                    uPhases[uPhase][ (int)pCounters[uPhase]++ ] = i;
             }
         }
     }
     if ( puCanons ) 
         *puCanons = uCanons;
     else
-        free( uCanons );
+        ABC_FREE( uCanons );
     if ( puPhases ) 
         *puPhases = uPhases;
     else
-        free( uPhases );
+        ABC_FREE( uPhases );
     if ( ppCounters ) 
         *ppCounters = pCounters;
     else
-        free( pCounters );
+        ABC_FREE( pCounters );
 //    printf( "The number of 3N-classes = %d.\n", nClasses );
 }
 
@@ -857,9 +855,9 @@ void Extra_Truth4VarN( unsigned short ** puCanons, char *** puPhases, char ** pp
     int nFuncs, nClasses, i;
 
     nFuncs  = (1 << 16);
-    uCanons = ALLOC( unsigned short, nFuncs );
+    uCanons = ABC_ALLOC( unsigned short, nFuncs );
     memset( uCanons, 0, sizeof(unsigned short) * nFuncs );
-    pCounters = ALLOC( char, nFuncs );
+    pCounters = ABC_ALLOC( char, nFuncs );
     memset( pCounters, 0, sizeof(char) * nFuncs );
     uPhases = (char **)Extra_ArrayAlloc( nFuncs, nPhasesMax, sizeof(char) );
     nClasses = 0;
@@ -885,22 +883,22 @@ void Extra_Truth4VarN( unsigned short ** puCanons, char *** puPhases, char ** pp
             {
                 assert( uCanons[uPhase] == uTruth );
                 if ( pCounters[uPhase] < nPhasesMax )
-                    uPhases[uPhase][ pCounters[uPhase]++ ] = i;
+                    uPhases[uPhase][ (int)pCounters[uPhase]++ ] = i;
             }
         }
     }
     if ( puCanons ) 
         *puCanons = uCanons;
     else
-        free( uCanons );
+        ABC_FREE( uCanons );
     if ( puPhases ) 
         *puPhases = uPhases;
     else
-        free( uPhases );
+        ABC_FREE( uPhases );
     if ( ppCounters ) 
         *ppCounters = pCounters;
     else
-        free( pCounters );
+        ABC_FREE( pCounters );
 //    printf( "The number of 4N-classes = %d.\n", nClasses );
 }
 
@@ -917,15 +915,15 @@ void Extra_Truth4VarN( unsigned short ** puCanons, char *** puPhases, char ** pp
 ***********************************************************************/
 void ** Extra_ArrayAlloc( int nCols, int nRows, int Size )
 {
-    char ** pRes;
+    void ** pRes;
     char * pBuffer;
     int i;
     assert( nCols > 0 && nRows > 0 && Size > 0 );
-    pBuffer = ALLOC( char, nCols * (sizeof(void *) + nRows * Size) );
-    pRes = (char **)pBuffer;
+    pBuffer = ABC_ALLOC( char, nCols * (sizeof(void *) + nRows * Size) );
+    pRes = (void **)pBuffer;
     pRes[0] = pBuffer + nCols * sizeof(void *);
     for ( i = 1; i < nCols; i++ )
-        pRes[i] = pRes[0] + i * nRows * Size;
+        pRes[i] = (void *)((char *)pRes[0] + i * nRows * Size);
     return pRes;
 }
 
@@ -1860,7 +1858,7 @@ void Extra_TruthExpand( int nVars, int nWords, unsigned * puTruth, unsigned uPha
     {
         int i;
         for ( i = 0; i < nWords; i++ )
-            puTruthR[i] = uTruths[Cases[uPhase]][i];
+            puTruthR[i] = uTruths[(int)Cases[uPhase]][i];
         return;
     }
 

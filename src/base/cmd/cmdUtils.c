@@ -85,14 +85,18 @@ int cmdCheckShellEscape( Abc_Frame_t * pAbc, int argc, char ** argv)
   SeeAlso     []
 
 ***********************************************************************/
-int CmdCommandDispatch( Abc_Frame_t * pAbc, int argc, char **argv )
+int CmdCommandDispatch( Abc_Frame_t * pAbc, int * pargc, char *** pargv )
 {
+    int argc = *pargc;
+    char ** argv = *pargv;
+    char ** argv2;
+
     Abc_Ntk_t * pNetCopy;
     int (*pFunc) ( Abc_Frame_t *, int, char ** );
     Abc_Command * pCommand;
     char * value;
     int fError;
-    int clk;
+    double clk;
 
     if ( argc == 0 )
         return 0;
@@ -103,8 +107,24 @@ int CmdCommandDispatch( Abc_Frame_t * pAbc, int argc, char **argv )
     // get the command
     if ( !st_lookup( pAbc->tCommands, argv[0], (char **)&pCommand ) )
     {   // the command is not in the table
-        fprintf( pAbc->Err, "** cmd error: unknown command '%s'\n", argv[0] );
-        return 1;
+        // if there is only one word with an extension, assume this is file to be read
+        if ( argc == 1 && strstr( argv[0], "." ) )
+        {
+            // add command 'read' assuming that this is the file name
+            argv2 = CmdAddToArgv( argc, argv );
+            CmdFreeArgv( argc, argv );
+            argc = argc+1;
+            argv = argv2;
+            *pargc = argc;
+            *pargv = argv;
+            if ( !st_lookup( pAbc->tCommands, argv[0], (char **)&pCommand ) )
+                assert( 0 );
+        }
+        else
+        {
+            fprintf( pAbc->Err, "** cmd error: unknown command '%s'\n", argv[0] );
+            return 1;
+        }
     }
 
     // get the backup network if the command is going to change the network
@@ -121,10 +141,10 @@ int CmdCommandDispatch( Abc_Frame_t * pAbc, int argc, char **argv )
     }
 
     // execute the command
-    clk = Extra_CpuTime();
+    clk = Extra_CpuTimeDouble();
     pFunc = (int (*)(Abc_Frame_t *, int, char **))pCommand->pFunc;
     fError = (*pFunc)( pAbc, argc, argv );
-    pAbc->TimeCommand += (Extra_CpuTime() - clk);
+    pAbc->TimeCommand += Extra_CpuTimeDouble() - clk;
 
     // automatic execution of arbitrary command after each command 
     // usually this is a passive command ... 
@@ -197,7 +217,7 @@ char * CmdSplitLine( Abc_Frame_t * pAbc, char *sCommand, int *argc, char ***argv
         if ( start == p )
             break;
 
-        new_arg = ALLOC( char, p - start + 1 );
+        new_arg = ABC_ALLOC( char, p - start + 1 );
         j = 0;
         for ( i = 0; i < p - start; i++ )
         {
@@ -257,13 +277,13 @@ int CmdApplyAlias( Abc_Frame_t * pAbc, int *argcp, char ***argvp, int *loop )
         {
             stopit = 1;
         }
-        FREE( argv[0] );
+        ABC_FREE( argv[0] );
         added = alias->argc - 1;
 
         /* shift all the arguments to the right */
         if ( added != 0 )
         {
-            argv = REALLOC( char *, argv, argc + added );
+            argv = ABC_REALLOC( char *, argv, argc + added );
             for ( i = argc - 1; i >= 1; i-- )
             {
                 argv[i + added] = argv[i];
@@ -303,7 +323,7 @@ int CmdApplyAlias( Abc_Frame_t * pAbc, int *argcp, char ***argvp, int *loop )
                 fError = CmdApplyAlias( pAbc, &newc, &newv, loop );
                 if ( fError == 0 )
                 {
-                   	fError = CmdCommandDispatch( pAbc, newc, newv );
+                   	fError = CmdCommandDispatch( pAbc, &newc, &newv );
                 }
                 CmdFreeArgv( newc, newv );
             }
@@ -317,7 +337,7 @@ int CmdApplyAlias( Abc_Frame_t * pAbc, int *argcp, char ***argvp, int *loop )
             added = newc - 1;
             if ( added != 0 )
             {
-                argv = REALLOC( char *, argv, argc + added );
+                argv = ABC_REALLOC( char *, argv, argc + added );
                 for ( j = argc - 1; j > offset; j-- )
                 {
                     argv[j + added] = argv[j];
@@ -328,14 +348,14 @@ int CmdApplyAlias( Abc_Frame_t * pAbc, int *argcp, char ***argvp, int *loop )
             {
                 argv[j + offset] = newv[j];
             }
-            FREE( newv );
+            ABC_FREE( newv );
             offset += added;
         }
         if ( subst == 1 )
         {
             for ( i = offset; i < argc; i++ )
             {
-                FREE( argv[i] );
+                ABC_FREE( argv[i] );
             }
             argc = offset;
         }
@@ -409,12 +429,12 @@ FILE * CmdFileOpen( Abc_Frame_t * pAbc, char *sFileName, char *sMode, char **pFi
                 sPathAll = Extra_UtilStrsav( sPathUsr );
             }
             else {
-                sPathAll = ALLOC( char, strlen(sPathLib)+strlen(sPathUsr)+5 );
+                sPathAll = ABC_ALLOC( char, strlen(sPathLib)+strlen(sPathUsr)+5 );
                 sprintf( sPathAll, "%s:%s",sPathUsr, sPathLib );
             }
             if ( sPathAll != NULL ) {
                 sRealName = Extra_UtilFileSearch(sFileName, sPathAll, "r");
-                FREE( sPathAll );
+                ABC_FREE( sPathAll );
             }
         }
         if (sRealName == NULL) {
@@ -429,7 +449,7 @@ FILE * CmdFileOpen( Abc_Frame_t * pAbc, char *sFileName, char *sMode, char **pFi
     if ( pFileNameReal )
         *pFileNameReal = sRealName;
     else
-        FREE(sRealName);
+        ABC_FREE(sRealName);
     
     return pFile;
 }
@@ -449,8 +469,31 @@ void CmdFreeArgv( int argc, char **argv )
 {
     int i;
     for ( i = 0; i < argc; i++ )
-        FREE( argv[i] );
-    FREE( argv );
+        ABC_FREE( argv[i] );
+    ABC_FREE( argv );
+}
+
+/**Function*************************************************************
+
+  Synopsis    [Frees the previously allocated argv array.]
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+char ** CmdAddToArgv( int argc, char ** argv )
+{
+    char ** argv2;
+    int i;
+    argv2 = ABC_ALLOC( char *, argc + 1 ); 
+    argv2[0] = Extra_UtilStrsav( "read" ); 
+//    argv2[0] = Extra_UtilStrsav( "&r" ); 
+    for ( i = 0; i < argc; i++ )
+        argv2[i+1] = Extra_UtilStrsav( argv[i] ); 
+    return argv2;
 }
 
 /**Function*************************************************************
@@ -466,9 +509,9 @@ void CmdFreeArgv( int argc, char **argv )
 ***********************************************************************/
 void CmdCommandFree( Abc_Command * pCommand )
 {
-    free( pCommand->sGroup );
-    free( pCommand->sName );
-    free( pCommand );
+    ABC_FREE( pCommand->sGroup );
+    ABC_FREE( pCommand->sName );
+    ABC_FREE( pCommand );
 }
 
 
@@ -495,7 +538,7 @@ void CmdCommandPrint( Abc_Frame_t * pAbc, bool fPrintAll )
 
     // put all commands into one array
     nCommands = st_count( pAbc->tCommands );
-    ppCommands = ALLOC( Abc_Command *, nCommands );
+    ppCommands = ABC_ALLOC( Abc_Command *, nCommands );
     i = 0;
     st_foreach_item( pAbc->tCommands, gen, &key, &value )
     {
@@ -545,7 +588,7 @@ void CmdCommandPrint( Abc_Frame_t * pAbc, bool fPrintAll )
             iCom = 1;
         }
     fprintf( pAbc->Out, "\n" );
-    FREE( ppCommands );
+    ABC_FREE( ppCommands );
 }
  
 /**Function*************************************************************
@@ -623,7 +666,7 @@ void CmdPrintTable( st_table * tTable, int fAliases )
     int nNames, i;
 
     // collect keys in the array
-    ppNames = ALLOC( char *, st_count(tTable) );
+    ppNames = ABC_ALLOC( char *, st_count(tTable) );
     nNames = 0;
     st_foreach_item( tTable, gen, &key, &value )
         ppNames[nNames++] = key;
@@ -641,7 +684,7 @@ void CmdPrintTable( st_table * tTable, int fAliases )
         else
             fprintf( stdout, "%-15s %-15s\n", ppNames[i], value );
     }
-    free( ppNames );
+    ABC_FREE( ppNames );
 }
 
 ////////////////////////////////////////////////////////////////////////

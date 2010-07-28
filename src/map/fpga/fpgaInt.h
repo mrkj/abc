@@ -23,7 +23,6 @@
 ///                          INCLUDES                                ///
 ////////////////////////////////////////////////////////////////////////
 
-//#include "leaks.h"       
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -64,19 +63,19 @@
 #define FPGA_INT_LARGE            (10000000)
 
 // the macro to compute the signature
-#define FPGA_SEQ_SIGN(p)        (1 << (((unsigned)p)%31));
+#define FPGA_SEQ_SIGN(p)        (1 << (((ABC_PTRUINT_T)p)%31));
 
 // internal macros to work with cuts
-#define Fpga_CutIsComplement(p)  (((int)((unsigned long) (p) & 01)))
-#define Fpga_CutRegular(p)       ((Fpga_Cut_t *)((unsigned long)(p) & ~01)) 
-#define Fpga_CutNot(p)           ((Fpga_Cut_t *)((unsigned long)(p) ^ 01)) 
-#define Fpga_CutNotCond(p,c)     ((Fpga_Cut_t *)((unsigned long)(p) ^ (c)))
+#define Fpga_CutIsComplement(p)  (((int)((ABC_PTRUINT_T)(p) & 01)))
+#define Fpga_CutRegular(p)       ((Fpga_Cut_t *)((ABC_PTRUINT_T)(p) & ~01)) 
+#define Fpga_CutNot(p)           ((Fpga_Cut_t *)((ABC_PTRUINT_T)(p) ^ 01)) 
+#define Fpga_CutNotCond(p,c)     ((Fpga_Cut_t *)((ABC_PTRUINT_T)(p) ^ (c)))
 
 // the cut nodes
-#define Fpga_SeqIsComplement( p )      (((int)((unsigned long) (p) & 01)))
-#define Fpga_SeqRegular( p )           ((Fpga_Node_t *)((unsigned long)(p) & ~015))
-#define Fpga_SeqIndex( p )             ((((unsigned long)(p)) >> 1) & 07)
-#define Fpga_SeqIndexCreate( p, Ind )  (((unsigned long)(p)) | (1 << (((unsigned)(Ind)) & 07)))
+#define Fpga_SeqIsComplement( p )      (((int)((ABC_PTRUINT_T) (p) & 01)))
+#define Fpga_SeqRegular( p )           ((Fpga_Node_t *)((ABC_PTRUINT_T)(p) & ~015))
+#define Fpga_SeqIndex( p )             ((((ABC_PTRUINT_T)(p)) >> 1) & 07)
+#define Fpga_SeqIndexCreate( p, Ind )  (((ABC_PTRUINT_T)(p)) | (1 << (((ABC_PTRUINT_T)(Ind)) & 07)))
 
 // internal macros for referencing of nodes
 #define Fpga_NodeReadRef(p)      ((Fpga_Regular(p))->nRefs)
@@ -87,9 +86,6 @@
 
 // generating random unsigned (#define RAND_MAX 0x7fff)
 #define FPGA_RANDOM_UNSIGNED   ((((unsigned)rand()) << 24) ^ (((unsigned)rand()) << 12) ^ ((unsigned)rand()))
-
-// outputs the runtime in seconds
-#define PRT(a,t)  printf("%s = ", (a)); printf("%6.2f sec\n", (float)(t)/(float)(CLOCKS_PER_SEC))
 
 ////////////////////////////////////////////////////////////////////////
 ///                    STRUCTURE DEFINITIONS                         ///
@@ -184,8 +180,8 @@ struct Fpga_NodeStruct_t_
     Fpga_Node_t *       pLevel;        // the next node in the linked list by level
     int                 Num;           // the unique number of this node
     int                 NumA;          // the unique number of this node
-    short               Num2;          // the temporary number of this node
-    short               nRefs;         // the number of references (fanouts) of the given node
+    int                 Num2;          // the temporary number of this node
+    int                 nRefs;         // the number of references (fanouts) of the given node
     unsigned            fMark0 : 1;    // the mark used for traversals
     unsigned            fMark1 : 1;    // the mark used for traversals
     unsigned            fInv   : 1;    // the complemented attribute for the equivalent nodes
@@ -278,9 +274,9 @@ struct Fpga_NodeVecStruct_t_
           pFanout  = pFanout2,                                   \
           pFanout2 = Fpga_NodeReadNextFanout(pNode, pFanout) )
 
-static inline Fpga_FloatMoreThan( Fpga_Man_t * p, float Arg1, float Arg2 ) { return Arg1 > Arg2 + p->fEpsilon; }
-static inline Fpga_FloatLessThan( Fpga_Man_t * p, float Arg1, float Arg2 ) { return Arg1 < Arg2 - p->fEpsilon; }
-static inline Fpga_FloatEqual( Fpga_Man_t * p, float Arg1, float Arg2 )    { return Arg1 > Arg2 - p->fEpsilon && Arg1 < Arg2 + p->fEpsilon; }
+static inline int Fpga_FloatMoreThan( Fpga_Man_t * p, float Arg1, float Arg2 ) { return Arg1 > Arg2 + p->fEpsilon; }
+static inline int Fpga_FloatLessThan( Fpga_Man_t * p, float Arg1, float Arg2 ) { return Arg1 < Arg2 - p->fEpsilon; }
+static inline int Fpga_FloatEqual( Fpga_Man_t * p, float Arg1, float Arg2 )    { return Arg1 > Arg2 - p->fEpsilon && Arg1 < Arg2 + p->fEpsilon; }
 
 ////////////////////////////////////////////////////////////////////////
 ///                       GLOBAL VARIABLES                           ///
@@ -317,7 +313,7 @@ extern void              Fpga_NodeAddFaninFanout( Fpga_Node_t * pFanin, Fpga_Nod
 extern void              Fpga_NodeRemoveFaninFanout( Fpga_Node_t * pFanin, Fpga_Node_t * pFanoutToRemove );
 extern int               Fpga_NodeGetFanoutNum( Fpga_Node_t * pNode );
 /*=== fpgaLib.c ============================================================*/
-extern Fpga_LutLib_t *   Fpga_LutLibCreate( char * FileName, int fVerbose );
+extern Fpga_LutLib_t *   Fpga_LutLibRead( char * FileName, int fVerbose );
 extern void              Fpga_LutLibFree( Fpga_LutLib_t * p );
 extern void              Fpga_LutLibPrint( Fpga_LutLib_t * pLutLib );
 extern int               Fpga_LutLibDelaysAreDiscrete( Fpga_LutLib_t * pLutLib );

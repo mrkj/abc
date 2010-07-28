@@ -21,7 +21,8 @@
 #include "mainInt.h"
 
 #ifndef _WIN32
-#include "readline/readline.h"
+#include <readline/readline.h>
+#include <readline/history.h>
 #endif
 
 ////////////////////////////////////////////////////////////////////////
@@ -64,15 +65,18 @@ char * Abc_UtilsGetVersion( Abc_Frame_t * pAbc )
 ***********************************************************************/
 char * Abc_UtilsGetUsersInput( Abc_Frame_t * pAbc )
 {
-    static char Buffer[1000], Prompt[1000];
+    static char Prompt[1000];
+#ifndef _WIN32
+    static char * line = NULL;
+#endif
+
     sprintf( Prompt, "abc %02d> ", pAbc->nSteps );
 #ifdef _WIN32
     fprintf( pAbc->Out, "%s", Prompt );
-    fgets( Buffer, 999, stdin );
-    return Buffer;
+    fgets( Prompt, 999, stdin );
+    return Prompt;
 #else
-    static char* line = NULL;
-    if (line != NULL) free(line);
+    if (line != NULL) ABC_FREE(line);
     line = readline(Prompt);  
     if (line == NULL){ printf("***EOF***\n"); exit(0); }
     add_history(line);
@@ -169,8 +173,8 @@ void Abc_UtilsSource( Abc_Frame_t * pAbc )
                 (void) Cmd_CommandExecute(pAbc, "source -s .rc");
             }
         }
-        if ( sPath1 ) FREE(sPath1);
-        if ( sPath2 ) FREE(sPath2);
+        if ( sPath1 ) ABC_FREE(sPath1);
+        if ( sPath2 ) ABC_FREE(sPath2);
     
         /* execute the abc script which can be open with the "open_path" */
         Cmd_CommandExecute( pAbc, "source -s abc.rc" );
@@ -185,10 +189,10 @@ void Abc_UtilsSource( Abc_Frame_t * pAbc )
          // it from the home directory.  Otherwise, read it from wherever it's located.
         home = getenv("HOME");
         if (home){
-            char * sPath3 = ALLOC(char, strlen(home) + 2);
+            char * sPath3 = ABC_ALLOC(char, strlen(home) + 2);
             (void) sprintf(sPath3, "%s/", home);
             sPath1 = Extra_UtilFileSearch(".abc.rc", sPath3, "r");
-            FREE(sPath3);
+            ABC_FREE(sPath3);
         }else
             sPath1 = NULL;
 
@@ -196,18 +200,30 @@ void Abc_UtilsSource( Abc_Frame_t * pAbc )
 
         if ( sPath1 && sPath2 ) {
             /* ~/.rc == .rc : Source the file only once */
-            (void) Cmd_CommandExecute(pAbc, "source -s ~/.abc.rc");
+            char *tmp_cmd = ABC_ALLOC(char, strlen(sPath1)+12);
+            (void) sprintf(tmp_cmd, "source -s %s", sPath1);
+            // (void) Cmd_CommandExecute(pAbc, "source -s ~/.abc.rc");
+            (void) Cmd_CommandExecute(pAbc, tmp_cmd);
+            ABC_FREE(tmp_cmd);
         }
         else {
             if (sPath1) {
-                (void) Cmd_CommandExecute(pAbc, "source -s ~/.abc.rc");
+                char *tmp_cmd = ABC_ALLOC(char, strlen(sPath1)+12);
+                (void) sprintf(tmp_cmd, "source -s %s", sPath1);
+                // (void) Cmd_CommandExecute(pAbc, "source -s ~/.abc.rc");
+                (void) Cmd_CommandExecute(pAbc, tmp_cmd);
+                ABC_FREE(tmp_cmd);
             }
             if (sPath2) {
-                (void) Cmd_CommandExecute(pAbc, "source -s .abc.rc");
+                char *tmp_cmd = ABC_ALLOC(char, strlen(sPath2)+12);
+                (void) sprintf(tmp_cmd, "source -s %s", sPath2);
+                // (void) Cmd_CommandExecute(pAbc, "source -s .abc.rc");
+                (void) Cmd_CommandExecute(pAbc, tmp_cmd);
+                ABC_FREE(tmp_cmd);
             }
         }
-        if ( sPath1 ) FREE(sPath1);
-        if ( sPath2 ) FREE(sPath2);
+        if ( sPath1 ) ABC_FREE(sPath1);
+        if ( sPath2 ) ABC_FREE(sPath2);
 
         /* execute the abc script which can be open with the "open_path" */
         Cmd_CommandExecute( pAbc, "source -s abc.rc" );
@@ -219,7 +235,7 @@ void Abc_UtilsSource( Abc_Frame_t * pAbc )
         char * pName; 
         int i;
         Vec_PtrForEachEntry( pAbc->aHistory, pName, i )
-            free( pName );
+            ABC_FREE( pName );
         pAbc->aHistory->nSize = 0;
     }
 }

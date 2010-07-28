@@ -81,7 +81,7 @@ float If_CutDelay( If_Man_t * p, If_Cut_t * pCut )
             assert( !p->pPars->fLiftLeaves );
             If_CutForEachLeaf( p, pCut, pLeaf, i )
             {
-                DelayCur = If_ObjCutBest(pLeaf)->Delay + (float)pCut->pPerm[i];
+                DelayCur = If_ObjCutBest(pLeaf)->Delay + (float)(pCut->pPerm ? pCut->pPerm[i] : 1.0);
                 Delay = IF_MAX( Delay, DelayCur );
             }
         }
@@ -99,6 +99,13 @@ float If_CutDelay( If_Man_t * p, If_Cut_t * pCut )
             {
                 If_CutForEachLeaf( p, pCut, pLeaf, i )
                 {
+/*
+                    if ( pLeaf->IdPio > 2000 )
+                    {
+                        int x = 0;
+                        printf( "-%d %6.3f  ", pLeaf->IdPio, If_ObjCutBest(pLeaf)->Delay );
+                    }
+*/
                     DelayCur = If_ObjCutBest(pLeaf)->Delay;
                     Delay = IF_MAX( Delay, DelayCur );
                 }
@@ -157,7 +164,7 @@ void If_CutPropagateRequired( If_Man_t * p, If_Cut_t * pCut, float ObjRequired )
         {
             If_CutForEachLeaf( p, pCut, pLeaf, i )
             {
-                Required = ObjRequired - (float)pCut->pPerm[i];
+                Required = ObjRequired - (float)(pCut->pPerm ? pCut->pPerm[i] : 1.0);
                 pLeaf->Required = IF_MIN( pLeaf->Required, Required );
             }
         }
@@ -205,6 +212,7 @@ void If_CutSortInputPins( If_Man_t * p, If_Cut_t * pCut, int * pPinPerm, float *
         pPinPerm[i] = pPinPerm[best_i]; 
         pPinPerm[best_i] = temp;
     }
+/*
     // verify
     assert( pPinPerm[0] < (int)pCut->nLeaves );
     for ( i = 1; i < (int)pCut->nLeaves; i++ )
@@ -212,6 +220,31 @@ void If_CutSortInputPins( If_Man_t * p, If_Cut_t * pCut, int * pPinPerm, float *
         assert( pPinPerm[i] < (int)pCut->nLeaves );
         assert( pPinDelays[pPinPerm[i-1]] >= pPinDelays[pPinPerm[i]] );
     }
+*/
+}
+
+/**Function*************************************************************
+
+  Synopsis    [Sorts the pins in the decreasing order of delays.]
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+void If_CutRotatePins( If_Man_t * p, If_Cut_t * pCut )
+{
+    If_Obj_t * pLeaf;
+    float PinDelays[32];
+//    int PinPerm[32];
+    int i;
+//    assert( p->pPars->pLutLib && p->pPars->pLutLib->fVarPinDelays && p->pPars->fTruth ); 
+    If_CutForEachLeaf( p, pCut, pLeaf, i )
+        PinDelays[i] = If_ObjCutBest(pLeaf)->Delay;
+    If_CutTruthPermute( p->puTemp[0], If_CutTruth(pCut), If_CutLeaveNum(pCut), PinDelays, If_CutLeaves(pCut) );
+//    If_CutSortInputPins( p, pCut, PinPerm, PinDelays );
 }
 
 ////////////////////////////////////////////////////////////////////////

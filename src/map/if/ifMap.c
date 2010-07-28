@@ -77,7 +77,7 @@ void If_ObjPerformMappingAnd( If_Man_t * p, If_Obj_t * pObj, int Mode, int fPrep
             pObj->EstRefs = (float)((2.0 * pObj->EstRefs + pObj->nRefs) / 3.0);
     }
     if ( Mode && pObj->nRefs > 0 )
-        If_CutDeref( p, If_ObjCutBest(pObj), IF_INFINITY );
+        If_CutAreaDeref( p, If_ObjCutBest(pObj) );
 
     // prepare the cutset
     pCutSet = If_ManSetupNodeCutSet( p, pObj );
@@ -88,8 +88,15 @@ void If_ObjPerformMappingAnd( If_Man_t * p, If_Obj_t * pObj, int Mode, int fPrep
     {
         // recompute the parameters of the best cut
         pCut->Delay = If_CutDelay( p, pCut );
-        assert( pCut->Delay <= pObj->Required + p->fEpsilon );
-        pCut->Area = (Mode == 2)? If_CutAreaDerefed( p, pCut, IF_INFINITY ) : If_CutFlow( p, pCut );
+//        assert( pCut->Delay <= pObj->Required + p->fEpsilon );
+        if ( pCut->Delay > pObj->Required + 2*p->fEpsilon )
+            Abc_Print( 1, "If_ObjPerformMappingAnd(): Warning! Delay of node %d (%f) exceeds the required times (%f).\n", 
+                pObj->Id, pCut->Delay, pObj->Required + p->fEpsilon );
+        pCut->Area = (Mode == 2)? If_CutAreaDerefed( p, pCut ) : If_CutAreaFlow( p, pCut );
+        if ( p->pPars->fEdge )
+            pCut->Edge = (Mode == 2)? If_CutEdgeDerefed( p, pCut ) : If_CutEdgeFlow( p, pCut );
+        if ( p->pPars->fPower )
+            pCut->Power = (Mode == 2)? If_CutPowerDerefed( p, pCut, pObj ) : If_CutPowerFlow( p, pCut, pObj );
         // save the best cut from the previous iteration
         if ( !fPreprocess )
             If_CutCopy( p, pCutSet->ppCuts[pCutSet->nCuts++], pCut );
@@ -105,11 +112,14 @@ void If_ObjPerformMappingAnd( If_Man_t * p, If_Obj_t * pObj, int Mode, int fPrep
         // make sure K-feasible cut exists
         if ( If_WordCountOnes(pCut0->uSign | pCut1->uSign) > p->pPars->nLutSize )
             continue;
-        // merge the nodes
+        // merge the cuts
         if ( !If_CutMerge( pCut0, pCut1, pCut ) )
+            continue;
+        if ( pObj->fSpec && pCut->nLeaves == (unsigned)p->pPars->nLutSize )
             continue;
         assert( p->pPars->fSeqMap || pCut->nLeaves > 1 );
         p->nCutsMerged++;
+        p->nCutsTotal++;
         // check if this cut is contained in any of the available cuts
 //        if ( p->pPars->pFuncCost == NULL && If_CutFilter( p, pCut ) ) // do not filter functionality cuts
         if ( If_CutFilter( pCutSet, pCut ) )
@@ -117,7 +127,20 @@ void If_ObjPerformMappingAnd( If_Man_t * p, If_Obj_t * pObj, int Mode, int fPrep
         // compute the truth table
         pCut->fCompl = 0;
         if ( p->pPars->fTruth )
+        {
+//            int clk = clock();
             If_CutComputeTruth( p, pCut, pCut0, pCut1, pObj->fCompl0, pObj->fCompl1 );
+//            p->timeTruth += clock() - clk;
+#ifdef IF_USE_BAT
+            if ( p->pPars->fUseBat )
+            {
+                extern int Bat_ManCellFuncLookup( unsigned * pTruth, int nVars, int nLeaves );
+                assert( pCut->nLimit >= 4 && pCut->nLimit <= 6 );
+                pCut->fUseless = !Bat_ManCellFuncLookup( If_CutTruth(pCut), pCut->nLimit, pCut->nLeaves );
+                p->nCutsUseless += pCut->fUseless;
+            }
+#endif
+        }
         // compute the application-specific cost and depth
         pCut->fUser = (p->pPars->pFuncCost != NULL);
         pCut->Cost = p->pPars->pFuncCost? p->pPars->pFuncCost(pCut) : 0;
@@ -125,11 +148,15 @@ void If_ObjPerformMappingAnd( If_Man_t * p, If_Obj_t * pObj, int Mode, int fPrep
             continue;
         // check if the cut satisfies the required times
         pCut->Delay = If_CutDelay( p, pCut );
-//        printf( "%.2f ", pCut->Delay );
+//        Abc_Print( 1, "%.2f ", pCut->Delay );
         if ( Mode && pCut->Delay > pObj->Required + p->fEpsilon )
             continue;
         // compute area of the cut (this area may depend on the application specific cost)
-        pCut->Area = (Mode == 2)? If_CutAreaDerefed( p, pCut, IF_INFINITY ) : If_CutFlow( p, pCut );
+        pCut->Area = (Mode == 2)? If_CutAreaDerefed( p, pCut ) : If_CutAreaFlow( p, pCut );
+        if ( p->pPars->fEdge )
+            pCut->Edge = (Mode == 2)? If_CutEdgeDerefed( p, pCut ) : If_CutEdgeFlow( p, pCut );
+        if ( p->pPars->fPower )
+            pCut->Power = (Mode == 2)? If_CutPowerDerefed( p, pCut, pObj ) : If_CutPowerFlow( p, pCut, pObj );
         pCut->AveRefs = (Mode == 0)? (float)0.0 : If_CutAverageRefs( p, pCut );
         // insert the cut into storage
         If_CutSort( p, pCutSet, pCut );
@@ -147,7 +174,9 @@ void If_ObjPerformMappingAnd( If_Man_t * p, If_Obj_t * pObj, int Mode, int fPrep
 
     // ref the selected cut
     if ( Mode && pObj->nRefs > 0 )
-        If_CutRef( p, If_ObjCutBest(pObj), IF_INFINITY );
+        If_CutAreaRef( p, If_ObjCutBest(pObj) );
+    if ( If_ObjCutBest(pObj)->fUseless )
+        Abc_Print( 1, "The best cut is useless.\n" );
 
     // call the user specified function for each cut
     if ( p->pPars->pFuncUser )
@@ -179,7 +208,7 @@ void If_ObjPerformMappingChoice( If_Man_t * p, If_Obj_t * pObj, int Mode, int fP
 
     // prepare
     if ( Mode && pObj->nRefs > 0 )
-        If_CutDeref( p, If_ObjCutBest(pObj), IF_INFINITY );
+        If_CutAreaDeref( p, If_ObjCutBest(pObj) );
 
     // remove elementary cuts
     for ( pTemp = pObj; pTemp; pTemp = pTemp->pEquiv )
@@ -192,7 +221,9 @@ void If_ObjPerformMappingChoice( If_Man_t * p, If_Obj_t * pObj, int Mode, int fP
     for ( pTemp = pObj->pEquiv; pTemp; pTemp = pTemp->pEquiv )
     {
         assert( pTemp->nRefs == 0 );
-        assert( p->pPars->fSeqMap || pTemp->pCutSet->nCuts > 0 );
+//        assert( p->pPars->fSeqMap || pTemp->pCutSet->nCuts > 0 ); // June 9, 2009
+        if ( pTemp->pCutSet->nCuts == 0 )
+            continue;
         // go through the cuts of this node
         If_ObjForEachCut( pTemp, pCutTemp, i )
         {
@@ -213,12 +244,16 @@ void If_ObjPerformMappingChoice( If_Man_t * p, If_Obj_t * pObj, int Mode, int fP
             assert( pCut->fCompl == 0 );
             pCut->fCompl ^= (pObj->fPhase ^ pTemp->fPhase); // why ^= ?
             // compute area of the cut (this area may depend on the application specific cost)
-            pCut->Area = (Mode == 2)? If_CutAreaDerefed( p, pCut, IF_INFINITY ) : If_CutFlow( p, pCut );
+            pCut->Area = (Mode == 2)? If_CutAreaDerefed( p, pCut ) : If_CutAreaFlow( p, pCut );
+            if ( p->pPars->fEdge )
+                pCut->Edge = (Mode == 2)? If_CutEdgeDerefed( p, pCut ) : If_CutEdgeFlow( p, pCut );
+            if ( p->pPars->fPower )
+                pCut->Power = (Mode == 2)? If_CutPowerDerefed( p, pCut, pObj ) : If_CutPowerFlow( p, pCut, pObj );
             pCut->AveRefs = (Mode == 0)? (float)0.0 : If_CutAverageRefs( p, pCut );
             // insert the cut into storage
             If_CutSort( p, pCutSet, pCut );
         }
-    }
+    } 
     assert( pCutSet->nCuts > 0 );
 
     // add the trivial cut to the set
@@ -232,7 +267,7 @@ void If_ObjPerformMappingChoice( If_Man_t * p, If_Obj_t * pObj, int Mode, int fP
 
     // ref the selected cut
     if ( Mode && pObj->nRefs > 0 )
-        If_CutRef( p, If_ObjCutBest(pObj), IF_INFINITY );
+        If_CutAreaRef( p, If_ObjCutBest(pObj) );
 
     // free the cuts
     If_ManDerefChoiceCutSet( p, pObj );
@@ -254,6 +289,7 @@ int If_ManPerformMappingRound( If_Man_t * p, int nCutsUsed, int Mode, int fPrepr
 //    ProgressBar * pProgress;
     If_Obj_t * pObj;
     int i, clk = clock();
+    float arrTime;
     assert( Mode >= 0 && Mode <= 2 );
     // set the sorting function
     if ( Mode || p->pPars->fArea ) // area
@@ -265,14 +301,50 @@ int If_ManPerformMappingRound( If_Man_t * p, int nCutsUsed, int Mode, int fPrepr
     // set the cut number
     p->nCutsUsed   = nCutsUsed;
     p->nCutsMerged = 0;
-    // map the internal nodes
-//    pProgress = Extra_ProgressBarStart( stdout, If_ManObjNum(p) );
+    // make sure the visit counters are all zero
     If_ManForEachNode( p, pObj, i )
+        assert( pObj->nVisits == pObj->nVisitsCopy );
+    // map the internal nodes
+    if ( p->pManTim != NULL )
     {
-//        Extra_ProgressBarUpdate( pProgress, i, pLabel );
-        If_ObjPerformMappingAnd( p, pObj, Mode, fPreprocess );
-        if ( pObj->fRepr )
-            If_ObjPerformMappingChoice( p, pObj, Mode, fPreprocess );
+        Tim_ManIncrementTravId( p->pManTim );
+        If_ManForEachObj( p, pObj, i )
+        {
+            if ( If_ObjIsAnd(pObj) )
+            {
+                If_ObjPerformMappingAnd( p, pObj, Mode, fPreprocess );
+                if ( pObj->fRepr )
+                    If_ObjPerformMappingChoice( p, pObj, Mode, fPreprocess );
+            }
+            else if ( If_ObjIsCi(pObj) )
+            {
+//Abc_Print( 1, "processing CI %d\n", pObj->Id );
+                arrTime = Tim_ManGetCiArrival( p->pManTim, pObj->IdPio );
+                If_ObjSetArrTime( pObj, arrTime );
+            }
+            else if ( If_ObjIsCo(pObj) )
+            {
+                arrTime = If_ObjArrTime( If_ObjFanin0(pObj) );
+                Tim_ManSetCoArrival( p->pManTim, pObj->IdPio, arrTime );
+            }
+            else if ( If_ObjIsConst1(pObj) )
+            {
+            }
+            else
+                assert( 0 );
+        }
+//        Tim_ManPrint( p->pManTim );
+    }
+    else
+    {
+    //    pProgress = Extra_ProgressBarStart( stdout, If_ManObjNum(p) );
+        If_ManForEachNode( p, pObj, i )
+        {
+    //        Extra_ProgressBarUpdate( pProgress, i, pLabel );
+            If_ObjPerformMappingAnd( p, pObj, Mode, fPreprocess );
+            if ( pObj->fRepr )
+                If_ObjPerformMappingChoice( p, pObj, Mode, fPreprocess );
+        }
     }
 //    Extra_ProgressBarStop( pProgress );
     // make sure the visit counters are all zero
@@ -280,13 +352,14 @@ int If_ManPerformMappingRound( If_Man_t * p, int nCutsUsed, int Mode, int fPrepr
         assert( pObj->nVisits == 0 );
     // compute required times and stats
     If_ManComputeRequired( p );
+//    Tim_ManPrint( p->pManTim );
     if ( p->pPars->fVerbose )
     {
         char Symb = fPreprocess? 'P' : ((Mode == 0)? 'D' : ((Mode == 1)? 'F' : 'A'));
-        printf( "%c: Del = %7.2f. Ar = %9.1f. Edge = %8d. Cut = %8d. ", 
-            Symb, p->RequiredGlo, p->AreaGlo, p->nNets, p->nCutsMerged );
-        PRT( "T", clock() - clk );
-//    printf( "Max number of cuts = %d. Average number of cuts = %5.2f.\n", 
+        Abc_Print( 1, "%c: Del = %7.2f. Ar = %9.1f. Edge = %8d. Switch = %7.2f. Cut = %8d. ", 
+            Symb, p->RequiredGlo, p->AreaGlo, p->nNets, p->dPower, p->nCutsMerged );
+        Abc_PrintTime( 1, "T", clock() - clk );
+//    Abc_Print( 1, "Max number of cuts = %d. Average number of cuts = %5.2f.\n", 
 //        p->nCutsMax, 1.0 * p->nCutsMerged / If_ManAndNum(p) );
     }
     return 1;

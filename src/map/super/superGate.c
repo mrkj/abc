@@ -67,8 +67,8 @@ struct Super_ManStruct_t_
     int                 Time;         // the runtime of the generation procedure
     int                 TimeLimit;    // the runtime limit (in seconds)
     int                 TimeSec;      // the time passed (in seconds)
-    int                 TimeStop;     // the time to stop computation (in miliseconds)
-    int                 TimePrint;    // the time to print message
+    double              TimeStop;     // the time to stop computation (in miliseconds)
+    double              TimePrint;    // the time to print message
 };
 
 struct Super_GateStruct_t_
@@ -164,7 +164,7 @@ void Super_Precompute( Mio_Library_t * pLibGen, int nVarsMax, int nLevels, float
 
         // stop the manager
         Super_ManStop( pMan );
-        free( ppGates );
+        ABC_FREE( ppGates );
 
         return;
     }
@@ -193,7 +193,7 @@ if ( fVerbose )
 {
         printf( "Lev %d: Try =%12d. Add =%6d. Rem =%5d. Save =%6d. Lookups =%12d. Aliases =%12d. ",
            Level, pMan->nTried, pMan->nAdded, pMan->nRemoved, pMan->nAdded - pMan->nRemoved, pMan->nLookups, pMan->nAliases );
-PRT( "Time", clock() - clk );
+ABC_PRT( "Time", clock() - clk );
 fflush( stdout );
 }
     }
@@ -209,7 +209,7 @@ fflush( stdout );
 
     // stop the manager
     Super_ManStop( pMan );
-    free( ppGates );
+    ABC_FREE( ppGates );
 }
 
 
@@ -235,7 +235,7 @@ void Super_First( Super_Man_t * pMan, int nVarsMax )
     pMan->nLevels   = 0;
     // allocate room for the gates
     pMan->nGates    = nVarsMax;  
-    pMan->pGates    = ALLOC( Super_Gate_t *, nVarsMax + 2 ); 
+    pMan->pGates    = ABC_ALLOC( Super_Gate_t *, nVarsMax + 2 ); 
     // create the gates corresponding to the elementary variables
     for ( v = 0; v < nVarsMax; v++ )
     {
@@ -295,7 +295,8 @@ Super_Man_t * Super_Compute( Super_Man_t * pMan, Mio_Gate_t ** ppGates, int nGat
 {
     Super_Gate_t * pSupers[6], * pGate0, * pGate1, * pGate2, * pGate3, * pGate4, * pGate5, * pGateNew;
     float tPinDelaysRes[6], * ptPinDelays[6], tPinDelayMax, tDelayMio;
-    float Area, Area0, Area1, Area2, Area3, Area4, AreaMio;
+    float Area = 0.0; // Suppress "might be used uninitialized"
+    float Area0, Area1, Area2, Area3, Area4, AreaMio;
     unsigned uTruth[2], uTruths[6][2];
     int i0, i1, i2, i3, i4, i5; 
     Super_Gate_t ** ppGatesLimit;
@@ -328,7 +329,7 @@ Super_Man_t * Super_Compute( Super_Man_t * pMan, Mio_Gate_t ** ppGates, int nGat
 
     pProgress = Extra_ProgressBarStart( stdout, pMan->TimeLimit );
     pMan->TimePrint = clock() + CLOCKS_PER_SEC;
-    ppGatesLimit = ALLOC( Super_Gate_t *, pMan->nGates );
+    ppGatesLimit = ABC_ALLOC( Super_Gate_t *, pMan->nGates );
     // go through the root gates
     // the root gates are sorted in the increasing gelay
     fTimeOut = 0;
@@ -344,7 +345,12 @@ Super_Man_t * Super_Compute( Super_Man_t * pMan, Mio_Gate_t ** ppGates, int nGat
                     continue;
             }
         }
-
+/*
+        if ( strcmp(Mio_GateReadName(ppGates[k]), "MUX2IX0") == 0 )
+        {
+            int s = 0;
+        }
+*/
         // select the subset of gates to be considered with this root gate
         // all the gates past this point will lead to delay larger than the limit
         tDelayMio = (float)Mio_GateReadDelayMax(ppGates[k]);
@@ -652,7 +658,7 @@ Super_Man_t * Super_Compute( Super_Man_t * pMan, Mio_Gate_t ** ppGates, int nGat
     }
 done: 
     Extra_ProgressBarStop( pProgress );
-    free( ppGatesLimit );
+    ABC_FREE( ppGatesLimit );
     return pMan;
 }
 
@@ -700,11 +706,11 @@ void Super_TranferGatesToArray( Super_Man_t * pMan )
 {
     stmm_generator * gen;
     Super_Gate_t * pGate, * pList;
-    unsigned Key;
+    ABC_PTRUINT_T Key;
 
     // put the gates fron the table into the array
-    free( pMan->pGates );
-    pMan->pGates = ALLOC( Super_Gate_t *, pMan->nAdded );
+    ABC_FREE( pMan->pGates );
+    pMan->pGates = ABC_ALLOC( Super_Gate_t *, pMan->nAdded );
     pMan->nGates = 0;
     stmm_foreach_item( pMan->tTable, gen, (char **)&Key, (char **)&pList )
     {
@@ -728,7 +734,7 @@ void Super_TranferGatesToArray( Super_Man_t * pMan )
 void Super_AddGateToTable( Super_Man_t * pMan, Super_Gate_t * pGate )
 {
     Super_Gate_t ** ppList;
-    unsigned Key;
+    ABC_PTRUINT_T Key;
 //    Key = pGate->uTruth[0] + 2003 * pGate->uTruth[1];
     Key = pGate->uTruth[0] ^ pGate->uTruth[1];
     if ( !stmm_find_or_add( pMan->tTable, (char *)Key, (char ***)&ppList ) )
@@ -755,7 +761,7 @@ bool Super_CompareGates( Super_Man_t * pMan, unsigned uTruth[], float Area, floa
 {
     Super_Gate_t ** ppList, * pPrev, * pGate, * pGate2;
     int i, fNewIsBetter, fGateIsBetter;
-    unsigned Key;
+    ABC_PTRUINT_T Key;
 
     // skip constant functions
     if ( pMan->nVarsMax < 6 )
@@ -866,7 +872,7 @@ Super_Gate_t * Super_CreateGateNew( Super_Man_t * pMan, Mio_Gate_t * pRoot, Supe
 Super_Man_t * Super_ManStart()
 {
     Super_Man_t * pMan;
-    pMan = ALLOC( Super_Man_t, 1 );
+    pMan = ABC_ALLOC( Super_Man_t, 1 );
     memset( pMan, 0, sizeof(Super_Man_t) );
     pMan->pMem     = Extra_MmFixedStart( sizeof(Super_Gate_t) );
     pMan->tTable   = stmm_init_table( st_ptrcmp, st_ptrhash );
@@ -888,8 +894,8 @@ void Super_ManStop( Super_Man_t * pMan )
 {
     Extra_MmFixedStop( pMan->pMem );
     if ( pMan->tTable ) stmm_free_table( pMan->tTable );
-    FREE( pMan->pGates );
-    free( pMan );
+    ABC_FREE( pMan->pGates );
+    ABC_FREE( pMan );
 }
 
 
@@ -912,7 +918,7 @@ void Super_Write( Super_Man_t * pMan )
     Super_Gate_t * pGateRoot, * pGate;
     stmm_generator * gen;
     int fZeroFound, clk, v;
-    unsigned Key;
+    ABC_PTRUINT_T Key;
 
     if ( pMan->nGates < 1 )
     {
@@ -924,8 +930,8 @@ void Super_Write( Super_Man_t * pMan )
     // the given limit, provided that the inputs are not consequtive. 
     // For example, NAND2(a,c) is removed, but NAND2(a,b) is left, 
     // because a and b are consequtive.
-    FREE( pMan->pGates );
-    pMan->pGates = ALLOC( Super_Gate_t *, pMan->nAdded );
+    ABC_FREE( pMan->pGates );
+    pMan->pGates = ABC_ALLOC( Super_Gate_t *, pMan->nAdded );
     pMan->nGates = 0;
     stmm_foreach_item( pMan->tTable, gen, (char **)&Key, (char **)&pGateRoot )
     {
@@ -955,7 +961,7 @@ clk = clock();
     assert( Super_WriteCompare( pMan->pGates, pMan->pGates + pMan->nGates - 1 ) <= 0 );
 if ( pMan->fVerbose )
 {
-PRT( "Sorting", clock() - clk );
+ABC_PRT( "Sorting", clock() - clk );
 }
 
 
@@ -965,7 +971,7 @@ clk = clock();
         Super_WriteLibrary( pMan );
 if ( pMan->fVerbose )
 {
-PRT( "Writing old format", clock() - clk );
+ABC_PRT( "Writing old format", clock() - clk );
 }
 
     // write the tree-like structure of supergates
@@ -973,7 +979,7 @@ clk = clock();
     Super_WriteLibraryTree( pMan );
 if ( pMan->fVerbose )
 {
-PRT( "Writing new format", clock() - clk );
+ABC_PRT( "Writing new format", clock() - clk );
 }
 }
 
@@ -1101,14 +1107,16 @@ void Super_WriteLibrary( Super_Man_t * pMan )
 {
     Super_Gate_t * pGate, * pGateNext;
     FILE * pFile;
-    char FileName[100];
+    char * FileName;
     char * pNameGeneric;
     int i, Counter;
+
+    FileName = ABC_ALLOC( char, 10000 );
 
     // get the file name
     pNameGeneric = Extra_FileNameGeneric( pMan->pName );
     sprintf( FileName, "%s.super_old", pNameGeneric );
-    free( pNameGeneric );
+    ABC_FREE( pNameGeneric );
 
     // count the number of unique functions
     pMan->nUnique = 1;
@@ -1146,6 +1154,8 @@ if ( pMan->fVerbose )
     printf( "The supergates are written using old format \"%s\" ", FileName );
     printf( "(%0.3f Mb).\n", ((double)Extra_FileSize(FileName))/(1<<20) );
 }
+
+    ABC_FREE( FileName );
 }
 
 /**Function*************************************************************
@@ -1245,15 +1255,17 @@ void Super_WriteLibraryTree( Super_Man_t * pMan )
 {
     Super_Gate_t * pSuper;
     FILE * pFile;
-    char FileName[100];
+    char * FileName;
     char * pNameGeneric;
     int i, Counter;
     int posStart;
 
+    FileName = ABC_ALLOC( char, 10000 );
+
     // get the file name
     pNameGeneric = Extra_FileNameGeneric( pMan->pName );
     sprintf( FileName, "%s.super", pNameGeneric );
-    free( pNameGeneric );
+    ABC_FREE( pNameGeneric );
  
     // write the elementary variables
     pFile = fopen( FileName, "w" );
@@ -1280,6 +1292,8 @@ if ( pMan->fVerbose )
     printf( "The supergates are written using new format \"%s\" ", FileName );
     printf( "(%0.3f Mb).\n", ((double)Extra_FileSize(FileName))/(1<<20) );
 }
+
+    ABC_FREE( FileName );
 }
 
 /**Function*************************************************************

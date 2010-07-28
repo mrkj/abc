@@ -41,6 +41,8 @@
 ***********************************************************************/
 void Abc_NtkSynthesize( Abc_Ntk_t ** ppNtk, int fMoreEffort )
 {
+    extern Abc_Ntk_t * Abc_NtkIvyFraig( Abc_Ntk_t * pNtk, int nConfLimit, int fDoSparse, int fProve, int fTransfer, int fVerbose );
+
     Abc_Ntk_t * pNtk, * pNtkTemp;
 
     pNtk = *ppNtk;
@@ -55,6 +57,9 @@ void Abc_NtkSynthesize( Abc_Ntk_t ** ppNtk, int fMoreEffort )
         Abc_NtkRewrite( pNtk, 0, 0, 0, 0, 0 );
         Abc_NtkRefactor( pNtk, 10, 16, 0, 0, 0, 0 );
         pNtk = Abc_NtkBalance( pNtkTemp = pNtk, 0, 0, 0 );          
+        Abc_NtkDelete( pNtkTemp );
+
+        pNtk = Abc_NtkIvyFraig( pNtkTemp = pNtk, 100, 1, 0, 0, 0 );
         Abc_NtkDelete( pNtkTemp );
     }
 
@@ -187,7 +192,7 @@ Abc_Ntk_t * Abc_NtkTransRel( Abc_Ntk_t * pNtk, int fInputs, int fVerbose )
         Vec_PtrPush( vPairs, Abc_ObjChild0Copy(pObj) );
         Vec_PtrPush( vPairs, Abc_NtkPi(pNtkNew, i+nLatches) );
     }
-    pMiter = Abc_AigMiter( pNtkNew->pManFunc, vPairs );
+    pMiter = Abc_AigMiter( pNtkNew->pManFunc, vPairs, 0 );
     Vec_PtrFree( vPairs );
     // add the primary output
     Abc_ObjAddFanin( Abc_NtkPo(pNtkNew,0), Abc_ObjNot(pMiter) );
@@ -384,7 +389,7 @@ Abc_Ntk_t * Abc_NtkReachability( Abc_Ntk_t * pNtkRel, int nIters, int fVerbose )
         {
             printf( "I = %3d : Reach = %6d  Fr = %6d  FrM = %6d  %7.2f %%   ", 
                 i + 1, Abc_NtkNodeNum(pNtkReached), nNodesOld, nNodesNew, 100.0*(nNodesNew-nNodesPrev)/nNodesPrev );
-            PRT( "T", clock() - clk );
+            ABC_PRT( "T", clock() - clk );
         }
         nNodesPrev = Abc_NtkNodeNum(pNtkFront);
     }

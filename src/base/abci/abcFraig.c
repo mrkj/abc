@@ -101,7 +101,7 @@ void * Abc_NtkToFraig( Abc_Ntk_t * pNtk, void * pParams, int fAllNodes, int fExd
 {
     int fInternal = ((Fraig_Params_t *)pParams)->fInternal;
     Fraig_Man_t * pMan;
-    ProgressBar * pProgress;
+    ProgressBar * pProgress = NULL;
     Vec_Ptr_t * vNodes;
     Abc_Obj_t * pNode;
     int i;
@@ -126,13 +126,13 @@ void * Abc_NtkToFraig( Abc_Ntk_t * pNtk, void * pParams, int fAllNodes, int fExd
     {
         if ( Abc_ObjFaninNum(pNode) == 0 )
             continue;
-        if ( !fInternal )
+        if ( pProgress ) 
             Extra_ProgressBarUpdate( pProgress, i, NULL );
         pNode->pCopy = (Abc_Obj_t *)Fraig_NodeAnd( pMan, 
                 Fraig_NotCond( Abc_ObjFanin0(pNode)->pCopy, Abc_ObjFaninC0(pNode) ),
                 Fraig_NotCond( Abc_ObjFanin1(pNode)->pCopy, Abc_ObjFaninC1(pNode) ) );
     }
-    if ( !fInternal )
+    if ( pProgress )
         Extra_ProgressBarStop( pProgress );
     Vec_PtrFree( vNodes );
 
@@ -181,7 +181,7 @@ Fraig_Node_t * Abc_NtkToFraigExdc( Fraig_Man_t * pMan, Abc_Ntk_t * pNtkMain, Abc
             }
         assert( pObj->pCopy != NULL );
     }
-    free( ppNames );
+    ABC_FREE( ppNames );
     // build FRAIG for each node
     Abc_AigForEachAnd( pNtkStrash, pObj, i )
         pObj->pCopy = (Abc_Obj_t *)Fraig_NodeAnd( pMan, 
@@ -316,7 +316,7 @@ Abc_Obj_t * Abc_NodeFromFraig_rec( Abc_Ntk_t * pNtkNew, Fraig_Node_t * pNodeFrai
     Fraig_Node_t * pNodeTemp, * pNodeFraigR = Fraig_Regular(pNodeFraig);
     void ** ppTail;
     // check if the node was already considered
-    if ( pRes = (Abc_Obj_t *)Fraig_NodeReadData1(pNodeFraigR) )
+    if ( (pRes = (Abc_Obj_t *)Fraig_NodeReadData1(pNodeFraigR)) )
         return Abc_ObjNotCond( pRes, Fraig_IsComplement(pNodeFraig) );
     // solve the children
     pRes0 = Abc_NodeFromFraig_rec( pNtkNew, Fraig_NodeReadOne(pNodeFraigR) );
@@ -455,7 +455,7 @@ void Abc_NtkFromFraig2_rec( Abc_Ntk_t * pNtkNew, Abc_Obj_t * pNode, Vec_Ptr_t * 
     Abc_NodeSetTravIdCurrent( pNode );
     assert( Abc_ObjIsNode( pNode ) );
     // get the node's representative
-    if ( pRepr = Vec_PtrEntry(vNodeReprs, pNode->Id) )
+    if ( (pRepr = Vec_PtrEntry(vNodeReprs, pNode->Id)) )
     {
         Abc_NtkFromFraig2_rec( pNtkNew, pRepr, vNodeReprs );
         pNode->pCopy = Abc_ObjNotCond( pRepr->pCopy, pRepr->fPhase ^ pNode->fPhase );
@@ -695,7 +695,7 @@ Abc_Ntk_t * Abc_NtkFraigRestore()
     Vec_Ptr_t * vStore;
     Abc_Ntk_t * pNtk, * pFraig;
     int nWords1, nWords2, nWordsMin;
-    int clk = clock();
+//    int clk = clock();
 
     // get the stored network
     vStore = Abc_FrameReadStore();
@@ -732,12 +732,13 @@ Abc_Ntk_t * Abc_NtkFraigRestore()
     Params.fDoSparse  =    1;              // performs equiv tests for sparse functions 
     Params.fChoicing  =    1;              // enables recording structural choices
     Params.fTryProve  =    0;              // tries to solve the final miter
+    Params.fInternal  =    1;              // does not show progress bar
     Params.fVerbose   =    0;              // the verbosiness flag
 
     // perform partitioned computation of structural choices
     pFraig = Abc_NtkFraigPartitioned( vStore, &Params );
     Abc_NtkFraigStoreClean();
-//PRT( "Total choicing time", clock() - clk );
+//ABC_PRT( "Total choicing time", clock() - clk );
     return pFraig;
 }
 

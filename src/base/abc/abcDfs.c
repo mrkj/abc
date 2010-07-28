@@ -67,7 +67,7 @@ void Abc_NtkDfs_rec( Abc_Obj_t * pNode, Vec_Ptr_t * vNodes )
 
   Synopsis    [Returns the DFS ordered array of logic nodes.]
 
-  Description [Collects only the internal nodes, leaving CIs and CO.
+  Description [Collects only the internal nodes, leaving out CIs and CO.
   However it marks with the current TravId both CIs and COs.]
                
   SideEffects []
@@ -121,12 +121,14 @@ Vec_Ptr_t * Abc_NtkDfsNodes( Abc_Ntk_t * pNtk, Abc_Obj_t ** ppNodes, int nNodes 
     // go through the PO nodes and call for each of them
     for ( i = 0; i < nNodes; i++ )
     {
+        if ( Abc_NtkIsStrash(pNtk) && Abc_AigNodeIsConst(ppNodes[i]) )
+            continue;
         if ( Abc_ObjIsCo(ppNodes[i]) )
         {
             Abc_NodeSetTravIdCurrent(ppNodes[i]);
             Abc_NtkDfs_rec( Abc_ObjFanin0Ntk(Abc_ObjFanin0(ppNodes[i])), vNodes );
         }
-        else if ( Abc_ObjIsNode(ppNodes[i]) )
+        else if ( Abc_ObjIsNode(ppNodes[i]) || Abc_ObjIsCi(ppNodes[i]) )
             Abc_NtkDfs_rec( ppNodes[i], vNodes );
     }
     return vNodes;
@@ -195,10 +197,11 @@ Vec_Ptr_t * Abc_NtkDfsReverse( Abc_Ntk_t * pNtk )
             Abc_NtkDfsReverse_rec( pFanout, vNodes );
     }
     // add constant nodes in the end
-    if ( !Abc_NtkIsStrash(pNtk) )
+    if ( !Abc_NtkIsStrash(pNtk) ) {
         Abc_NtkForEachNode( pNtk, pObj, i )
             if ( Abc_NodeIsConst(pObj) )
                 Vec_PtrPush( vNodes, pObj );
+    }
     return vNodes;
 }
 
@@ -490,7 +493,7 @@ void Abc_NtkDfs_iter( Vec_Ptr_t * vStack, Abc_Obj_t * pRoot, Vec_Ptr_t * vNodes 
     while ( Vec_PtrSize(vStack) > 0 )
     {
         // get the node and its fanin
-        iFanin = (int)Vec_PtrPop(vStack);
+        iFanin = (int)(ABC_PTRINT_T)Vec_PtrPop(vStack);
         pNode  = Vec_PtrPop(vStack);
         assert( !Abc_ObjIsNet(pNode) );
         // add it to the array of nodes if we finished
@@ -501,7 +504,7 @@ void Abc_NtkDfs_iter( Vec_Ptr_t * vStack, Abc_Obj_t * pRoot, Vec_Ptr_t * vNodes 
         }
         // explore the next fanin
         Vec_PtrPush( vStack, pNode );
-        Vec_PtrPush( vStack, (void *)(iFanin+1) );
+        Vec_PtrPush( vStack, (void *)(ABC_PTRINT_T)(iFanin+1) );
         // get the fanin
         pFanin = Abc_ObjFanin0Ntk( Abc_ObjFanin(pNode,iFanin) );
         // if this node is already visited, skip
@@ -546,11 +549,38 @@ Vec_Ptr_t * Abc_NtkDfsIter( Abc_Ntk_t * pNtk, int fCollectAll )
     }
     // collect dangling nodes if asked to
     if ( fCollectAll )
-    {
+    { 
         Abc_NtkForEachNode( pNtk, pObj, i )
             if ( !Abc_NodeIsTravIdCurrent(pObj) )
                 Abc_NtkDfs_iter( vStack, pObj, vNodes );
     }
+    Vec_PtrFree( vStack );
+    return vNodes;
+}
+
+/**Function*************************************************************
+
+  Synopsis    [Returns the DFS ordered array of logic nodes.]
+
+  Description [Collects only the internal nodes, leaving CIs and CO.
+  However it marks with the current TravId both CIs and COs.]
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+Vec_Ptr_t * Abc_NtkDfsIterNodes( Abc_Ntk_t * pNtk, Vec_Ptr_t * vRoots )
+{
+    Vec_Ptr_t * vNodes, * vStack;
+    Abc_Obj_t * pObj;
+    int i;
+    Abc_NtkIncrementTravId( pNtk );
+    vNodes = Vec_PtrAlloc( 1000 );
+    vStack = Vec_PtrAlloc( 1000 );
+    Vec_PtrForEachEntry( vRoots, pObj, i )
+        if ( !Abc_NodeIsTravIdCurrent(Abc_ObjRegular(pObj)) )
+            Abc_NtkDfs_iter( vStack, Abc_ObjRegular(pObj), vNodes );
     Vec_PtrFree( vStack );
     return vNodes;
 }
@@ -677,7 +707,7 @@ void Abc_NtkNodeSupport_rec( Abc_Obj_t * pNode, Vec_Ptr_t * vNodes )
     // mark the node as visited
     Abc_NodeSetTravIdCurrent( pNode );
     // collect the CI
-    if ( Abc_ObjIsCi(pNode) || Abc_ObjFaninNum(pNode) == 0 )
+    if ( Abc_ObjIsCi(pNode) || (Abc_NtkIsStrash(pNode->pNtk) && Abc_ObjFaninNum(pNode) == 0) )
     {
         Vec_PtrPush( vNodes, pNode );
         return;
@@ -745,6 +775,31 @@ Vec_Ptr_t * Abc_NtkNodeSupport( Abc_Ntk_t * pNtk, Abc_Obj_t ** ppNodes, int nNod
         else
             Abc_NtkNodeSupport_rec( ppNodes[i], vNodes );
     return vNodes;
+}
+
+/**Function*************************************************************
+
+  Synopsis    [Computes the sum total of supports of all outputs.]
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+void Abc_NtkSupportSum( Abc_Ntk_t * pNtk )
+{
+    Vec_Ptr_t * vSupp;
+    Abc_Obj_t * pObj;
+    int i, nTotalSupps = 0;
+    Abc_NtkForEachCo( pNtk, pObj, i )
+    {
+        vSupp = Abc_NtkNodeSupport( pNtk, &pObj, 1 );
+        nTotalSupps += Vec_PtrSize( vSupp );
+        Vec_PtrFree( vSupp );
+    }
+    printf( "Total supports = %d.\n", nTotalSupps );
 }
 
 
@@ -908,7 +963,7 @@ int Abc_NtkLevel_rec( Abc_Obj_t * pNode )
     // skip the PI
     if ( Abc_ObjIsCi(pNode) )
         return pNode->Level;
-    assert( Abc_ObjIsNode( pNode ) );
+    assert( Abc_ObjIsNode( pNode ) || pNode->Type == ABC_OBJ_CONST1);
     // if this node is already visited, return
     if ( Abc_NodeIsTravIdCurrent( pNode ) )
         return pNode->Level;
@@ -946,7 +1001,7 @@ int Abc_NtkLevelReverse_rec( Abc_Obj_t * pNode )
     // skip the PI
     if ( Abc_ObjIsCo(pNode) )
         return pNode->Level;
-    assert( Abc_ObjIsNode( pNode ) );
+    assert( Abc_ObjIsNode( pNode ) || pNode->Type == ABC_OBJ_CONST1);
     // if this node is already visited, return
     if ( Abc_NodeIsTravIdCurrent( pNode ) )
         return pNode->Level;
@@ -963,6 +1018,32 @@ int Abc_NtkLevelReverse_rec( Abc_Obj_t * pNode )
     if ( Abc_ObjFaninNum(pNode) > 0 )
         pNode->Level++;
     return pNode->Level;
+}
+
+/**Function*************************************************************
+
+  Synopsis    [Computes the number of logic levels not counting PIs/POs.]
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+Vec_Vec_t * Abc_NtkLevelize( Abc_Ntk_t * pNtk )
+{
+    Abc_Obj_t * pObj;
+    Vec_Vec_t * vLevels;
+    int nLevels, i;
+    nLevels = Abc_NtkLevel( pNtk );
+    vLevels = Vec_VecStart( nLevels + 1 );
+    Abc_NtkForEachNode( pNtk, pObj, i )
+    {
+        assert( (int)pObj->Level <= nLevels );
+        Vec_VecPush( vLevels, pObj->Level, pObj );
+    }
+    return vLevels;
 }
 
 /**Function*************************************************************
@@ -1025,13 +1106,13 @@ int Abc_NtkLevelReverse( Abc_Ntk_t * pNtk )
     return LevelsMax;
 }
 
-
+ 
 /**Function*************************************************************
 
   Synopsis    [Recursively detects combinational loops.]
 
   Description []
-               
+                
   SideEffects []
 
   SeeAlso     []
@@ -1059,7 +1140,7 @@ bool Abc_NtkIsAcyclic_rec( Abc_Obj_t * pNode )
     Abc_NodeSetTravIdCurrent( pNode );
     // visit the transitive fanin
     Abc_ObjForEachFanin( pNode, pFanin, i )
-    {
+    { 
         pFanin = Abc_ObjFanin0Ntk(pFanin);
         // make sure there is no mixing of networks
         assert( pFanin->pNtk == pNode->pNtk );
@@ -1067,7 +1148,7 @@ bool Abc_NtkIsAcyclic_rec( Abc_Obj_t * pNode )
         if ( Abc_NodeIsTravIdPrevious(pFanin) ) 
             continue;
         // traverse the fanin's cone searching for the loop
-        if ( fAcyclic = Abc_NtkIsAcyclic_rec(pFanin) )
+        if ( (fAcyclic = Abc_NtkIsAcyclic_rec(pFanin)) )
             continue;
         // return as soon as the loop is detected
         fprintf( stdout, " %s ->", Abc_ObjName(pFanin) );
@@ -1082,7 +1163,7 @@ bool Abc_NtkIsAcyclic_rec( Abc_Obj_t * pNode )
             if ( Abc_NodeIsTravIdPrevious(pFanin) ) 
                 continue;
             // traverse the fanin's cone searching for the loop
-            if ( fAcyclic = Abc_NtkIsAcyclic_rec(pFanin) )
+            if ( (fAcyclic = Abc_NtkIsAcyclic_rec(pFanin)) )
                 continue;
             // return as soon as the loop is detected
             fprintf( stdout, " %s", Abc_ObjName(pFanin) );
@@ -1131,7 +1212,7 @@ bool Abc_NtkIsAcyclic( Abc_Ntk_t * pNtk )
         if ( Abc_NodeIsTravIdPrevious(pNode) )
             continue;
         // traverse the output logic cone
-        if ( fAcyclic = Abc_NtkIsAcyclic_rec(pNode) )
+        if ( (fAcyclic = Abc_NtkIsAcyclic_rec(pNode)) )
             continue;
         // stop as soon as the first loop is detected
         fprintf( stdout, " CO \"%s\"\n", Abc_ObjName(Abc_ObjFanout0(pNode)) );
@@ -1158,7 +1239,7 @@ int Abc_NodeSetChoiceLevel_rec( Abc_Obj_t * pNode, int fMaximum )
     int Level1, Level2, Level, LevelE;
     // skip the visited node
     if ( Abc_NodeIsTravIdCurrent( pNode ) )
-        return (int)pNode->pCopy;
+        return (int)(ABC_PTRINT_T)pNode->pCopy;
     Abc_NodeSetTravIdCurrent( pNode );
     // compute levels of the children nodes
     Level1 = Abc_NodeSetChoiceLevel_rec( Abc_ObjFanin0(pNode), fMaximum );
@@ -1173,9 +1254,9 @@ int Abc_NodeSetChoiceLevel_rec( Abc_Obj_t * pNode, int fMaximum )
             Level = ABC_MIN( Level, LevelE );
         // set the level of all equivalent nodes to be the same minimum
         for ( pTemp = pNode->pData; pTemp; pTemp = pTemp->pData )
-            pTemp->pCopy = (void *)Level;
+            pTemp->pCopy = (void *)(ABC_PTRINT_T)Level;
     }
-    pNode->pCopy = (void *)Level;
+    pNode->pCopy = (void *)(ABC_PTRINT_T)Level;
     return Level;
 }
 
@@ -1244,7 +1325,7 @@ Vec_Ptr_t * Abc_AigGetLevelizedOrder( Abc_Ntk_t * pNtk, int fCollectCis )
     vLevels = Vec_PtrStart( LevelMax + 1 );
     Abc_NtkForEachNode( pNtk, pNode, i )
     {
-        ppHead = ((Abc_Obj_t **)vLevels->pArray) + (int)pNode->pCopy;
+        ppHead = ((Abc_Obj_t **)vLevels->pArray) + (int)(ABC_PTRINT_T)pNode->pCopy;
         pNode->pCopy = *ppHead;
         *ppHead = pNode;
     }
@@ -1255,6 +1336,51 @@ Vec_Ptr_t * Abc_AigGetLevelizedOrder( Abc_Ntk_t * pNtk, int fCollectCis )
             Vec_PtrPush( vNodes, pNode );
     Vec_PtrFree( vLevels );
     return vNodes;
+}
+
+/**Function*************************************************************
+
+  Synopsis    [Count the number of nodes in the subgraph.]
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+int Abc_ObjSugraphSize( Abc_Obj_t * pObj )
+{
+    if ( Abc_ObjIsCi(pObj) )
+        return 0;
+    if ( Abc_ObjFanoutNum(pObj) > 1 )
+        return 0;
+    return 1 + Abc_ObjSugraphSize(Abc_ObjFanin0(pObj)) + 
+        Abc_ObjSugraphSize(Abc_ObjFanin1(pObj));
+}
+
+/**Function*************************************************************
+
+  Synopsis    [Prints subgraphs.]
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+int Abc_NtkPrintSubraphSizes( Abc_Ntk_t * pNtk )
+{
+    Abc_Obj_t * pObj;
+    int i;
+    assert( Abc_NtkIsStrash(pNtk) );
+    Abc_NtkForEachNode( pNtk, pObj, i )
+        if ( Abc_ObjFanoutNum(pObj) > 1 && !Abc_NodeIsExorType(pObj) )
+            printf( "%d(%d) ", 1 + Abc_ObjSugraphSize(Abc_ObjFanin0(pObj)) + 
+                Abc_ObjSugraphSize(Abc_ObjFanin1(pObj)), Abc_ObjFanoutNum(pObj) );
+    printf( "\n" );
+    return 1;
 }
 
 ////////////////////////////////////////////////////////////////////////

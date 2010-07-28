@@ -38,7 +38,7 @@
     SAT solver run may return a counter-ex that  distinguishes the given 
     representative node from the constant-1 node but this counter-ex
     does not distinguish the nodes in the non-costant class... This is why 
-    there is no check of refinment after a counter-ex in the sequential case.
+    there is no check of refinement after a counter-ex in the sequential case.
 */
 
 ////////////////////////////////////////////////////////////////////////
@@ -58,27 +58,33 @@
 ***********************************************************************/
 int Fra_FraigMiterStatus( Aig_Man_t * p )
 {
-    Aig_Obj_t * pObj, * pObjNew;
+    Aig_Obj_t * pObj, * pChild;
     int i, CountConst0 = 0, CountNonConst0 = 0, CountUndecided = 0;
     if ( p->pData )
         return 0;
     Aig_ManForEachPoSeq( p, pObj, i )
     {
-        pObjNew = Aig_ObjChild0(pObj);
+        pChild = Aig_ObjChild0(pObj);
         // check if the output is constant 0
-        if ( pObjNew == Aig_ManConst0(p) )
+        if ( pChild == Aig_ManConst0(p) )
         {
             CountConst0++;
             continue;
         }
         // check if the output is constant 1
-        if ( pObjNew == Aig_ManConst1(p) )
+        if ( pChild == Aig_ManConst1(p) )
         {
             CountNonConst0++;
             continue;
         }
-        // check if the output can be constant 0
-        if ( Aig_Regular(pObjNew)->fPhase != (unsigned)Aig_IsComplement(pObjNew) )
+        // check if the output is a primary input
+        if ( p->nRegs == 0 && Aig_ObjIsPi(Aig_Regular(pChild)) )
+        {
+            CountNonConst0++;
+            continue;
+        }
+        // check if the output can be not constant 0
+        if ( Aig_Regular(pChild)->fPhase != (unsigned)Aig_IsComplement(pChild) )
         {
             CountNonConst0++;
             continue;
@@ -104,6 +110,37 @@ int Fra_FraigMiterStatus( Aig_Man_t * p )
 
 /**Function*************************************************************
 
+  Synopsis    [Reports the status of the miter.]
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+int Fra_FraigMiterAssertedOutput( Aig_Man_t * p )
+{
+    Aig_Obj_t * pObj, * pChild;
+    int i;
+    Aig_ManForEachPoSeq( p, pObj, i )
+    {
+        pChild = Aig_ObjChild0(pObj);
+        // check if the output is constant 0
+        if ( pChild == Aig_ManConst0(p) )
+            continue;
+        // check if the output is constant 1
+        if ( pChild == Aig_ManConst1(p) )
+            return i;
+        // check if the output can be not constant 0
+        if ( Aig_Regular(pChild)->fPhase != (unsigned)Aig_IsComplement(pChild) )
+            return i;
+    }
+    return -1;
+}
+
+/**Function*************************************************************
+
   Synopsis    [Write speculative miter for one node.]
 
   Description []
@@ -124,7 +161,7 @@ static inline void Fra_FraigNodeSpeculate( Fra_Man_t * p, Aig_Obj_t * pObj, Aig_
     pTemp = Aig_ManExtractMiter( p->pManFraig, pObjFraig, pObjReprFraig );
     // dump the logic into a file
     sprintf( FileName, "aig\\%03d.blif", ++Counter );
-    Aig_ManDumpBlif( pTemp, FileName );
+    Aig_ManDumpBlif( pTemp, FileName, NULL, NULL );
     printf( "Speculation cone with %d nodes was written into file \"%s\".\n", Aig_ManNodeNum(pTemp), FileName );
     // clean up
     Aig_ManStop( pTemp );
@@ -249,6 +286,8 @@ static inline void Fra_FraigNode( Fra_Man_t * p, Aig_Obj_t * pObj )
 //        Fra_FraigVerifyCounterEx( p, p->vCex );
     // simulate the counter-example and return the Fraig node
     Fra_SmlResimulate( p );
+    if ( p->pManFraig->pData )
+        return;
     if ( !p->pPars->nFramesK && Fra_ClassObjRepr(pObj) == pObjRepr )
         printf( "Fra_FraigNode(): Error in class refinement!\n" );
     assert( p->pPars->nFramesK || Fra_ClassObjRepr(pObj) != pObjRepr );
@@ -267,9 +306,10 @@ static inline void Fra_FraigNode( Fra_Man_t * p, Aig_Obj_t * pObj )
 ***********************************************************************/
 void Fra_FraigSweep( Fra_Man_t * p )
 {
-    Bar_Progress_t * pProgress;
+//    Bar_Progress_t * pProgress = NULL;
     Aig_Obj_t * pObj, * pObjNew;
-    int i, k = 0, Pos = 0;
+    int i, Pos = 0;
+    int nBTracksOld;
     // fraig latch outputs
     Aig_ManForEachLoSeq( p->pManAig, pObj, i )
     {
@@ -280,10 +320,13 @@ void Fra_FraigSweep( Fra_Man_t * p )
     if ( p->pPars->fLatchCorr )
         return;
     // fraig internal nodes
-    pProgress = Bar_ProgressStart( stdout, Aig_ManObjNumMax(p->pManAig) );
+//    if ( !p->pPars->fDontShowBar )
+//        pProgress = Bar_ProgressStart( stdout, Aig_ManObjNumMax(p->pManAig) );
+    nBTracksOld = p->pPars->nBTLimitNode;
     Aig_ManForEachNode( p->pManAig, pObj, i )
     {
-        Bar_ProgressUpdate( pProgress, i, NULL );
+//        if ( pProgress )
+//            Bar_ProgressUpdate( pProgress, i, NULL );
         // derive and remember the new fraig node
         pObjNew = Aig_And( p->pManFraig, Fra_ObjChild0Fra(pObj,p->pPars->nFramesK), Fra_ObjChild1Fra(pObj,p->pPars->nFramesK) );
         Fra_ObjSetFraig( pObj, p->pPars->nFramesK, pObjNew );
@@ -291,12 +334,20 @@ void Fra_FraigSweep( Fra_Man_t * p )
         // quit if simulation detected a counter-example for a PO
         if ( p->pManFraig->pData )
             continue;
+//        if ( Aig_SupportSize(p->pManAig,pObj) > 16 )
+//            continue;
         // perform fraiging
+        if ( p->pPars->nLevelMax && (int)pObj->Level > p->pPars->nLevelMax )
+            p->pPars->nBTLimitNode = 5;
         Fra_FraigNode( p, pObj );
+        if ( p->pPars->nLevelMax && (int)pObj->Level > p->pPars->nLevelMax )
+            p->pPars->nBTLimitNode = nBTracksOld;
+        // check implications
         if ( p->pPars->fUseImps )
             Pos = Fra_ImpCheckForNode( p, p->pCla->vImps, pObj, Pos );
     }
-    Bar_ProgressStop( pProgress );
+//    if ( pProgress )
+//        Bar_ProgressStop( pProgress );
     // try to prove the outputs of the miter
     p->nNodesMiter = Aig_ManNodeNum(p->pManFraig);
 //    Fra_MiterStatus( p->pManFraig );
@@ -324,9 +375,8 @@ Aig_Man_t * Fra_FraigPerform( Aig_Man_t * pManAig, Fra_Par_t * pPars )
     Aig_Man_t * pManAigNew;
     int clk;
     if ( Aig_ManNodeNum(pManAig) == 0 )
-        return Aig_ManDup(pManAig, 1);
+        return Aig_ManDupOrdered(pManAig);
 clk = clock();
-    assert( Aig_ManLatchNum(pManAig) == 0 );
     p = Fra_ManStart( pManAig, pPars );
     p->pManFraig = Fra_ManPrepareComb( p );
     p->pSml = Fra_SmlStart( pManAig, 0, 1, pPars->nSimWords );
@@ -338,14 +388,17 @@ clk = clock();
     p->nNodesBeg = Aig_ManNodeNum(pManAig);
     p->nRegsBeg  = Aig_ManRegNum(pManAig);
     // perform fraig sweep
+if ( p->pPars->fVerbose )
+Fra_ClassesPrint( p->pCla, 1 );
     Fra_FraigSweep( p );
     // call back the procedure to check implications
     if ( pManAig->pImpFunc )
         pManAig->pImpFunc( p, pManAig->pImpData );
+    // no need to filter one-hot clauses because they satisfy base case by construction
     // finalize the fraiged manager
     Fra_ManFinalizeComb( p );
     if ( p->pPars->fChoicing )
-    {
+    { 
 int clk2 = clock();
         Fra_ClassesCopyReprs( p->pCla, p->vTimeouts );
         pManAigNew = Aig_ManDupRepr( p->pManAig, 1 );
@@ -358,6 +411,7 @@ p->timeTrav += clock() - clk2;
     }
     else
     {
+        Fra_ClassesCopyReprs( p->pCla, p->vTimeouts );
         Aig_ManCleanup( p->pManFraig );
         pManAigNew = p->pManFraig;
         p->pManFraig = NULL;
@@ -382,7 +436,7 @@ p->timeTotal = clock() - clk;
   SeeAlso     []
 
 ***********************************************************************/
-Aig_Man_t * Fra_FraigChoice( Aig_Man_t * pManAig, int nConfMax )
+Aig_Man_t * Fra_FraigChoice( Aig_Man_t * pManAig, int nConfMax, int nLevelMax )
 {
     Fra_Par_t Pars, * pPars = &Pars; 
     Fra_ParamsDefault( pPars );
@@ -392,6 +446,8 @@ Aig_Man_t * Fra_FraigChoice( Aig_Man_t * pManAig, int nConfMax )
     pPars->fSpeculate   = 0;
     pPars->fProve       = 0;
     pPars->fVerbose     = 0;
+    pPars->fDontShowBar = 1;
+    pPars->nLevelMax    = nLevelMax;
     return Fra_FraigPerform( pManAig, pPars );
 }
  
@@ -406,7 +462,7 @@ Aig_Man_t * Fra_FraigChoice( Aig_Man_t * pManAig, int nConfMax )
   SeeAlso     []
 
 ***********************************************************************/
-Aig_Man_t * Fra_FraigEquivence( Aig_Man_t * pManAig, int nConfMax )
+Aig_Man_t * Fra_FraigEquivence( Aig_Man_t * pManAig, int nConfMax, int fProve )
 {
     Aig_Man_t * pFraig;
     Fra_Par_t Pars, * pPars = &Pars; 
@@ -415,8 +471,9 @@ Aig_Man_t * Fra_FraigEquivence( Aig_Man_t * pManAig, int nConfMax )
     pPars->fChoicing    = 0;
     pPars->fDoSparse    = 1;
     pPars->fSpeculate   = 0;
-    pPars->fProve       = 0;
+    pPars->fProve       = fProve;
     pPars->fVerbose     = 0;
+    pPars->fDontShowBar = 1;
     pFraig = Fra_FraigPerform( pManAig, pPars );
     return pFraig;
 } 

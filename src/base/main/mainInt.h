@@ -14,13 +14,13 @@
 
   Date        [Ver. 1.0. Started - June 20, 2005.]
 
-  Revision    [$Id: mainInt.h,v 1.00 2005/06/20 00:00:00 alanmi Exp $]
+  Revision    [$Id: mainInt.h,v 1.1 2008/05/14 22:13:13 wudenni Exp $]
 
 ***********************************************************************/
 
 #ifndef __MAIN_INT_H__
 #define __MAIN_INT_H__
-
+ 
 ////////////////////////////////////////////////////////////////////////
 ///                          INCLUDES                                ///
 ////////////////////////////////////////////////////////////////////////
@@ -60,8 +60,8 @@ struct Abc_Frame_t_
     FILE *          Err;
     FILE *          Hst;
     // used for runtime measurement
-    int             TimeCommand; // the runtime of the last command
-    int             TimeTotal;   // the total runtime of all commands
+    double          TimeCommand; // the runtime of the last command
+    double          TimeTotal;   // the total runtime of all commands
     // temporary storage for structural choices
     Vec_Ptr_t *     vStore;      // networks to be used by choice
     // decomposition package
@@ -70,8 +70,36 @@ struct Abc_Frame_t_
     // libraries for mapping
     void *          pLibLut;     // the current LUT library
     void *          pLibGen;     // the current genlib
+    void *          pLibGen2;    // the current genlib
     void *          pLibSuper;   // the current supergate library
     void *          pLibVer;     // the current Verilog library
+
+    // new code
+    void *          pAbc8Ntl;    // the current design
+    void *          pAbc8Nwk;    // the current mapped network
+    void *          pAbc8Aig;    // the current AIG
+    void *          pAbc8Lib;    // the current LUT library
+
+    void *          pAbc85Ntl;   // the current design
+    void *          pAbc85Ntl2;  // the backup design
+    void *          pAbc85Best;  // the best design so far
+    void *          pAbc85Delay; // the best delay so far
+    void *          pAbc85Lib;   // the current LUT library
+
+    void *          pGia;
+    void *          pGia2;
+    Abc_Cex_t *     pCex; 
+
+    void *          pSave1; 
+    void *          pSave2; 
+    void *          pSave3; 
+    void *          pSave4; 
+
+    // the addition to keep the best Ntl that can be used to restore
+	void *			pAbc8NtlBestDelay;	// the best delay, Ntl
+	void *			pAbc8NtlBestArea;	// the best area
+    int             Status;             // the status of verification problem (proved=1, disproved=0, undecided=-1)
+    int             nFrames;            // the number of time frames completed by BMC
 };
 
 ////////////////////////////////////////////////////////////////////////
@@ -88,19 +116,19 @@ struct Abc_Frame_t_
 ////////////////////////////////////////////////////////////////////////
 
 /*=== mvMain.c ===========================================================*/
-extern int             main( int argc, char * argv[] );
+extern ABC_DLL int             main( int argc, char * argv[] );
 /*=== mvInit.c ===================================================*/
-extern void            Abc_FrameInit( Abc_Frame_t * pAbc );
-extern void            Abc_FrameEnd( Abc_Frame_t * pAbc );
+extern ABC_DLL void            Abc_FrameInit( Abc_Frame_t * pAbc );
+extern ABC_DLL void            Abc_FrameEnd( Abc_Frame_t * pAbc );
 /*=== mvFrame.c =====================================================*/
-extern Abc_Frame_t *   Abc_FrameAllocate();
-extern void            Abc_FrameDeallocate( Abc_Frame_t * p );
+extern ABC_DLL Abc_Frame_t *   Abc_FrameAllocate();
+extern ABC_DLL void            Abc_FrameDeallocate( Abc_Frame_t * p );
 /*=== mvUtils.c =====================================================*/
-extern char *          Abc_UtilsGetVersion( Abc_Frame_t * pAbc );
-extern char *          Abc_UtilsGetUsersInput( Abc_Frame_t * pAbc );
-extern void            Abc_UtilsPrintHello( Abc_Frame_t * pAbc );
-extern void            Abc_UtilsPrintUsage( Abc_Frame_t * pAbc, char * ProgName );
-extern void            Abc_UtilsSource( Abc_Frame_t * pAbc );
+extern ABC_DLL char *          Abc_UtilsGetVersion( Abc_Frame_t * pAbc );
+extern ABC_DLL char *          Abc_UtilsGetUsersInput( Abc_Frame_t * pAbc );
+extern ABC_DLL void            Abc_UtilsPrintHello( Abc_Frame_t * pAbc );
+extern ABC_DLL void            Abc_UtilsPrintUsage( Abc_Frame_t * pAbc, char * ProgName );
+extern ABC_DLL void            Abc_UtilsSource( Abc_Frame_t * pAbc );
 
 #endif
 

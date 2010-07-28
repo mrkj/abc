@@ -173,8 +173,8 @@ void Rtm_ObjTransferToBig( Rtm_Man_t * p, Rtm_Edg_t * pEdge )
     assert( pEdge->nLats == 10 );
     if ( p->nExtraCur + 1 > p->nExtraAlloc )
     {
-        int nExtraAllocNew = AIG_MAX( 2 * p->nExtraAlloc, 1024 );
-        p->pExtra = REALLOC( unsigned, p->pExtra, nExtraAllocNew );
+        int nExtraAllocNew = ABC_MAX( 2 * p->nExtraAlloc, 1024 );
+        p->pExtra = ABC_REALLOC( unsigned, p->pExtra, nExtraAllocNew );
         p->nExtraAlloc = nExtraAllocNew;
     }
     p->pExtra[p->nExtraCur] = pEdge->LData;
@@ -199,8 +199,8 @@ void Rtm_ObjTransferToBigger( Rtm_Man_t * p, Rtm_Edg_t * pEdge )
     nWords = (pEdge->nLats + 1) >> 4;
     if ( p->nExtraCur + nWords + 1 > p->nExtraAlloc )
     {
-        int nExtraAllocNew = AIG_MAX( 2 * p->nExtraAlloc, 1024 );
-        p->pExtra = REALLOC( unsigned, p->pExtra, nExtraAllocNew );
+        int nExtraAllocNew = ABC_MAX( 2 * p->nExtraAlloc, 1024 );
+        p->pExtra = ABC_REALLOC( unsigned, p->pExtra, nExtraAllocNew );
         p->nExtraAlloc = nExtraAllocNew;
     }
     memcpy( p->pExtra + p->nExtraCur, p->pExtra + pEdge->LData, sizeof(unsigned) * nWords );
@@ -300,7 +300,7 @@ Rtm_Man_t * Rtm_ManAlloc( Aig_Man_t * p )
 {
     Rtm_Man_t * pRtm;
     // start the manager
-    pRtm = ALLOC( Rtm_Man_t, 1 );
+    pRtm = ABC_ALLOC( Rtm_Man_t, 1 );
     memset( pRtm, 0, sizeof(Rtm_Man_t) );
     // perform initializations
     pRtm->vObjs = Vec_PtrAlloc( Aig_ManObjNum(p) );
@@ -327,8 +327,8 @@ void Rtm_ManFree( Rtm_Man_t * p )
     Vec_PtrFree( p->vPis );
     Vec_PtrFree( p->vPos );
     Aig_MmFlexStop( p->pMem, 0 );
-    FREE( p->pExtra );
-    free( p );
+    ABC_FREE( p->pExtra );
+    ABC_FREE( p );
 }
 
 /**Function*************************************************************
@@ -357,7 +357,7 @@ int Rtm_ManLatchMax( Rtm_Man_t * p )
             assert( Val == 1 || Val == 2 );
         }
 */
-        nLatchMax = AIG_MAX( nLatchMax, (int)pEdge->nLats );
+        nLatchMax = ABC_MAX( nLatchMax, (int)pEdge->nLats );
     }
     return nLatchMax;
 }
@@ -474,7 +474,7 @@ int Rtm_ObjGetDegreeFwd( Rtm_Obj_t * pObj )
     Rtm_Obj_t * pFanin;
     int i, Degree = 0;
     Rtm_ObjForEachFanin( pObj, pFanin, i )
-        Degree = AIG_MAX( Degree, (int)pFanin->Num );
+        Degree = ABC_MAX( Degree, (int)pFanin->Num );
     return Degree + 1;
 }
 
@@ -494,7 +494,7 @@ int Rtm_ObjGetDegreeBwd( Rtm_Obj_t * pObj )
     Rtm_Obj_t * pFanout;
     int i, Degree = 0;
     Rtm_ObjForEachFanout( pObj, pFanout, i )
-        Degree = AIG_MAX( Degree, (int)pFanout->Num );
+        Degree = ABC_MAX( Degree, (int)pFanout->Num );
     return Degree + 1;
 }
 
@@ -767,7 +767,7 @@ Aig_Man_t * Rtm_ManToAig( Rtm_Man_t * pRtm )
     Rtm_Edg_t * pEdge;
     int i, k, m, Val, nLatches, * pLatches;
     // count latches and mark the first latch on each edge
-    pLatches = ALLOC( int, 2 * Vec_PtrSize(pRtm->vObjs) );
+    pLatches = ABC_ALLOC( int, 2 * Vec_PtrSize(pRtm->vObjs) );
     nLatches = 0;
     Rtm_ManForEachObj( pRtm, pObjRtm, i )
     Rtm_ObjForEachFaninEdge( pObjRtm, pEdge, k )
@@ -808,8 +808,8 @@ Aig_Man_t * Rtm_ManToAig( Rtm_Man_t * pRtm )
         }
 //        assert( Aig_Regular(pObjNew)->nRefs > 0 );
     }
-    free( pLatches );
-    pNew->nRegs = nLatches;
+    ABC_FREE( pLatches );
+    Aig_ManSetRegNum( pNew, nLatches );
     // remove useless nodes
     Aig_ManCleanup( pNew );
     if ( !Aig_ManCheck( pNew ) )
@@ -852,7 +852,7 @@ clk = clock();
     if ( fVerbose )
     {
         printf( "Detected %d autonomous objects. ", nAutos );
-        PRT( "Time", clock() - clk );
+        ABC_PRT( "Time", clock() - clk );
     }
 
     // set the current retiming number
@@ -907,7 +907,7 @@ clk = clock();
                 if ( !Rtm_ObjCheckRetimeFwd( pNext ) ) // skip non-retimable
                     continue;
                 Degree = Rtm_ObjGetDegreeFwd( pNext );
-                DegreeMax = AIG_MAX( DegreeMax, Degree );
+                DegreeMax = ABC_MAX( DegreeMax, Degree );
                 if ( Degree > nStepsMax ) // skip nodes with high degree
                     continue;
                 pNext->fMark = 1;
@@ -928,7 +928,7 @@ clk = clock();
                 if ( !Rtm_ObjCheckRetimeBwd( pNext ) ) // skip non-retimable
                     continue;
                 Degree = Rtm_ObjGetDegreeBwd( pNext );
-                DegreeMax = AIG_MAX( DegreeMax, Degree );
+                DegreeMax = ABC_MAX( DegreeMax, Degree );
                 if ( Degree > nStepsMax ) // skip nodes with high degree
                     continue;
                 pNext->fMark = 1;
@@ -943,20 +943,21 @@ clk = clock();
         printf( "Performed %d %s latch moves of max depth %d and max latch count %d.\n", 
             Vec_PtrSize(vQueue), fForward? "fwd":"bwd", DegreeMax, Rtm_ManLatchMax(pRtm) );
         printf( "Memory usage = %d.  ", pRtm->nExtraCur );
-        PRT( "Time", clock() - clk );
+        ABC_PRT( "Time", clock() - clk );
     }
     Vec_PtrFree( vQueue );
 
     // get the new manager
     pNew = Rtm_ManToAig( pRtm );
     pNew->pName = Aig_UtilStrsav( p->pName );
+    pNew->pSpec = Aig_UtilStrsav( p->pSpec );
     Rtm_ManFree( pRtm );
     // group the registers
 clk = clock();
     pNew = Aig_ManReduceLaches( pNew, fVerbose );
     if ( fVerbose )
     {
-        PRT( "Register sharing time", clock() - clk );
+        ABC_PRT( "Register sharing time", clock() - clk );
     }
     return pNew;
 }

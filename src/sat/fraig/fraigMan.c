@@ -95,13 +95,13 @@ void Prove_ParamsPrint( Prove_Params_t * pParams )
     printf( "Multiplicative coeficient for mitering: %.2f\n", pParams->nMiteringLimitMulti );
     printf( "Starting number of rewriting iterations: %d\n", pParams->nRewritingLimitStart );
     printf( "Multiplicative coeficient for rewriting: %.2f\n", pParams->nRewritingLimitMulti );
-    printf( "Starting number of conflicts in fraiging: %d\n", pParams->nFraigingLimitMulti );
+    printf( "Starting number of conflicts in fraiging: %.2f\n", pParams->nFraigingLimitMulti );
     printf( "Multiplicative coeficient for fraiging: %.2f\n", pParams->nRewritingLimitMulti );
-    printf( "BDD size limit for bailing out: %.2f\n", pParams->nBddSizeLimit );
+    printf( "BDD size limit for bailing out: %d\n", pParams->nBddSizeLimit );
     printf( "BDD reordering enabled: %s\n", pParams->fBddReorder? "yes":"no" );
     printf( "Last-gasp mitering limit: %d\n", pParams->nMiteringLimitLast );
-    printf( "Total conflict limit: %d\n", pParams->nTotalBacktrackLimit );
-    printf( "Total inspection limit: %d\n", pParams->nTotalInspectLimit );
+    printf( "Total conflict limit: %lld\n", pParams->nTotalBacktrackLimit );
+    printf( "Total inspection limit: %lld\n", pParams->nTotalInspectLimit );
     printf( "Parameter dump complete.\n" );
 }
 
@@ -204,7 +204,7 @@ Fraig_Man_t * Fraig_ManCreate( Fraig_Params_t * pParams )
         pParams->nPatsRand = pParams->nPatsDyna = 128;
 
     // start the manager
-    p = ALLOC( Fraig_Man_t, 1 );
+    p = ABC_ALLOC( Fraig_Man_t, 1 );
     memset( p, 0, sizeof(Fraig_Man_t) );
 
     // set the default parameters
@@ -286,25 +286,25 @@ void Fraig_ManFree( Fraig_Man_t * p )
     if ( p->vProj )      Msat_IntVecFree( p->vProj );
     if ( p->vCones )     Fraig_NodeVecFree( p->vCones );
     if ( p->vPatsReal )  Msat_IntVecFree( p->vPatsReal );
-    if ( p->pModel )     free( p->pModel );
+    if ( p->pModel )     ABC_FREE( p->pModel );
 
     Fraig_MemFixedStop( p->mmNodes, 0 );
     Fraig_MemFixedStop( p->mmSims, 0 );
 
     if ( p->pSuppS )
     {
-        FREE( p->pSuppS[0] );
-        FREE( p->pSuppS );
+        ABC_FREE( p->pSuppS[0] );
+        ABC_FREE( p->pSuppS );
     }
     if ( p->pSuppF )
     {
-        FREE( p->pSuppF[0] );
-        FREE( p->pSuppF );
+        ABC_FREE( p->pSuppF[0] );
+        ABC_FREE( p->pSuppF );
     }
 
-    FREE( p->ppOutputNames );
-    FREE( p->ppInputNames );
-    FREE( p );
+    ABC_FREE( p->ppOutputNames );
+    ABC_FREE( p->ppInputNames );
+    ABC_FREE( p );
 }
 
 /**Function*************************************************************
@@ -347,7 +347,6 @@ void Fraig_ManCreateSolver( Fraig_Man_t * p )
 void Fraig_ManPrintStats( Fraig_Man_t * p )
 {
     double nMemory;
-    int clk = clock();
     nMemory = ((double)(p->vInputs->nSize + p->vNodes->nSize) * 
         (sizeof(Fraig_Node_t) + sizeof(unsigned)*(p->nWordsRand + p->nWordsDyna) /*+ p->nSuppWords*sizeof(unsigned)*/))/(1<<20);
     printf( "Words: Random = %d. Dynamic = %d. Used = %d. Memory = %0.2f Mb.\n", 
@@ -367,8 +366,9 @@ void Fraig_ManPrintStats( Fraig_Man_t * p )
     if ( p->time2 > 0 ) { Fraig_PrintTime( "time2", p->time2 ); }
     if ( p->time3 > 0 ) { Fraig_PrintTime( "time3", p->time3 ); }
     if ( p->time4 > 0 ) { Fraig_PrintTime( "time4", p->time4 ); }
-//    PRT( "Selection ", timeSelect );
-//    PRT( "Assignment", timeAssign );
+//    ABC_PRT( "Selection ", timeSelect );
+//    ABC_PRT( "Assignment", timeAssign );
+    fflush( stdout );
 }
 
 /**Function*************************************************************
@@ -389,7 +389,7 @@ Fraig_NodeVec_t * Fraig_UtilInfoAlloc( int nSize, int nWords, bool fClean )
     int i;
     assert( nSize > 0 && nWords > 0 );
     vInfo = Fraig_NodeVecAlloc( nSize );
-    pUnsigned = ALLOC( unsigned, nSize * nWords );
+    pUnsigned = ABC_ALLOC( unsigned, nSize * nWords );
     vInfo->pArray[0] = (Fraig_Node_t *)pUnsigned;
     if ( fClean )
         memset( pUnsigned, 0, sizeof(unsigned) * nSize * nWords );

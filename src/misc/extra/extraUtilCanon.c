@@ -299,7 +299,7 @@ void Map_Var3Print()
     {
         if ( i % 8 == 0 )
             printf( "\n" );
-        Extra_PrintHex( stdout, uCanons[i], 5 ); 
+        Extra_PrintHex( stdout, uCanons + i, 5 ); 
         printf( ", " );
     }
     printf( "\n" );
@@ -344,10 +344,6 @@ void Map_Var3Test()
     {
         uTruth = i;
         Count =  Extra_TruthCanonFastN( 5, 3, &uTruth, &ptRes, &pfRes );
-        if ( *ptRes != uCanons[i] || Count != pCounters[i] )
-        {
-            int k = 0;
-        }
     }
 }
 
@@ -369,7 +365,7 @@ void Map_Var4Test()
     unsigned short * uCanons;
     char ** uPhases;
     char * pCounters;
-    int i, k;
+    int i;
     unsigned * ptRes;
     char * pfRes;
     unsigned uTruth;
@@ -381,15 +377,6 @@ void Map_Var4Test()
     {
         uTruth = i;
         Count =  Extra_TruthCanonFastN( 5, 4, &uTruth, &ptRes, &pfRes );
-        if ( (*ptRes & 0xFFFF) != uCanons[i] || Count != pCounters[i] )
-        {
-            int k = 0;
-        }
-        for ( k = 0; k < Count; k++ )
-            if ( uPhases[i][k] != pfRes[k] )
-            {
-                int v = 0;
-            }
     }
 }
 

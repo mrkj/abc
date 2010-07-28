@@ -57,7 +57,7 @@ Vec_Ptr_t * Sim_UtilInfoAlloc( int nSize, int nWords, bool fClean )
     int i;
     assert( nSize > 0 && nWords > 0 );
     vInfo = Vec_PtrAlloc( nSize );
-    vInfo->pArray[0] = ALLOC( unsigned, nSize * nWords );
+    vInfo->pArray[0] = ABC_ALLOC( unsigned, nSize * nWords );
     if ( fClean )
         memset( vInfo->pArray[0], 0, sizeof(unsigned) * nSize * nWords );
     for ( i = 1; i < nSize; i++ )
@@ -79,7 +79,7 @@ Vec_Ptr_t * Sim_UtilInfoAlloc( int nSize, int nWords, bool fClean )
 ***********************************************************************/
 void Sim_UtilInfoFree( Vec_Ptr_t * p )
 {
-    free( p->pArray[0] );
+    ABC_FREE( p->pArray[0] );
     Vec_PtrFree( p );
 }
 
@@ -118,7 +118,7 @@ void Sim_UtilInfoDetectDiffs( unsigned * pInfo1, unsigned * pInfo2, int nWords, 
     unsigned uMask;
     vDiffs->nSize = 0;
     for ( w = 0; w < nWords; w++ )
-        if ( uMask = (pInfo2[w] ^ pInfo1[w]) )
+        if ( (uMask = (pInfo2[w] ^ pInfo1[w])) )
             for ( b = 0; b < 32; b++ )
                 if ( uMask & (1 << b) )
                     Vec_IntPush( vDiffs, 32*w + b );
@@ -141,7 +141,7 @@ void Sim_UtilInfoDetectNews( unsigned * pInfo1, unsigned * pInfo2, int nWords, V
     unsigned uMask;
     vDiffs->nSize = 0;
     for ( w = 0; w < nWords; w++ )
-        if ( uMask = (pInfo2[w] & ~pInfo1[w]) )
+        if ( (uMask = (pInfo2[w] & ~pInfo1[w])) )
             for ( b = 0; b < 32; b++ )
                 if ( uMask & (1 << b) )
                     Vec_IntPush( vDiffs, 32*w + b );

@@ -124,7 +124,14 @@ int Map_LibraryReadFileTree( Map_SuperLib_t * pLib, FILE * pFile, char *pFileNam
     
     // get the genlib file name (base)
     pLibName = strtok( pTemp, " \t\r\n" );
-    
+#ifdef __linux__
+	if( strchr( pLibName, '/' ) != NULL )
+		pLibName = strrchr( pLibName, '/' ) + 1;
+#else
+	if( strchr( pLibName, '\\' ) != NULL )
+		pLibName = strrchr( pLibName, '\\' ) + 1;
+#endif
+
     if ( strcmp( pLibName, "GATE" ) == 0 )
     {
         printf( "The input file \"%s\" looks like a GENLIB file and not a supergate library file.\n", pLib->pName );
@@ -145,7 +152,7 @@ int Map_LibraryReadFileTree( Map_SuperLib_t * pLib, FILE * pFile, char *pFileNam
         if ( pStr == pLibFile )
             strcpy( pLibFile, pLibName );
         else
-            sprintf( pStr, "/%s", pLibName );
+            sprintf( pStr, "\\%s", pLibName );
     }
 #endif
     
@@ -191,7 +198,7 @@ int Map_LibraryReadFileTree( Map_SuperLib_t * pLib, FILE * pFile, char *pFileNam
     }
 
     // allocate room for supergate pointers
-    pLib->ppSupers = ALLOC( Map_Super_t *, pLib->nLines + 10000 );
+    pLib->ppSupers = ABC_ALLOC( Map_Super_t *, pLib->nLines + 10000 );
 
     // create the elementary supergates
     for ( i = 0; i < pLib->nVarsMax; i++ )

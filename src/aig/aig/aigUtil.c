@@ -84,6 +84,46 @@ void Aig_ManIncrementTravId( Aig_Man_t * p )
 
 /**Function*************************************************************
 
+  Synopsis    [Returns the time stamp.]
+
+  Description [The file should be closed.]
+
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+char * Aig_TimeStamp()
+{
+    static char Buffer[100];
+	char * TimeStamp;
+	time_t ltime;
+    // get the current time
+	time( &ltime );
+	TimeStamp = asctime( localtime( &ltime ) );
+	TimeStamp[ strlen(TimeStamp) - 1 ] = 0;
+    strcpy( Buffer, TimeStamp );
+    return Buffer;
+}
+
+/**Function*************************************************************
+
+  Synopsis    [Make sure AIG has not gaps in the numeric order.]
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+int Aig_ManHasNoGaps( Aig_Man_t * p )
+{
+    return (int)(Aig_ManObjNum(p) == Aig_ManPiNum(p) + Aig_ManPoNum(p) + Aig_ManNodeNum(p) + 1);
+}
+
+/**Function*************************************************************
+
   Synopsis    [Collect the latches.]
 
   Description []
@@ -98,7 +138,7 @@ int Aig_ManLevels( Aig_Man_t * p )
     Aig_Obj_t * pObj;
     int i, LevelMax = 0;
     Aig_ManForEachPo( p, pObj, i )
-        LevelMax = AIG_MAX( LevelMax, (int)Aig_ObjFanin0(pObj)->Level );
+        LevelMax = ABC_MAX( LevelMax, (int)Aig_ObjFanin0(pObj)->Level );
     return LevelMax;
 }
 
@@ -130,7 +170,7 @@ void Aig_ManResetRefs( Aig_Man_t * p )
 
 /**Function*************************************************************
 
-  Synopsis    [Cleans MarkB.]
+  Synopsis    [Cleans fMarkA.]
 
   Description []
                
@@ -149,7 +189,7 @@ void Aig_ManCleanMarkA( Aig_Man_t * p )
 
 /**Function*************************************************************
 
-  Synopsis    [Cleans MarkB.]
+  Synopsis    [Cleans fMarkB.]
 
   Description []
                
@@ -164,6 +204,25 @@ void Aig_ManCleanMarkB( Aig_Man_t * p )
     int i;
     Aig_ManForEachObj( p, pObj, i )
         pObj->fMarkB = 0;
+}
+
+/**Function*************************************************************
+
+  Synopsis    [Cleans fMarkB.]
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+void Aig_ManCleanMarkAB( Aig_Man_t * p )
+{
+    Aig_Obj_t * pObj;
+    int i;
+    Aig_ManForEachObj( p, pObj, i )
+        pObj->fMarkA = pObj->fMarkB = 0;
 }
 
 /**Function*************************************************************
@@ -183,6 +242,25 @@ void Aig_ManCleanData( Aig_Man_t * p )
     int i;
     Aig_ManForEachObj( p, pObj, i )
         pObj->pData = NULL;
+}
+
+/**Function*************************************************************
+
+  Synopsis    [Cleans the data pointers for the nodes.]
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+void Aig_ManCleanNext( Aig_Man_t * p )
+{
+    Aig_Obj_t * pObj;
+    int i;
+    Aig_ManForEachObj( p, pObj, i )
+        pObj->pNext = NULL;
 }
 
 /**Function*************************************************************
@@ -438,6 +516,27 @@ Aig_Obj_t * Aig_ObjReal_rec( Aig_Obj_t * pObj )
     return Aig_NotCond( pObjNew, Aig_IsComplement(pObj) );
 }
 
+/**Function*************************************************************
+
+  Synopsis    [Procedure used for sorting the nodes in increasing order of IDs.]
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+int Aig_ObjCompareIdIncrease( Aig_Obj_t ** pp1, Aig_Obj_t ** pp2 )
+{
+    int Diff = Aig_ObjId(*pp1) - Aig_ObjId(*pp2);
+    if ( Diff < 0 )
+        return -1;
+    if ( Diff > 0 ) 
+        return 1;
+    return 0; 
+}
+
 
 /**Function*************************************************************
 
@@ -593,6 +692,12 @@ void Aig_ObjPrintVerbose( Aig_Obj_t * pObj, int fHaig )
         printf( "constant 1" );
     else if ( Aig_ObjIsPi(pObj) )
         printf( "PI" );
+    else if ( Aig_ObjIsPo(pObj) )
+    {
+        printf( "PO" );
+        printf( "%p%s", 
+            Aig_ObjFanin0(pObj), (Aig_ObjFaninC0(pObj)? "\'" : " ") );
+    }
     else
         printf( "AND( %p%s, %p%s )", 
             Aig_ObjFanin0(pObj), (Aig_ObjFaninC0(pObj)? "\'" : " "), 
@@ -620,7 +725,7 @@ void Aig_ManPrintVerbose( Aig_Man_t * p, int fHaig )
     Aig_ManForEachPi( p, pObj, i )
         printf( " %p", pObj );
     printf( "\n" );
-    vNodes = Aig_ManDfs( p );
+    vNodes = Aig_ManDfs( p, 0 );
     Vec_PtrForEachEntry( vNodes, pObj, i )
         Aig_ObjPrintVerbose( pObj, fHaig ), printf( "\n" );
     printf( "\n" );
@@ -643,13 +748,13 @@ void Aig_ManDump( Aig_Man_t * p )
     char FileName[20];
     // dump the logic into a file
     sprintf( FileName, "aigbug\\%03d.blif", ++Counter );
-    Aig_ManDumpBlif( p, FileName );
+    Aig_ManDumpBlif( p, FileName, NULL, NULL );
     printf( "Intermediate AIG with %d nodes was written into file \"%s\".\n", Aig_ManNodeNum(p), FileName );
 }
 
 /**Function*************************************************************
 
-  Synopsis    [Writes the AIG into the BLIF file.]
+  Synopsis    [Writes the AIG into a BLIF file.]
 
   Description []
                
@@ -658,7 +763,7 @@ void Aig_ManDump( Aig_Man_t * p )
   SeeAlso     []
 
 ***********************************************************************/
-void Aig_ManDumpBlif( Aig_Man_t * p, char * pFileName )
+void Aig_ManDumpBlif( Aig_Man_t * p, char * pFileName, Vec_Ptr_t * vPiNames, Vec_Ptr_t * vPoNames )
 {
     FILE * pFile;
     Vec_Ptr_t * vNodes;
@@ -669,8 +774,12 @@ void Aig_ManDumpBlif( Aig_Man_t * p, char * pFileName )
         printf( "Aig_ManDumpBlif(): AIG manager does not have POs.\n" );
         return;
     }
+    // check if constant is used
+    Aig_ManForEachPo( p, pObj, i )
+        if ( Aig_ObjIsConst1(Aig_ObjFanin0(pObj)) )
+            pConst1 = Aig_ManConst1(p);
     // collect nodes in the DFS order
-    vNodes = Aig_ManDfs( p );
+    vNodes = Aig_ManDfs( p, 1 );
     // assign IDs to objects
     Aig_ManConst1(p)->iData = Counter++;
     Aig_ManForEachPi( p, pObj, i )
@@ -680,50 +789,79 @@ void Aig_ManDumpBlif( Aig_Man_t * p, char * pFileName )
     Vec_PtrForEachEntry( vNodes, pObj, i )
         pObj->iData = Counter++;
     nDigits = Aig_Base10Log( Counter );
-    // write the file
+    // write the file 
     pFile = fopen( pFileName, "w" );
     fprintf( pFile, "# BLIF file written by procedure Aig_ManDumpBlif()\n" );
 //    fprintf( pFile, "# http://www.eecs.berkeley.edu/~alanmi/abc/\n" );
-    fprintf( pFile, ".model test\n" );
+    fprintf( pFile, ".model %s\n", p->pName );
     // write PIs
     fprintf( pFile, ".inputs" );
     Aig_ManForEachPiSeq( p, pObj, i )
-        fprintf( pFile, " n%0*d", nDigits, pObj->iData );
+        if ( vPiNames )
+            fprintf( pFile, " %s", (char*)Vec_PtrEntry(vPiNames, i) );
+        else
+            fprintf( pFile, " n%0*d", nDigits, pObj->iData );
     fprintf( pFile, "\n" );
     // write POs
     fprintf( pFile, ".outputs" );
     Aig_ManForEachPoSeq( p, pObj, i )
-        fprintf( pFile, " n%0*d", nDigits, pObj->iData );
+        if ( vPoNames )
+            fprintf( pFile, " %s", (char*)Vec_PtrEntry(vPoNames, i) );
+        else
+            fprintf( pFile, " n%0*d", nDigits, pObj->iData );
     fprintf( pFile, "\n" );
     // write latches
     if ( Aig_ManRegNum(p) )
     {
-    fprintf( pFile, "\n" );
-    Aig_ManForEachLiLoSeq( p, pObjLi, pObjLo, i )
-        fprintf( pFile, ".latch n%0*d n%0*d 0\n", nDigits, pObjLi->iData, nDigits, pObjLo->iData );
-    fprintf( pFile, "\n" );
-    }
+        fprintf( pFile, "\n" );
+        Aig_ManForEachLiLoSeq( p, pObjLi, pObjLo, i )
+        {
+            fprintf( pFile, ".latch" );
+            if ( vPoNames )
+                fprintf( pFile, " %s", (char*)Vec_PtrEntry(vPoNames, Aig_ManPoNum(p)-Aig_ManRegNum(p)+i) );
+            else
+                fprintf( pFile, " n%0*d", nDigits, pObjLi->iData );
+            if ( vPiNames )
+                fprintf( pFile, " %s", (char*)Vec_PtrEntry(vPiNames, Aig_ManPiNum(p)-Aig_ManRegNum(p)+i) );
+            else
+                fprintf( pFile, " n%0*d", nDigits, pObjLo->iData );
+            fprintf( pFile, " 0\n" );
+        }
+        fprintf( pFile, "\n" );
+    } 
     // write nodes
+    if ( pConst1 )
+        fprintf( pFile, ".names n%0*d\n 1\n", nDigits, pConst1->iData );
+    Aig_ManSetPioNumbers( p );
     Vec_PtrForEachEntry( vNodes, pObj, i )
     {
-        fprintf( pFile, ".names n%0*d n%0*d n%0*d\n", 
-            nDigits, Aig_ObjFanin0(pObj)->iData, 
-            nDigits, Aig_ObjFanin1(pObj)->iData, 
-            nDigits, pObj->iData );
+        fprintf( pFile, ".names" );
+        if ( vPiNames && Aig_ObjIsPi(Aig_ObjFanin0(pObj)) )
+            fprintf( pFile, " %s", (char*)Vec_PtrEntry(vPiNames, Aig_ObjPioNum(Aig_ObjFanin0(pObj))) );
+        else
+            fprintf( pFile, " n%0*d", nDigits, Aig_ObjFanin0(pObj)->iData );
+        if ( vPiNames && Aig_ObjIsPi(Aig_ObjFanin1(pObj)) )
+            fprintf( pFile, " %s", (char*)Vec_PtrEntry(vPiNames, Aig_ObjPioNum(Aig_ObjFanin1(pObj))) );
+        else
+            fprintf( pFile, " n%0*d", nDigits, Aig_ObjFanin1(pObj)->iData );
+        fprintf( pFile, " n%0*d\n", nDigits, pObj->iData );
         fprintf( pFile, "%d%d 1\n", !Aig_ObjFaninC0(pObj), !Aig_ObjFaninC1(pObj) );
     }
     // write POs
     Aig_ManForEachPo( p, pObj, i )
     {
-        fprintf( pFile, ".names n%0*d n%0*d\n", 
-            nDigits, Aig_ObjFanin0(pObj)->iData, 
-            nDigits, pObj->iData );
+        fprintf( pFile, ".names" );
+        if ( vPiNames && Aig_ObjIsPi(Aig_ObjFanin0(pObj)) )
+            fprintf( pFile, " %s", (char*)Vec_PtrEntry(vPiNames, Aig_ObjPioNum(Aig_ObjFanin0(pObj))) );
+        else
+            fprintf( pFile, " n%0*d", nDigits, Aig_ObjFanin0(pObj)->iData );
+        if ( vPoNames )
+            fprintf( pFile, " %s\n", (char*)Vec_PtrEntry(vPoNames, Aig_ObjPioNum(pObj)) );
+        else
+            fprintf( pFile, " n%0*d\n", nDigits, pObj->iData );
         fprintf( pFile, "%d 1\n", !Aig_ObjFaninC0(pObj) );
-        if ( Aig_ObjIsConst1(Aig_ObjFanin0(pObj)) )
-            pConst1 = Aig_ManConst1(p);
     }
-    if ( pConst1 )
-        fprintf( pFile, ".names n%0*d\n 1\n", nDigits, pConst1->iData );
+    Aig_ManCleanPioNumbers( p );
     fprintf( pFile, ".end\n\n" );
     fclose( pFile );
     Vec_PtrFree( vNodes );
@@ -731,7 +869,7 @@ void Aig_ManDumpBlif( Aig_Man_t * p, char * pFileName )
 
 /**Function*************************************************************
 
-  Synopsis    [Writes the AIG into the BLIF file.]
+  Synopsis    [Writes the AIG into a Verilog file.]
 
   Description []
                
@@ -751,8 +889,12 @@ void Aig_ManDumpVerilog( Aig_Man_t * p, char * pFileName )
         printf( "Aig_ManDumpBlif(): AIG manager does not have POs.\n" );
         return;
     }
+    // check if constant is used
+    Aig_ManForEachPo( p, pObj, i )
+        if ( Aig_ObjIsConst1(Aig_ObjFanin0(pObj)) )
+            pConst1 = Aig_ManConst1(p);
     // collect nodes in the DFS order
-    vNodes = Aig_ManDfs( p );
+    vNodes = Aig_ManDfs( p, 1 );
     // assign IDs to objects
     Aig_ManConst1(p)->iData = Counter++;
     Aig_ManForEachPi( p, pObj, i )
@@ -795,7 +937,11 @@ void Aig_ManDumpVerilog( Aig_Man_t * p, char * pFileName )
     // write nodes
     Vec_PtrForEachEntry( vNodes, pObj, i )
         fprintf( pFile, "wire n%0*d;\n", nDigits, pObj->iData );
+    if ( pConst1 )
+        fprintf( pFile, "wire n%0*d;\n", nDigits, pConst1->iData );
     // write nodes
+    if ( pConst1 )
+        fprintf( pFile, "assign n%0*d = 1\'b1;\n", nDigits, pConst1->iData );
     Vec_PtrForEachEntry( vNodes, pObj, i )
     {
         fprintf( pFile, "assign n%0*d = %sn%0*d & %sn%0*d;\n", 
@@ -810,8 +956,6 @@ void Aig_ManDumpVerilog( Aig_Man_t * p, char * pFileName )
         fprintf( pFile, "assign n%0*d = %sn%0*d;\n", 
             nDigits, pObj->iData,
             !Aig_ObjFaninC0(pObj) ? " " : "~", nDigits, Aig_ObjFanin0(pObj)->iData );
-        if ( Aig_ObjIsConst1(Aig_ObjFanin0(pObj)) )
-            pConst1 = Aig_ManConst1(p);
     }
     if ( Aig_ManRegNum(p) )
     {
@@ -820,12 +964,8 @@ void Aig_ManDumpVerilog( Aig_Man_t * p, char * pFileName )
             fprintf( pFile, "assign n%0*d = %sn%0*d;\n", 
                 nDigits, pObjLi->iData,
                 !Aig_ObjFaninC0(pObjLi) ? " " : "~", nDigits, Aig_ObjFanin0(pObjLi)->iData );
-            if ( Aig_ObjIsConst1(Aig_ObjFanin0(pObjLi)) )
-                pConst1 = Aig_ManConst1(p);
         }
     }
-    if ( pConst1 )
-        fprintf( pFile, "assign n%0*d = 1\'b1;\n", nDigits, pConst1->iData );
 
     // write initial state
     if ( Aig_ManRegNum(p) )
@@ -843,6 +983,479 @@ void Aig_ManDumpVerilog( Aig_Man_t * p, char * pFileName )
     fclose( pFile );
     Vec_PtrFree( vNodes );
 }
+
+/**Function*************************************************************
+
+  Synopsis    [Sets the PI/PO numbers.]
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+void Aig_ManSetPioNumbers( Aig_Man_t * p )
+{
+    Aig_Obj_t * pObj;
+    int i;
+    Aig_ManForEachPi( p, pObj, i )
+        pObj->PioNum = i;
+    Aig_ManForEachPo( p, pObj, i )
+        pObj->PioNum = i;
+}
+
+/**Function*************************************************************
+
+  Synopsis    [Sets the PI/PO numbers.]
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+void Aig_ManCleanPioNumbers( Aig_Man_t * p )
+{
+    Aig_Obj_t * pObj;
+    int i;
+    Aig_ManForEachPi( p, pObj, i )
+        pObj->pNext = NULL;
+    Aig_ManForEachPo( p, pObj, i )
+        pObj->pNext = NULL;
+}
+
+/**Function*************************************************************
+
+  Synopsis    [Sets the PI/PO numbers.]
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+int Aig_ManChoiceNum( Aig_Man_t * p )
+{
+    Aig_Obj_t * pObj;
+    int i, Counter = 0;
+    Aig_ManForEachNode( p, pObj, i )
+        Counter += Aig_ObjIsChoice( p, pObj );
+    return Counter;
+}
+
+/**Function*************************************************************
+
+  Synopsis    [Prints the fanouts of the control register.]
+
+  Description [Useful only for Intel MC benchmarks.]
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+void Aig_ManPrintControlFanouts( Aig_Man_t * p )
+{
+    Aig_Obj_t * pObj, * pFanin0, * pFanin1, * pCtrl;
+    int i;
+
+    pCtrl = Aig_ManPi( p, Aig_ManPiNum(p) - 1 );
+
+    printf( "Control signal:\n" );
+    Aig_ObjPrint( p, pCtrl ); printf( "\n\n" );
+
+    Aig_ManForEachObj( p, pObj, i )
+    {
+        if ( !Aig_ObjIsNode(pObj) )
+            continue;
+        assert( pObj != pCtrl );
+        pFanin0 = Aig_ObjFanin0(pObj);
+        pFanin1 = Aig_ObjFanin1(pObj);
+        if ( pFanin0 == pCtrl && Aig_ObjIsPi(pFanin1) )
+        {
+            Aig_ObjPrint( p, pObj ); printf( "\n" );
+            Aig_ObjPrint( p, pFanin1 ); printf( "\n" );
+            printf( "\n" );
+        }
+        if ( pFanin1 == pCtrl && Aig_ObjIsPi(pFanin0) )
+        {
+            Aig_ObjPrint( p, pObj ); printf( "\n" );
+            Aig_ObjPrint( p, pFanin0 ); printf( "\n" );
+            printf( "\n" );
+        }
+    }
+}
+
+/**Function*************************************************************
+
+  Synopsis    [Returns the composite name of the file.]
+
+  Description []
+
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+char * Aig_FileNameGenericAppend( char * pBase, char * pSuffix )
+{
+    static char Buffer[1000];
+    char * pDot;
+    strcpy( Buffer, pBase );
+    if ( (pDot = strrchr( Buffer, '.' )) )
+        *pDot = 0;
+    strcat( Buffer, pSuffix );
+    if ( (pDot = strrchr( Buffer, '\\' )) || (pDot = strrchr( Buffer, '/' )) )
+        return pDot+1;
+    return Buffer;
+}
+
+/**Function*************************************************************
+
+  Synopsis    [Creates a sequence or random numbers.]
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     [http://en.wikipedia.org/wiki/LFSR]
+
+***********************************************************************/
+void Aig_ManRandomTest2()
+{
+    FILE * pFile;
+    unsigned int lfsr = 1;
+    unsigned int period = 0; 
+    pFile = fopen( "rand.txt", "w" );
+    do {
+//        lfsr = (lfsr >> 1) ^ (-(lfsr & 1u) & 0xd0000001u); // taps 32 31 29 1 
+        lfsr = 1; // to prevent the warning
+        ++period;
+        fprintf( pFile, "%10d : %10d ", period, lfsr );
+//        Extra_PrintBinary( pFile, &lfsr, 32 );
+        fprintf( pFile, "\n" );
+        if ( period == 20000 )
+            break;
+    } while(lfsr != 1u);
+    fclose( pFile );
+}
+
+/**Function*************************************************************
+
+  Synopsis    [Creates a sequence or random numbers.]
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     [http://www.codeproject.com/KB/recipes/SimpleRNG.aspx]
+
+***********************************************************************/
+void Aig_ManRandomTest1()
+{
+    FILE * pFile;
+    unsigned int lfsr;
+    unsigned int period = 0; 
+    pFile = fopen( "rand.txt", "w" );
+    do {
+        lfsr = Aig_ManRandom( 0 );
+        ++period;
+        fprintf( pFile, "%10d : %10d ", period, lfsr );
+//        Extra_PrintBinary( pFile, &lfsr, 32 );
+        fprintf( pFile, "\n" );
+        if ( period == 20000 )
+            break;
+    } while(lfsr != 1u);
+    fclose( pFile );
+}
+
+ 
+#define NUMBER1  3716960521u
+#define NUMBER2  2174103536u
+
+/**Function*************************************************************
+
+  Synopsis    [Creates a sequence or random numbers.]
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     [http://www.codeproject.com/KB/recipes/SimpleRNG.aspx]
+
+***********************************************************************/
+unsigned Aig_ManRandom( int fReset )
+{
+    static unsigned int m_z = NUMBER1;
+    static unsigned int m_w = NUMBER2;
+    if ( fReset )
+    {
+        m_z = NUMBER1;
+        m_w = NUMBER2;
+    }
+    m_z = 36969 * (m_z & 65535) + (m_z >> 16);
+    m_w = 18000 * (m_w & 65535) + (m_w >> 16);
+    return (m_z << 16) + m_w;
+}
+
+
+/**Function*************************************************************
+
+  Synopsis    [Creates random info for the primary inputs.]
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+void Aig_ManRandomInfo( Vec_Ptr_t * vInfo, int iInputStart, int iWordStart, int iWordStop )
+{
+    unsigned * pInfo;
+    int i, w;
+    Vec_PtrForEachEntryStart( vInfo, pInfo, i, iInputStart )
+        for ( w = iWordStart; w < iWordStop; w++ )
+            pInfo[w] = Aig_ManRandom(0);
+}
+
+/**Function*************************************************************
+
+  Synopsis    [Returns the result of merging the two vectors.]
+
+  Description [Assumes that the vectors are sorted in the increasing order.]
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+void Aig_NodeUnionLists( Vec_Ptr_t * vArr1, Vec_Ptr_t * vArr2, Vec_Ptr_t * vArr )
+{
+    Aig_Obj_t ** pBeg  = (Aig_Obj_t **)vArr->pArray;
+    Aig_Obj_t ** pBeg1 = (Aig_Obj_t **)vArr1->pArray;
+    Aig_Obj_t ** pBeg2 = (Aig_Obj_t **)vArr2->pArray;
+    Aig_Obj_t ** pEnd1 = (Aig_Obj_t **)vArr1->pArray + vArr1->nSize;
+    Aig_Obj_t ** pEnd2 = (Aig_Obj_t **)vArr2->pArray + vArr2->nSize;
+    Vec_PtrGrow( vArr, Vec_PtrSize(vArr1) + Vec_PtrSize(vArr2) );
+    pBeg  = (Aig_Obj_t **)vArr->pArray;
+    while ( pBeg1 < pEnd1 && pBeg2 < pEnd2 )
+    {
+        if ( (*pBeg1)->Id == (*pBeg2)->Id )
+            *pBeg++ = *pBeg1++, pBeg2++;
+        else if ( (*pBeg1)->Id < (*pBeg2)->Id )
+            *pBeg++ = *pBeg1++;
+        else 
+            *pBeg++ = *pBeg2++;
+    }
+    while ( pBeg1 < pEnd1 )
+        *pBeg++ = *pBeg1++;
+    while ( pBeg2 < pEnd2 )
+        *pBeg++ = *pBeg2++;
+    vArr->nSize = pBeg - (Aig_Obj_t **)vArr->pArray;
+    assert( vArr->nSize <= vArr->nCap );
+    assert( vArr->nSize >= vArr1->nSize );
+    assert( vArr->nSize >= vArr2->nSize );
+}
+
+/**Function*************************************************************
+
+  Synopsis    [Returns the result of intersecting the two vectors.]
+
+  Description [Assumes that the vectors are sorted in the increasing order.]
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+void Aig_NodeIntersectLists( Vec_Ptr_t * vArr1, Vec_Ptr_t * vArr2, Vec_Ptr_t * vArr )
+{
+    Aig_Obj_t ** pBeg  = (Aig_Obj_t **)vArr->pArray;
+    Aig_Obj_t ** pBeg1 = (Aig_Obj_t **)vArr1->pArray;
+    Aig_Obj_t ** pBeg2 = (Aig_Obj_t **)vArr2->pArray;
+    Aig_Obj_t ** pEnd1 = (Aig_Obj_t **)vArr1->pArray + vArr1->nSize;
+    Aig_Obj_t ** pEnd2 = (Aig_Obj_t **)vArr2->pArray + vArr2->nSize;
+    Vec_PtrGrow( vArr, ABC_MAX( Vec_PtrSize(vArr1), Vec_PtrSize(vArr2) ) );
+    pBeg  = (Aig_Obj_t **)vArr->pArray;
+    while ( pBeg1 < pEnd1 && pBeg2 < pEnd2 )
+    {
+        if ( (*pBeg1)->Id == (*pBeg2)->Id )
+            *pBeg++ = *pBeg1++, pBeg2++;
+        else if ( (*pBeg1)->Id < (*pBeg2)->Id )
+//            *pBeg++ = *pBeg1++;
+            pBeg1++;
+        else 
+//            *pBeg++ = *pBeg2++;
+            pBeg2++;
+    }
+//    while ( pBeg1 < pEnd1 )
+//        *pBeg++ = *pBeg1++;
+//    while ( pBeg2 < pEnd2 )
+//        *pBeg++ = *pBeg2++;
+    vArr->nSize = pBeg - (Aig_Obj_t **)vArr->pArray;
+    assert( vArr->nSize <= vArr->nCap );
+    assert( vArr->nSize <= vArr1->nSize );
+    assert( vArr->nSize <= vArr2->nSize );
+}
+
+#include "fra.h"
+#include "saig.h"
+
+extern void Aig_ManCounterExampleValueStart( Aig_Man_t * pAig, Abc_Cex_t * pCex );
+extern void Aig_ManCounterExampleValueStop( Aig_Man_t * pAig );
+extern int Aig_ManCounterExampleValueLookup(  Aig_Man_t * pAig, int Id, int iFrame );
+
+/**Function*************************************************************
+
+  Synopsis    [Starts the process of retuning values for internal nodes.]
+
+  Description [Should be called when pCex is available, before probing 
+  any object for its value using Aig_ManCounterExampleValueLookup().]
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+void Aig_ManCounterExampleValueStart( Aig_Man_t * pAig, Abc_Cex_t * pCex )
+{
+    Aig_Obj_t * pObj, * pObjRi, * pObjRo;
+    int Val0, Val1, nObjs, i, k, iBit = 0;
+    assert( Aig_ManRegNum(pAig) > 0 ); // makes sense only for sequential AIGs
+    assert( pAig->pData2 == NULL );    // if this fail, there may be a memory leak
+    // allocate memory to store simulation bits for internal nodes
+    pAig->pData2 = ABC_CALLOC( unsigned, Aig_BitWordNum( (pCex->iFrame + 1) * Aig_ManObjNum(pAig) ) );
+    // the register values in the counter-example should be zero
+    Saig_ManForEachLo( pAig, pObj, k )
+        assert( Aig_InfoHasBit(pCex->pData, iBit++) == 0 );
+    // iterate through the timeframes
+    nObjs = Aig_ManObjNum(pAig);
+    for ( i = 0; i <= pCex->iFrame; i++ )
+    {
+        // set constant 1 node
+        Aig_InfoSetBit( pAig->pData2, nObjs * i + 0 );
+        // set primary inputs according to the counter-example
+        Saig_ManForEachPi( pAig, pObj, k )
+            if ( Aig_InfoHasBit(pCex->pData, iBit++) )
+                Aig_InfoSetBit( pAig->pData2, nObjs * i + Aig_ObjId(pObj) );
+        // compute values for each node
+        Aig_ManForEachNode( pAig, pObj, k )
+        {
+            Val0 = Aig_InfoHasBit( pAig->pData2, nObjs * i + Aig_ObjFaninId0(pObj) );
+            Val1 = Aig_InfoHasBit( pAig->pData2, nObjs * i + Aig_ObjFaninId1(pObj) );
+            if ( (Val0 ^ Aig_ObjFaninC0(pObj)) & (Val1 ^ Aig_ObjFaninC1(pObj)) )
+                Aig_InfoSetBit( pAig->pData2, nObjs * i + Aig_ObjId(pObj) );
+        }
+        // derive values for combinational outputs
+        Aig_ManForEachPo( pAig, pObj, k )
+        {
+            Val0 = Aig_InfoHasBit( pAig->pData2, nObjs * i + Aig_ObjFaninId0(pObj) );
+            if ( Val0 ^ Aig_ObjFaninC0(pObj) )
+                Aig_InfoSetBit( pAig->pData2, nObjs * i + Aig_ObjId(pObj) );
+        }
+        if ( i == pCex->iFrame )
+            continue;
+        // transfer values to the register output of the next frame
+        Saig_ManForEachLiLo( pAig, pObjRi, pObjRo, k )
+            if ( Aig_InfoHasBit( pAig->pData2, nObjs * i + Aig_ObjId(pObjRi) ) )
+                Aig_InfoSetBit( pAig->pData2, nObjs * (i+1) + Aig_ObjId(pObjRo) );
+    }
+    assert( iBit == pCex->nBits );
+    // check that the counter-example is correct, that is, the corresponding output is asserted
+    assert( Aig_InfoHasBit( pAig->pData2, nObjs * pCex->iFrame + Aig_ObjId(Aig_ManPo(pAig, pCex->iPo)) ) );
+}
+
+/**Function*************************************************************
+
+  Synopsis    [Stops the process of retuning values for internal nodes.]
+
+  Description [Should be called when probing is no longer needed]
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+void Aig_ManCounterExampleValueStop( Aig_Man_t * pAig )
+{
+    assert( pAig->pData2 != NULL );    // if this fail, we try to call this procedure more than once
+    free( pAig->pData2 );
+    pAig->pData2 = NULL;
+}
+
+/**Function*************************************************************
+
+  Synopsis    [Returns the value of the given object in the given timeframe.]
+
+  Description [Should be called to probe the value of an object with 
+  the given ID (iFrame is a 0-based number of a time frame - should not 
+  exceed the number of timeframes in the original counter-example).]
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+int Aig_ManCounterExampleValueLookup(  Aig_Man_t * pAig, int Id, int iFrame )
+{
+    assert( Id >= 0 && Id < Aig_ManObjNum(pAig) );
+    return Aig_InfoHasBit( pAig->pData2, Aig_ManObjNum(pAig) * iFrame + Id );
+}
+
+/**Function*************************************************************
+
+  Synopsis    [Procedure to test the above code.]
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+void Aig_ManCounterExampleValueTest( Aig_Man_t * pAig, Abc_Cex_t * pCex )
+{
+    Aig_Obj_t * pObj = Aig_ManObj( pAig, Aig_ManObjNum(pAig)/2 );
+    int iFrame = ABC_MAX( 0, pCex->iFrame - 1 );
+    printf( "\nUsing counter-example, which asserts output %d in frame %d.\n", pCex->iPo, pCex->iFrame );
+    Aig_ManCounterExampleValueStart( pAig, pCex );
+    printf( "Value of object %d in frame %d is %d.\n", Aig_ObjId(pObj), iFrame,
+        Aig_ManCounterExampleValueLookup(pAig, Aig_ObjId(pObj), iFrame) );
+    Aig_ManCounterExampleValueStop( pAig );
+}
+
+/**Function*************************************************************
+
+  Synopsis    [Handle the counter-example.]
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+void Aig_ManSetPhase( Aig_Man_t * pAig )
+{
+    Aig_Obj_t * pObj;
+    int i;
+    // set the PI simulation information
+    Aig_ManConst1( pAig )->fPhase = 1;
+    Aig_ManForEachPi( pAig, pObj, i )
+        pObj->fPhase = 0;
+    // simulate internal nodes
+    Aig_ManForEachNode( pAig, pObj, i )
+        pObj->fPhase = ( Aig_ObjFanin0(pObj)->fPhase ^ Aig_ObjFaninC0(pObj) )
+                     & ( Aig_ObjFanin1(pObj)->fPhase ^ Aig_ObjFaninC1(pObj) );
+    // simulate PO nodes
+    Aig_ManForEachPo( pAig, pObj, i )
+        pObj->fPhase = Aig_ObjFanin0(pObj)->fPhase ^ Aig_ObjFaninC0(pObj);
+}
+
 
 ////////////////////////////////////////////////////////////////////////
 ///                       END OF FILE                                ///

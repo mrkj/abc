@@ -308,12 +308,12 @@ cuddSymmSifting(
 
     /* Find order in which to sift variables. */
     var = NULL;
-    entry = ALLOC(int,size);
+    entry = ABC_ALLOC(int,size);
     if (entry == NULL) {
 	table->errorCode = CUDD_MEMORY_OUT;
 	goto ddSymmSiftingOutOfMem;
     }
-    var = ALLOC(int,size);
+    var = ABC_ALLOC(int,size);
     if (var == NULL) {
 	table->errorCode = CUDD_MEMORY_OUT;
 	goto ddSymmSiftingOutOfMem;
@@ -357,8 +357,8 @@ cuddSymmSifting(
 	}
     }
 
-    FREE(var);
-    FREE(entry);
+    ABC_FREE(var);
+    ABC_FREE(entry);
 
     ddSymmSummary(table, lower, upper, &symvars, &symgroups);
 
@@ -373,8 +373,8 @@ cuddSymmSifting(
 
 ddSymmSiftingOutOfMem:
 
-    if (entry != NULL) FREE(entry);
-    if (var != NULL) FREE(var);
+    if (entry != NULL) ABC_FREE(entry);
+    if (var != NULL) ABC_FREE(var);
 
     return(0);
 
@@ -429,12 +429,12 @@ cuddSymmSiftingConv(
 
     /* Find order in which to sift variables. */
     var = NULL;
-    entry = ALLOC(int,size);
+    entry = ABC_ALLOC(int,size);
     if (entry == NULL) {
 	table->errorCode = CUDD_MEMORY_OUT;
 	goto ddSymmSiftingConvOutOfMem;
     }
-    var = ALLOC(int,size);
+    var = ABC_ALLOC(int,size);
     if (var == NULL) {
 	table->errorCode = CUDD_MEMORY_OUT;
 	goto ddSymmSiftingConvOutOfMem;
@@ -538,15 +538,15 @@ cuddSymmSiftingConv(
 		   symgroups);
 #endif
 
-    FREE(var);
-    FREE(entry);
+    ABC_FREE(var);
+    ABC_FREE(entry);
 
     return(1+symvars);
 
 ddSymmSiftingConvOutOfMem:
 
-    if (entry != NULL) FREE(entry);
-    if (var != NULL) FREE(var);
+    if (entry != NULL) ABC_FREE(entry);
+    if (var != NULL) ABC_FREE(var);
 
     return(0);
 
@@ -1445,10 +1445,10 @@ ddSymmGroupMove(
   Move ** moves)
 {
     Move *move;
-    int	 size;
+    int	 size = 0; // Suppress "might be used uninitialized"
     int  i,j;
     int  xtop,xbot,xsize,ytop,ybot,ysize,newxtop;
-    int  swapx,swapy;
+    int  swapx = 0,swapy = 0; // Suppress "might be used uninitialized"
 
 #if DD_DEBUG
     assert(x < y);	/* we assume that x < y */
@@ -1524,7 +1524,7 @@ ddSymmGroupMoveBackward(
   int  x,
   int  y)
 {
-    int	size;
+    int	size = 0; // Suppress "might be used uninitialized"
     int i,j;
     int	xtop,xbot,xsize,ytop,ybot,ysize,newxtop;
 

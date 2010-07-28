@@ -19,6 +19,7 @@
 ***********************************************************************/
 
 #include "aig.h"
+#include "tim.h"
 
 ////////////////////////////////////////////////////////////////////////
 ///                        DECLARATIONS                              ///
@@ -66,7 +67,7 @@ static inline void   Part_OneSetNext( char * pPart, char * pNext ) { *((char **)
 Part_Man_t * Part_ManStart( int nChunkSize, int nStepSize )
 {
     Part_Man_t * p;
-    p = ALLOC( Part_Man_t, 1 );
+    p = ABC_ALLOC( Part_Man_t, 1 );
     memset( p, 0, sizeof(Part_Man_t) );
     p->nChunkSize = nChunkSize;
     p->nStepSize  = nStepSize;
@@ -91,10 +92,10 @@ void Part_ManStop( Part_Man_t * p )
     void * pMemory;
     int i;
     Vec_PtrForEachEntry( p->vMemory, pMemory, i )
-        free( pMemory );
+        ABC_FREE( pMemory );
     Vec_PtrFree( p->vMemory );
     Vec_PtrFree( p->vFree );
-    free( p );
+    ABC_FREE( p );
 }
 
 /**Function*************************************************************
@@ -123,7 +124,7 @@ char * Part_ManFetch( Part_Man_t * p, int nSize )
     nSizeReal = p->nStepSize * Type;
     if ( p->nFreeSize < nSizeReal )
     {
-        p->pFreeBuf = ALLOC( char, p->nChunkSize );
+        p->pFreeBuf = ABC_ALLOC( char, p->nChunkSize );
         p->nFreeSize = p->nChunkSize;
         Vec_PtrPush( p->vMemory, p->pFreeBuf );
     }
@@ -257,9 +258,10 @@ Vec_Int_t * Part_ManTransferEntry( Part_One_t * p )
 
   Synopsis    [Computes supports of the POs in the multi-output AIG.]
 
-  Description []
+  Description [Returns the array of integer arrays containing indices
+  of the primary inputs for each primary output.]
                
-  SideEffects []
+  SideEffects [Adds the integer PO number at end of each array.]
 
   SeeAlso     []
 
@@ -345,6 +347,92 @@ Vec_Ptr_t * Aig_ManSupports( Aig_Man_t * pMan )
 
 /**Function*************************************************************
 
+  Synopsis    [Computes the set of outputs for each input.]
+
+  Description [Returns the array of integer arrays containing indices
+  of the primary outputsf for each primary input.]
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+Vec_Ptr_t * Aig_ManSupportsInverse( Aig_Man_t * p )
+{
+    Vec_Ptr_t * vSupps, * vSuppsInv;
+    Vec_Int_t * vSupp;
+    int i, k, iIn, iOut;
+    // get structural supports for each output
+    vSupps = Aig_ManSupports( p );
+    // start the inverse supports
+    vSuppsInv = Vec_PtrAlloc( Aig_ManPiNum(p) );
+    for ( i = 0; i < Aig_ManPiNum(p); i++ )
+        Vec_PtrPush( vSuppsInv, Vec_IntAlloc(8) );
+    // transforms the supports into the inverse supports
+    Vec_PtrForEachEntry( vSupps, vSupp, i )
+    {
+        iOut = Vec_IntPop( vSupp );
+        Vec_IntForEachEntry( vSupp, iIn, k )
+            Vec_IntPush( Vec_PtrEntry(vSuppsInv, iIn), iOut );
+    }
+    Vec_VecFree( (Vec_Vec_t *)vSupps );
+    return vSuppsInv;
+}
+
+/**Function*************************************************************
+
+  Synopsis    [Returns the register dependency matrix.]
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+Vec_Ptr_t * Aig_ManSupportsRegisters( Aig_Man_t * p )
+{
+    Vec_Ptr_t * vSupports, * vMatrix;
+    Vec_Int_t * vSupp;
+    int iOut, iIn, k, m, i;
+    // get structural supports for each output
+    vSupports = Aig_ManSupports( p );
+    // transforms the supports into the latch dependency matrix
+    vMatrix = Vec_PtrStart( Aig_ManRegNum(p) );
+    Vec_PtrForEachEntry( vSupports, vSupp, i )
+    {
+        // skip true POs
+        iOut = Vec_IntPop( vSupp );
+        iOut -= Aig_ManPoNum(p) - Aig_ManRegNum(p);
+        if ( iOut < 0 )
+        {
+            Vec_IntFree( vSupp );
+            continue;
+        }
+        // remove PIs
+        m = 0;
+        Vec_IntForEachEntry( vSupp, iIn, k )
+        {
+            iIn -= Aig_ManPiNum(p) - Aig_ManRegNum(p);
+            if ( iIn < 0 )
+                continue;
+            assert( iIn < Aig_ManRegNum(p) );
+            Vec_IntWriteEntry( vSupp, m++, iIn );
+        }
+        Vec_IntShrink( vSupp, m );
+        // store support in the matrix
+        assert( iOut < Aig_ManRegNum(p) );
+        Vec_PtrWriteEntry( vMatrix, iOut, vSupp );
+    }
+    Vec_PtrFree( vSupports );
+    // check that all supports are used
+    Vec_PtrForEachEntry( vMatrix, vSupp, i )
+        assert( vSupp != NULL );
+    return vMatrix;
+}
+
+/**Function*************************************************************
+
   Synopsis    [Start char-bases support representation.]
 
   Description []
@@ -359,7 +447,7 @@ unsigned * Aig_ManSuppCharStart( Vec_Int_t * vOne, int nPis )
     unsigned * pBuffer;
     int i, Entry;
     int nWords = Aig_BitWordNum(nPis);
-    pBuffer = ALLOC( unsigned, nWords );
+    pBuffer = ABC_ALLOC( unsigned, nWords );
     memset( pBuffer, 0, sizeof(unsigned) * nWords );
     Vec_IntForEachEntry( vOne, Entry, i )
     {
@@ -582,7 +670,7 @@ clk = clock();
     vSupports = Aig_ManSupports( p );
 if ( fVerbose )
 {
-PRT( "Supps", clock() - clk );
+ABC_PRT( "Supps", clock() - clk );
 }
     // start char-based support representation
     vPartSuppsBit = Vec_PtrAlloc( 1000 );
@@ -628,13 +716,13 @@ clk = clock();
 
     // stop char-based support representation
     Vec_PtrForEachEntry( vPartSuppsBit, vTemp, i )
-        free( vTemp );
+        ABC_FREE( vTemp );
     Vec_PtrFree( vPartSuppsBit );
 
 //printf( "\n" );
 if ( fVerbose )
 {
-PRT( "Parts", clock() - clk );
+ABC_PRT( "Parts", clock() - clk );
 }
 
 clk = clock();
@@ -660,7 +748,7 @@ clk = clock();
 
 if ( fVerbose )
 {
-//PRT( "Comps", clock() - clk );
+//ABC_PRT( "Comps", clock() - clk );
 }
 
     // cleanup
@@ -669,6 +757,135 @@ if ( fVerbose )
         Vec_VecFree( (Vec_Vec_t *)vPartSuppsAll );
     else
         *pvPartSupps = vPartSuppsAll;
+/*
+    // converts from intergers to nodes
+    Vec_PtrForEachEntry( vPartsAll, vPart, iPart )
+    {
+        vPartPtr = Vec_PtrAlloc( Vec_IntSize(vPart) );
+        Vec_IntForEachEntry( vPart, iOut, i )
+            Vec_PtrPush( vPartPtr, Aig_ManPo(p, iOut) );
+        Vec_IntFree( vPart );
+        Vec_PtrWriteEntry( vPartsAll, iPart, vPartPtr );
+    }
+*/
+    return vPartsAll;
+}
+
+/**Function*************************************************************
+
+  Synopsis    [Perform the smart partitioning.]
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+Vec_Ptr_t * Aig_ManPartitionSmartRegisters( Aig_Man_t * pAig, int nSuppSizeLimit, int fVerbose )
+{
+    Vec_Ptr_t * vPartSuppsBit;
+    Vec_Ptr_t * vSupports, * vPartsAll, * vPartsAll2, * vPartSuppsAll;
+    Vec_Int_t * vOne, * vPart, * vPartSupp, * vTemp;
+    int i, iPart, iOut, clk;
+
+    // add output number to each
+clk = clock();
+    vSupports = Aig_ManSupportsRegisters( pAig );
+    assert( Vec_PtrSize(vSupports) == Aig_ManRegNum(pAig) );
+    Vec_PtrForEachEntry( vSupports, vOne, i )
+        Vec_IntPush( vOne, i );
+if ( fVerbose )
+{
+ABC_PRT( "Supps", clock() - clk );
+}
+
+    // start char-based support representation
+    vPartSuppsBit = Vec_PtrAlloc( 1000 );
+
+    // create partitions
+clk = clock();
+    vPartsAll = Vec_PtrAlloc( 256 );
+    vPartSuppsAll = Vec_PtrAlloc( 256 );
+    Vec_PtrForEachEntry( vSupports, vOne, i )
+    {
+        // get the output number
+        iOut = Vec_IntPop(vOne);
+        // find closely matching part
+        iPart = Aig_ManPartitionSmartFindPart( vPartSuppsAll, vPartsAll, vPartSuppsBit, nSuppSizeLimit, vOne );
+        if ( iPart == -1 )
+        {
+            // create new partition
+            vPart = Vec_IntAlloc( 32 );
+            Vec_IntPush( vPart, iOut );
+            // create new partition support
+            vPartSupp = Vec_IntDup( vOne );
+            // add this partition and its support
+            Vec_PtrPush( vPartsAll, vPart );
+            Vec_PtrPush( vPartSuppsAll, vPartSupp );
+
+            Vec_PtrPush( vPartSuppsBit, Aig_ManSuppCharStart(vOne, Vec_PtrSize(vSupports)) );
+        }
+        else
+        {
+            // add output to this partition
+            vPart = Vec_PtrEntry( vPartsAll, iPart );
+            Vec_IntPush( vPart, iOut );
+            // merge supports
+            vPartSupp = Vec_PtrEntry( vPartSuppsAll, iPart );
+            vPartSupp = Vec_IntTwoMerge( vTemp = vPartSupp, vOne );
+            Vec_IntFree( vTemp );
+            // reinsert new support
+            Vec_PtrWriteEntry( vPartSuppsAll, iPart, vPartSupp );
+
+            Aig_ManSuppCharAdd( Vec_PtrEntry(vPartSuppsBit, iPart), vOne, Vec_PtrSize(vSupports) );
+        }
+    }
+
+    // stop char-based support representation
+    Vec_PtrForEachEntry( vPartSuppsBit, vTemp, i )
+        ABC_FREE( vTemp );
+    Vec_PtrFree( vPartSuppsBit );
+
+//printf( "\n" );
+if ( fVerbose )
+{
+ABC_PRT( "Parts", clock() - clk );
+}
+
+clk = clock();
+    // reorder partitions in the decreasing order of support sizes
+    // remember partition number in each partition support
+    Vec_PtrForEachEntry( vPartSuppsAll, vOne, i )
+        Vec_IntPush( vOne, i );
+    // sort the supports in the decreasing order
+    Vec_VecSort( (Vec_Vec_t *)vPartSuppsAll, 1 );
+    // reproduce partitions
+    vPartsAll2 = Vec_PtrAlloc( 256 );
+    Vec_PtrForEachEntry( vPartSuppsAll, vOne, i )
+        Vec_PtrPush( vPartsAll2, Vec_PtrEntry(vPartsAll, Vec_IntPop(vOne)) );
+    Vec_PtrFree( vPartsAll );
+    vPartsAll = vPartsAll2;
+
+    // compact small partitions
+//    Aig_ManPartitionPrint( p, vPartsAll, vPartSuppsAll );
+    Aig_ManPartitionCompact( vPartsAll, vPartSuppsAll, nSuppSizeLimit );
+    if ( fVerbose )
+//    Aig_ManPartitionPrint( p, vPartsAll, vPartSuppsAll );
+    printf( "Created %d partitions.\n", Vec_PtrSize(vPartsAll) );
+
+if ( fVerbose )
+{
+//ABC_PRT( "Comps", clock() - clk );
+}
+
+    // cleanup
+    Vec_VecFree( (Vec_Vec_t *)vSupports );
+//    if ( pvPartSupps == NULL )
+        Vec_VecFree( (Vec_Vec_t *)vPartSuppsAll );
+//    else
+//        *pvPartSupps = vPartSuppsAll;
+
 /*
     // converts from intergers to nodes
     Vec_PtrForEachEntry( vPartsAll, vPart, iPart )
@@ -806,6 +1023,132 @@ Vec_Ptr_t * Aig_ManDupPart( Aig_Man_t * pNew, Aig_Man_t * pOld, Vec_Int_t * vPar
 
 /**Function*************************************************************
 
+  Synopsis    [Adds internal nodes in the topological order.]
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+void Aig_ManDupPartAll_rec( Aig_Man_t * pNew, Aig_Man_t * pOld, Aig_Obj_t * pObj )
+{
+    Aig_Obj_t * pObjNew;
+    assert( !Aig_IsComplement(pObj) );
+    if ( Aig_ObjIsTravIdCurrent(pOld, pObj) )
+        return;
+    Aig_ObjSetTravIdCurrent(pOld, pObj);
+    if ( Aig_ObjIsPi(pObj) )
+        pObjNew = Aig_ObjCreatePi(pNew);
+    else if ( Aig_ObjIsPo(pObj) )
+    {
+        Aig_ManDupPartAll_rec( pNew, pOld, Aig_ObjFanin0(pObj) );
+        pObjNew = Aig_ObjCreatePo( pNew, Aig_ObjChild0Copy(pObj) );
+    }
+    else
+    {
+        assert( Aig_ObjIsNode(pObj) );
+        Aig_ManDupPartAll_rec( pNew, pOld, Aig_ObjFanin0(pObj) );
+        Aig_ManDupPartAll_rec( pNew, pOld, Aig_ObjFanin1(pObj) );
+        pObjNew = Aig_And( pNew, Aig_ObjChild0Copy(pObj), Aig_ObjChild1Copy(pObj) );
+    }
+    pObj->pData = pObjNew;
+    pObjNew->pData = pObj;
+}
+
+/**Function*************************************************************
+
+  Synopsis    [Adds internal nodes in the topological order.]
+
+  Description [Returns the array of new outputs.]
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+Aig_Man_t * Aig_ManDupPartAll( Aig_Man_t * pOld, Vec_Int_t * vPart )
+{
+    Aig_Man_t * pNew;
+    Aig_Obj_t * pObj, * pObjNew;
+    int i, Entry;
+    Aig_ManIncrementTravId( pOld );
+    pNew = Aig_ManStart( 5000 );
+    // map constant nodes
+    pObj = Aig_ManConst1(pOld);
+    pObjNew = Aig_ManConst1(pNew);
+    pObj->pData = pObjNew;
+    pObjNew->pData = pObj;
+    Aig_ObjSetTravIdCurrent(pOld, pObj);
+    // map all other nodes
+    Vec_IntForEachEntry( vPart, Entry, i )
+    {
+        pObj = Aig_ManPo( pOld, Entry );
+        Aig_ManDupPartAll_rec( pNew, pOld, pObj );
+    }
+    return pNew;
+}
+
+/**Function*************************************************************
+
+  Synopsis    [Collects internal nodes in the DFS order.]
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+void Aig_ManSupportNodes_rec( Aig_Man_t * p, Aig_Obj_t * pObj, Vec_Int_t * vSupport )
+{
+    if ( Aig_ObjIsTravIdCurrent(p, pObj) )
+        return;
+    Aig_ObjSetTravIdCurrent(p, pObj);
+    if ( Aig_ObjIsPi(pObj) )
+    {
+        Vec_IntPush( vSupport, Aig_ObjPioNum(pObj) );
+        return;
+    }
+    Aig_ManSupportNodes_rec( p, Aig_ObjFanin0(pObj), vSupport );
+    Aig_ManSupportNodes_rec( p, Aig_ObjFanin1(pObj), vSupport );
+}
+
+/**Function*************************************************************
+
+  Synopsis    [Collects internal nodes and PIs in the DFS order.]
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+Vec_Ptr_t * Aig_ManSupportNodes( Aig_Man_t * p, Vec_Ptr_t * vParts )
+{
+    Vec_Ptr_t * vPartSupps;
+    Vec_Int_t * vPart, * vSupport;
+    int i, k, iOut;
+    Aig_ManSetPioNumbers( p );
+    vPartSupps = Vec_PtrAlloc( Vec_PtrSize(vParts) );
+    Vec_PtrForEachEntry( vParts, vPart, i )
+    {
+        vSupport = Vec_IntAlloc( 100 );
+        Aig_ManIncrementTravId( p );
+        Aig_ObjSetTravIdCurrent( p, Aig_ManConst1(p) );
+        Vec_IntForEachEntry( vPart, iOut, k )
+            Aig_ManSupportNodes_rec( p, Aig_ObjFanin0(Aig_ManPo(p, iOut)), vSupport );
+//        Vec_IntSort( vSupport, 0 );
+        Vec_PtrPush( vPartSupps, vSupport );
+    }
+    Aig_ManCleanPioNumbers( p );
+    return vPartSupps;
+}
+
+/**Function*************************************************************
+
   Synopsis    [Create partitioned miter of the two AIGs.]
 
   Description [Assumes that each output in the second AIG cannot have 
@@ -816,7 +1159,7 @@ Vec_Ptr_t * Aig_ManDupPart( Aig_Man_t * pNew, Aig_Man_t * pOld, Vec_Int_t * vPar
   SeeAlso     []
 
 ***********************************************************************/
-Vec_Ptr_t * Aig_ManMiterPartitioned( Aig_Man_t * p1, Aig_Man_t * p2, int nPartSize )
+Vec_Ptr_t * Aig_ManMiterPartitioned( Aig_Man_t * p1, Aig_Man_t * p2, int nPartSize, int fSmart )
 {
     Aig_Man_t * pNew;
     Aig_Obj_t * pMiter;
@@ -825,17 +1168,22 @@ Vec_Ptr_t * Aig_ManMiterPartitioned( Aig_Man_t * p1, Aig_Man_t * p2, int nPartSi
     Vec_Int_t * vPart, * vPartSupp;
     int i, k;
     // partition the first manager
-    vParts = Aig_ManPartitionSmart( p1, nPartSize, 0, &vPartSupps );
+    if ( fSmart )
+        vParts = Aig_ManPartitionSmart( p1, nPartSize, 0, &vPartSupps );
+    else
+    {
+        vParts = Aig_ManPartitionNaive( p1, nPartSize );
+        vPartSupps = Aig_ManSupportNodes( p1, vParts );
+    }
     // derive miters
     vMiters = Vec_PtrAlloc( Vec_PtrSize(vParts) );
     for ( i = 0; i < Vec_PtrSize(vParts); i++ )
     {
-        // get partitions and their support
+        // get partition and its support
         vPart     = Vec_PtrEntry( vParts, i );
         vPartSupp = Vec_PtrEntry( vPartSupps, i );
         // create the new miter
         pNew = Aig_ManStart( 1000 );
-//        pNew->pName = Extra_UtilStrsav( p1->pName );
         // create the PIs
         for ( k = 0; k < Vec_IntSize(vPartSupp); k++ )
             Aig_ObjCreatePi( pNew );
@@ -869,28 +1217,34 @@ Vec_Ptr_t * Aig_ManMiterPartitioned( Aig_Man_t * p1, Aig_Man_t * p2, int nPartSi
   SeeAlso     []
 
 ***********************************************************************/
-Aig_Man_t * Aig_ManChoicePartitioned( Vec_Ptr_t * vAigs, int nPartSize )
+Aig_Man_t * Aig_ManChoicePartitioned( Vec_Ptr_t * vAigs, int nPartSize, int nConfMax, int nLevelMax, int fVerbose )
 {
-    extern int Cmd_CommandExecute( void * pAbc, char * sCommand );
-    extern void * Abc_FrameGetGlobalFrame();
-    extern Aig_Man_t * Fra_FraigChoice( Aig_Man_t * pManAig, int nConfMax );
+//    extern int Cmd_CommandExecute( void * pAbc, char * sCommand );
+//    extern void * Abc_FrameGetGlobalFrame();
+    extern Aig_Man_t * Fra_FraigChoice( Aig_Man_t * pManAig, int nConfMax, int nLevelMax );
 
+    Vec_Ptr_t * vPios;
     Vec_Ptr_t * vOutsTotal, * vOuts;
-    Aig_Man_t * pAigTotal, * pAigPart, * pAig;
+    Aig_Man_t * pAigTotal, * pAigPart, * pAig, * pTemp;
     Vec_Int_t * vPart, * vPartSupp;
     Vec_Ptr_t * vParts;
     Aig_Obj_t * pObj;
     void ** ppData;
-    int i, k, m;
+    int i, k, m, nIdMax;
+    assert( Vec_PtrSize(vAigs) > 1 );
+
+    // compute the total number of IDs
+    nIdMax = 0;
+    Vec_PtrForEachEntry( vAigs, pAig, i )
+        nIdMax += Aig_ManObjNumMax(pAig);
 
     // partition the first AIG in the array
-    assert( Vec_PtrSize(vAigs) > 1 );
     pAig = Vec_PtrEntry( vAigs, 0 );
     vParts = Aig_ManPartitionSmart( pAig, nPartSize, 0, NULL );
 
     // start the total fraiged AIG
     pAigTotal = Aig_ManStartFrom( pAig );
-    Aig_ManReprStart( pAigTotal, Vec_PtrSize(vAigs) * Aig_ManObjNumMax(pAig) + 10000 );
+    Aig_ManReprStart( pAigTotal, nIdMax );
     vOutsTotal = Vec_PtrStart( Aig_ManPoNum(pAig) );
 
     // set the PI numbers
@@ -898,7 +1252,7 @@ Aig_Man_t * Aig_ManChoicePartitioned( Vec_Ptr_t * vAigs, int nPartSize )
         Aig_ManForEachPi( pAig, pObj, k )
             pObj->pNext = (Aig_Obj_t *)(long)k;
 
-    Cmd_CommandExecute( Abc_FrameGetGlobalFrame(), "unset progressbar" );
+//    Cmd_CommandExecute( Abc_FrameGetGlobalFrame(), "unset progressbar" );
 
     // create the total fraiged AIG
     vPartSupp = Vec_IntAlloc( 100 ); // maps part PI num into total PI num
@@ -928,48 +1282,38 @@ Aig_Man_t * Aig_ManChoicePartitioned( Vec_Ptr_t * vAigs, int nPartSize )
         }
         Vec_PtrFree( vOuts );
         // store contents of pData pointers
-        ppData = ALLOC( void *, Aig_ManObjNumMax(pAigPart) );
+        ppData = ABC_ALLOC( void *, Aig_ManObjNumMax(pAigPart) );
         Aig_ManForEachObj( pAigPart, pObj, k )
             ppData[k] = pObj->pData;
         // report the process
+        if ( fVerbose )
         printf( "Part %4d  (out of %4d)  PI = %5d. PO = %5d. And = %6d. Lev = %4d.\r", 
             i+1, Vec_PtrSize(vParts), Aig_ManPiNum(pAigPart), Aig_ManPoNum(pAigPart), 
             Aig_ManNodeNum(pAigPart), Aig_ManLevelNum(pAigPart) );
         // compute equivalence classes (to be stored in pNew->pReprs)
-        pAig = Fra_FraigChoice( pAigPart, 1000 );
+        pAig = Fra_FraigChoice( pAigPart, nConfMax, nLevelMax );
         Aig_ManStop( pAig );
         // reset the pData pointers
         Aig_ManForEachObj( pAigPart, pObj, k )
             pObj->pData = ppData[k];
-        free( ppData );
+        ABC_FREE( ppData );
         // transfer representatives to the total AIG
         if ( pAigPart->pReprs )
             Aig_ManTransferRepr( pAigTotal, pAigPart );
         Aig_ManStop( pAigPart );
     }
+    if ( fVerbose )
     printf( "                                                                                          \r" );
     Vec_VecFree( (Vec_Vec_t *)vParts );
     Vec_IntFree( vPartSupp );
 
-    Cmd_CommandExecute( Abc_FrameGetGlobalFrame(), "set progressbar" );
+//    Cmd_CommandExecute( Abc_FrameGetGlobalFrame(), "set progressbar" );
 
     // clear the PI numbers
     Vec_PtrForEachEntry( vAigs, pAig, i )
         Aig_ManForEachPi( pAig, pObj, k )
             pObj->pNext = NULL;
-/*
-    // collect the missing outputs (outputs whose driver is not a node)
-    pAig = Vec_PtrEntry( vAigs, 0 );
-    Aig_ManConst1(pAig)->pData = Aig_ManConst1(pAigTotal);
-    Aig_ManForEachPi( pAig, pObj, i )
-        pAig->pData = Aig_ManPi( pAigTotal, i );
-    Aig_ManForEachPo( pAig, pObj, i )
-        if ( !Aig_ObjIsNode(Aig_ObjFanin0(pObj)) )
-        {
-            assert( Vec_PtrEntry( vOutsTotal, i ) == NULL );
-            Vec_PtrWriteEntry( vOutsTotal, i, Aig_ObjChild0Copy(pObj) );
-        }
-*/
+
     // add the outputs in the same order
     Vec_PtrForEachEntry( vOutsTotal, pObj, i )
         Aig_ObjCreatePo( pAigTotal, pObj );
@@ -979,9 +1323,267 @@ Aig_Man_t * Aig_ManChoicePartitioned( Vec_Ptr_t * vAigs, int nPartSize )
     pAig = Aig_ManRehash( pAigTotal );
     // create the equivalent nodes lists
     Aig_ManMarkValidChoices( pAig );
+    // reconstruct the network
+    vPios = Aig_ManOrderPios( pAig, Vec_PtrEntry(vAigs,0) );
+    pAig = Aig_ManDupDfsGuided( pTemp = pAig, vPios );
+    Aig_ManStop( pTemp );
+    Vec_PtrFree( vPios );
+    // duplicate the timing manager
+    pTemp = Vec_PtrEntry( vAigs, 0 );
+    if ( pTemp->pManTime )
+        pAig->pManTime = Tim_ManDup( pTemp->pManTime, 0 );
+    // reset levels
+    Aig_ManChoiceLevel( pAig );
     return pAig;
 }
 
+/**Function*************************************************************
+
+  Synopsis    [Performs partitioned choice computation.]
+
+  Description [Assumes that each output in the second AIG cannot have 
+  more supp vars than the same output in the first AIG.]
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+Aig_Man_t * Aig_ManFraigPartitioned( Aig_Man_t * pAig, int nPartSize, int nConfMax, int nLevelMax, int fVerbose )
+{
+    extern Aig_Man_t * Fra_FraigChoice( Aig_Man_t * pManAig, int nConfMax, int nLevelMax );
+
+    Aig_Man_t * pAigPart, * pAigTemp;
+    Vec_Int_t * vPart;
+    Vec_Ptr_t * vParts;
+    Aig_Obj_t * pObj;
+    void ** ppData;
+    int i, k;
+
+    // partition the outputs of the AIG
+    vParts = Aig_ManPartitionNaive( pAig, nPartSize );
+
+    // start the equivalence classes
+    Aig_ManReprStart( pAig, Aig_ManObjNumMax(pAig) );
+
+    // set the PI numbers
+    Aig_ManSetPioNumbers( pAig );
+
+    // create the total fraiged AIG
+    Vec_PtrForEachEntry( vParts, vPart, i )
+    {
+        // derive the partition AIG
+        pAigPart = Aig_ManDupPartAll( pAig, vPart );
+        // store contents of pData pointers
+        ppData = ABC_ALLOC( void *, Aig_ManObjNumMax(pAigPart) );
+        Aig_ManForEachObj( pAigPart, pObj, k )
+            ppData[k] = pObj->pData;
+        // report the process
+        if ( fVerbose )
+        printf( "Part %4d  (out of %4d)  PI = %5d. PO = %5d. And = %6d. Lev = %4d.\r", 
+            i+1, Vec_PtrSize(vParts), Aig_ManPiNum(pAigPart), Aig_ManPoNum(pAigPart), 
+            Aig_ManNodeNum(pAigPart), Aig_ManLevelNum(pAigPart) );
+        // compute equivalence classes (to be stored in pNew->pReprs)
+        pAigTemp = Fra_FraigChoice( pAigPart, nConfMax, nLevelMax );
+        Aig_ManStop( pAigTemp );
+        // reset the pData pointers
+        Aig_ManForEachObj( pAigPart, pObj, k )
+            pObj->pData = ppData[k];
+        ABC_FREE( ppData );
+        // transfer representatives to the total AIG
+        if ( pAigPart->pReprs )
+            Aig_ManTransferRepr( pAig, pAigPart );
+        Aig_ManStop( pAigPart );
+    }
+    if ( fVerbose )
+    printf( "                                                                                          \r" );
+    Vec_VecFree( (Vec_Vec_t *)vParts );
+
+    // clear the PI numbers
+    Aig_ManCleanPioNumbers( pAig );
+
+    // derive the result of choicing
+    return Aig_ManDupRepr( pAig, 0 );
+}
+
+
+
+
+/**Function*************************************************************
+
+  Synopsis    [Set the representative.]
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+static inline void Aig_ObjSetRepr_( Aig_Man_t * p, Aig_Obj_t * pNode1, Aig_Obj_t * pNode2 )
+{
+    assert( p->pReprs != NULL );
+    assert( !Aig_IsComplement(pNode1) );
+    assert( !Aig_IsComplement(pNode2) );
+    assert( pNode1->Id < p->nReprsAlloc );
+    assert( pNode2->Id < p->nReprsAlloc );
+    if ( pNode1 == pNode2 )
+        return;
+    if ( pNode1->Id < pNode2->Id )
+        p->pReprs[pNode2->Id] = pNode1;
+    else
+        p->pReprs[pNode1->Id] = pNode2;
+}
+
+/**Function*************************************************************
+
+  Synopsis    [Constructively accumulates choices.]
+
+  Description [pNew is a new AIG with choices under construction.
+  pPrev is the AIG preceding pThis in the order of deriving choices.
+  pThis is the current AIG to be added to pNew while creating choices.]
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+void Aig_ManChoiceConstructiveOne( Aig_Man_t * pNew, Aig_Man_t * pPrev, Aig_Man_t * pThis )
+{
+    Aig_Obj_t * pObj, * pObjNew;
+    int i;
+    assert( Aig_ManPiNum(pNew) == Aig_ManPiNum(pPrev) );
+    assert( Aig_ManPiNum(pNew) == Aig_ManPiNum(pThis) );
+    assert( Aig_ManPoNum(pNew) == Aig_ManPoNum(pPrev) );
+    assert( Aig_ManPoNum(pNew) == Aig_ManPoNum(pThis) );
+    // make sure the nodes of pPrev point to pNew
+    Aig_ManForEachObj( pNew, pObj, i )
+        pObj->fMarkB = 1;
+    Aig_ManForEachObj( pPrev, pObj, i )
+        assert( Aig_Regular(pObj->pData)->fMarkB );
+    Aig_ManForEachObj( pNew, pObj, i )
+        pObj->fMarkB = 0;
+    // make sure the nodes of pThis point to pPrev
+    Aig_ManForEachObj( pPrev, pObj, i )
+        pObj->fMarkB = 1;
+    Aig_ManForEachObj( pThis, pObj, i )
+        assert( pObj->pHaig == NULL || (!Aig_IsComplement(pObj->pHaig) && pObj->pHaig->fMarkB) );
+    Aig_ManForEachObj( pPrev, pObj, i )
+        pObj->fMarkB = 0;
+    // remap nodes of pThis on top of pNew using pPrev
+    pObj = Aig_ManConst1(pThis);
+    pObj->pData = Aig_ManConst1(pNew);
+    Aig_ManForEachPi( pThis, pObj, i )
+        pObj->pData = Aig_ManPi(pNew, i);
+    Aig_ManForEachPo( pThis, pObj, i )
+        pObj->pData = Aig_ManPo(pNew, i);
+    // go through the nodes in the topological order
+    Aig_ManForEachNode( pThis, pObj, i )
+    {
+        pObj->pData = Aig_And( pNew, Aig_ObjChild0Copy(pObj), Aig_ObjChild1Copy(pObj) );
+        if ( pObj->pHaig == NULL )
+            continue;
+        // pObj->pData and pObj->pHaig->pData are equivalent
+        Aig_ObjSetRepr_( pNew, Aig_Regular(pObj->pData), Aig_Regular(pObj->pHaig->pData) );
+    }
+    // set the inputs of POs as equivalent
+    Aig_ManForEachPo( pThis, pObj, i )
+    {
+        pObjNew = Aig_ObjFanin0( Aig_ManPo(pNew,i) );
+        // pObjNew and Aig_ObjFanin0(pObj)->pData are equivalent
+        Aig_ObjSetRepr_( pNew, pObjNew, Aig_Regular(Aig_ObjFanin0(pObj)->pData) );
+    }
+}
+
+/**Function*************************************************************
+
+  Synopsis    [Constructively accumulates choices.]
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+void Aig_ManChoiceEval( Aig_Man_t * p )
+{
+    Vec_Ptr_t * vSupp;
+    Aig_Obj_t * pNode, * pTemp;
+    int i, Counter;
+
+    vSupp = Vec_PtrAlloc( 100 );
+    Aig_ManForEachNode( p, pNode, i )
+    {
+        if ( !Aig_ObjIsChoice(p, pNode) )
+            continue; 
+        Counter = 0;
+        for ( pTemp = pNode; pTemp; pTemp = Aig_ObjEquiv(p, pTemp) )
+            Counter++;
+        printf( "Choice node = %5d. Level = %2d. Choices = %d. { ", pNode->Id, pNode->Level, Counter );
+        for ( pTemp = pNode; pTemp; pTemp = Aig_ObjEquiv(p, pTemp) )
+        {
+            Counter = Aig_NodeMffcSupp( p, pTemp, 0, vSupp );
+            printf( "S=%d N=%d L=%d  ", Vec_PtrSize(vSupp), Counter, pTemp->Level );
+        }
+        printf( "}\n" );
+    }
+    Vec_PtrFree( vSupp );
+}
+
+/**Function*************************************************************
+
+  Synopsis    [Constructively accumulates choices.]
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+Aig_Man_t * Aig_ManChoiceConstructive( Vec_Ptr_t * vAigs, int fVerbose )
+{
+    Vec_Ptr_t * vPios;
+    Aig_Man_t * pNew, * pThis, * pPrev, * pTemp;
+    int i;
+    // start AIG with choices
+    pPrev = Vec_PtrEntry( vAigs, 0 );
+    pNew = Aig_ManDupOrdered( pPrev );
+    // create room for equivalent nodes and representatives
+    assert( pNew->pReprs == NULL );
+    pNew->nReprsAlloc = Vec_PtrSize(vAigs) * Aig_ManObjNumMax(pNew);
+    pNew->pReprs = ABC_ALLOC( Aig_Obj_t *, pNew->nReprsAlloc );
+    memset( pNew->pReprs, 0, sizeof(Aig_Obj_t *) * pNew->nReprsAlloc );
+    // add other AIGs one by one
+    Vec_PtrForEachEntryStart( vAigs, pThis, i, 1 )
+    {
+        Aig_ManChoiceConstructiveOne( pNew, pPrev, pThis );
+        pPrev = pThis;
+    }
+    // derive the result of choicing
+    pNew = Aig_ManRehash( pNew );
+    // create the equivalent nodes lists
+    Aig_ManMarkValidChoices( pNew );
+    // reconstruct the network
+    vPios = Aig_ManOrderPios( pNew, Vec_PtrEntry( vAigs, 0 ) );
+    pNew = Aig_ManDupDfsGuided( pTemp = pNew, vPios );
+    Aig_ManStop( pTemp );
+    Vec_PtrFree( vPios );
+    // duplicate the timing manager
+    pTemp = Vec_PtrEntry( vAigs, 0 );
+    if ( pTemp->pManTime )
+        pNew->pManTime = Tim_ManDup( pTemp->pManTime, 0 );
+    // reset levels
+    Aig_ManChoiceLevel( pNew );
+    return pNew;
+}
+
+/*
+    Vec_Ptr_t * vPios;
+    vPios = Aig_ManOrderPios( pMan, pAig );
+    Vec_PtrFree( vPios );
+*/
 
 ////////////////////////////////////////////////////////////////////////
 ///                       END OF FILE                                ///

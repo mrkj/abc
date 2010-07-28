@@ -47,6 +47,8 @@ void Dar_ManDefaultRwrParams( Dar_RwrPar_t * pPars )
     pPars->fFanout      =  1;
     pPars->fUpdateLevel =  0;
     pPars->fUseZeros    =  0;
+    pPars->fPower       =  0;
+    pPars->fRecycle     =  1;
     pPars->fVerbose     =  0;
     pPars->fVeryVerbose =  0;
 }
@@ -64,16 +66,19 @@ void Dar_ManDefaultRwrParams( Dar_RwrPar_t * pPars )
 ***********************************************************************/
 int Dar_ManRewrite( Aig_Man_t * pAig, Dar_RwrPar_t * pPars )
 {
+    extern Vec_Int_t * Saig_ManComputeSwitchProbs( Aig_Man_t * p, int nFrames, int nPref, int fProbOne );
     Dar_Man_t * p;
 //    Bar_Progress_t * pProgress;
     Dar_Cut_t * pCut;
     Aig_Obj_t * pObj, * pObjNew;
     int i, k, nNodesOld, nNodeBefore, nNodeAfter, Required;
-    int clk = 0, clkStart;
+    int clk = 0, clkStart, Counter = 0;
     // prepare the library
     Dar_LibPrepare( pPars->nSubgMax ); 
     // create rewriting manager
     p = Dar_ManStart( pAig, pPars );
+    if ( pPars->fPower )
+        pAig->vProbs = Saig_ManComputeSwitchProbs( pAig, 48, 16, 1 );
     // remove dangling nodes
     Aig_ManCleanup( pAig );
     // if updating levels is requested, start fanout and timing
@@ -82,7 +87,7 @@ int Dar_ManRewrite( Aig_Man_t * pAig, Dar_RwrPar_t * pPars )
     if ( p->pPars->fUpdateLevel )
         Aig_ManStartReverseLevels( pAig, 0 );
     // set elementary cuts for the PIs
-    Dar_ManCutsStart( p );
+//    Dar_ManCutsStart( p );
     // resynthesize each node once
     clkStart = clock();
     p->nNodesInit = Aig_ManNodeNum(pAig);
@@ -95,12 +100,19 @@ int Dar_ManRewrite( Aig_Man_t * pAig, Dar_RwrPar_t * pPars )
 //    Aig_ManForEachNodeInOrder( pAig, pObj )
     {
 //        Bar_ProgressUpdate( pProgress, 100*pAig->nAndPrev/pAig->nAndTotal, NULL );
-
 //        Bar_ProgressUpdate( pProgress, i, NULL );
         if ( !Aig_ObjIsNode(pObj) )
             continue;
         if ( i > nNodesOld )
+//        if ( p->pPars->fUseZeros && i > nNodesOld )
             break;
+        if ( pPars->fRecycle && ++Counter % 50000 == 0 && Aig_DagSize(pObj) < Vec_PtrSize(p->vCutNodes)/100 )
+        {
+//            printf( "Counter = %7d.  Node = %7d.  Dag = %5d. Vec = %5d.\n", 
+//                Counter, i, Aig_DagSize(pObj), Vec_PtrSize(p->vCutNodes) );
+//            fflush( stdout );
+            Dar_ManCutsRestart( p, pObj );
+        }
 
         // consider freeing the cuts
 //        if ( (i & 0xFFF) == 0 && Aig_MmFixedReadMemUsage(p->pMemCuts)/(1<<20) > 100 )
@@ -109,6 +121,7 @@ int Dar_ManRewrite( Aig_Man_t * pAig, Dar_RwrPar_t * pPars )
         // compute cuts for the node
         p->nNodesTried++;
 clk = clock();
+        Dar_ObjSetCuts( pObj, NULL );
         Dar_ObjComputeCuts_rec( p, pObj );
 p->timeCuts += clock() - clk;
 
@@ -132,15 +145,21 @@ p->timeCuts += clock() - clk;
             // remove the old cuts
             Dar_ObjSetCuts( pObj, NULL );
             // replace the node
-            Aig_ObjReplace( pAig, pObj, pObjNew, 1, p->pPars->fUpdateLevel );
+            Aig_ObjReplace( pAig, pObj, pObjNew, p->pPars->fUpdateLevel );
             continue;
         }
 
         // evaluate the cuts
         p->GainBest = -1;
-        Required = pAig->vLevelR? Aig_ObjRequiredLevel(pAig, pObj) : AIG_INFINITY;
+        Required = pAig->vLevelR? Aig_ObjRequiredLevel(pAig, pObj) : ABC_INFINITY;
         Dar_ObjForEachCut( pObj, pCut, k )
+        {
+            int nLeavesOld = pCut->nLeaves;
+            if ( pCut->nLeaves == 3 )
+                pCut->pLeaves[pCut->nLeaves++] = 0;
             Dar_LibEval( p, pObj, pCut, Required );
+            pCut->nLeaves = nLeavesOld; 
+        }
         // check the best gain
         if ( !(p->GainBest > 0 || (p->GainBest == 0 && p->pPars->fUseZeros)) )
         {
@@ -155,7 +174,7 @@ p->timeCuts += clock() - clk;
         pObjNew = Aig_NotCond( pObjNew, Aig_ObjPhaseReal(pObjNew) ^ pObj->fPhase );
         assert( (int)Aig_Regular(pObjNew)->Level <= Required );
         // replace the node
-        Aig_ObjReplace( pAig, pObj, pObjNew, 1, p->pPars->fUpdateLevel );
+        Aig_ObjReplace( pAig, pObj, pObjNew, p->pPars->fUpdateLevel );
         // compare the gains
         nNodeAfter = Aig_ManNodeNum( pAig );
         assert( p->GainBest <= nNodeBefore - nNodeAfter );
@@ -168,7 +187,6 @@ p->timeTotal = clock() - clkStart;
 p->timeOther = p->timeTotal - p->timeCuts - p->timeEval;
 
 //    Bar_ProgressStop( pProgress );
-    p->nCutMemUsed = Aig_MmFixedReadMemUsage(p->pMemCuts)/(1<<20);
     Dar_ManCutsFree( p );
     // put the nodes into the DFS order and reassign their IDs
 //    Aig_NtkReassignIds( p );
@@ -180,6 +198,11 @@ p->timeOther = p->timeTotal - p->timeCuts - p->timeEval;
     {
 //        Aig_ManVerifyReverseLevel( pAig );
         Aig_ManStopReverseLevels( pAig );
+    }
+    if ( pAig->vProbs )
+    {
+        Vec_IntFree( pAig->vProbs );
+        pAig->vProbs = NULL;
     }
     // stop the rewriting manager
     Dar_ManStop( p );
@@ -195,6 +218,34 @@ p->timeOther = p->timeTotal - p->timeCuts - p->timeEval;
 
 /**Function*************************************************************
 
+  Synopsis    [Computes the total number of cuts.]
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+int Dar_ManCutCount( Aig_Man_t * pAig, int * pnCutsK )
+{
+    Dar_Cut_t * pCut;
+    Aig_Obj_t * pObj;
+    int i, k, nCuts = 0, nCutsK = 0;
+    Aig_ManForEachNode( pAig, pObj, i )
+        Dar_ObjForEachCut( pObj, pCut, k )
+        {
+            nCuts++;
+            if ( pCut->nLeaves == 4 )
+                nCutsK++;
+        }
+    if ( pnCutsK )
+        *pnCutsK = nCutsK;
+    return nCuts;
+}
+
+/**Function*************************************************************
+
   Synopsis    []
 
   Description []
@@ -204,13 +255,13 @@ p->timeOther = p->timeTotal - p->timeCuts - p->timeEval;
   SeeAlso     []
 
 ***********************************************************************/
-Aig_MmFixed_t * Dar_ManComputeCuts( Aig_Man_t * pAig, int nCutsMax )
+Aig_MmFixed_t * Dar_ManComputeCuts( Aig_Man_t * pAig, int nCutsMax, int fVerbose )
 {
     Dar_Man_t * p;
     Dar_RwrPar_t Pars, * pPars = &Pars; 
     Aig_Obj_t * pObj;
     Aig_MmFixed_t * pMemCuts;
-    int i, nNodes;
+    int i, nNodes, clk = clock();
     // remove dangling nodes
     if ( (nNodes = Aig_ManCleanup( pAig )) )
     {
@@ -222,10 +273,31 @@ Aig_MmFixed_t * Dar_ManComputeCuts( Aig_Man_t * pAig, int nCutsMax )
     // create rewriting manager
     p = Dar_ManStart( pAig, pPars );
     // set elementary cuts for the PIs
-    Dar_ManCutsStart( p );
+//    Dar_ManCutsStart( p );
+    Aig_MmFixedRestart( p->pMemCuts );
+    Dar_ObjPrepareCuts( p, Aig_ManConst1(p->pAig) );
+    Aig_ManForEachPi( pAig, pObj, i )
+        Dar_ObjPrepareCuts( p, pObj );
     // compute cuts for each nodes in the topological order
     Aig_ManForEachNode( pAig, pObj, i )
         Dar_ObjComputeCuts( p, pObj );
+    // print verbose stats
+    if ( fVerbose )
+    {
+//        Aig_Obj_t * pObj;
+        int nCuts, nCutsK;//, i;
+        nCuts = Dar_ManCutCount( pAig, &nCutsK );
+        printf( "Nodes = %6d. Total cuts = %6d. 4-input cuts = %6d.\n",
+            Aig_ManObjNum(pAig), nCuts, nCutsK );
+        printf( "Cut size = %2d. Truth size = %2d. Total mem = %5.2f Mb  ",
+            (int)sizeof(Dar_Cut_t), (int)4, 1.0*Aig_MmFixedReadMemUsage(p->pMemCuts)/(1<<20) );
+        ABC_PRT( "Runtime", clock() - clk );
+/*
+        Aig_ManForEachNode( pAig, pObj, i )
+            if ( i % 300 == 0 )
+                Dar_ObjCutPrint( pAig, pObj );
+*/
+    }
     // free the cuts
     pMemCuts = p->pMemCuts;
     p->pMemCuts = NULL;

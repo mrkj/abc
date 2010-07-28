@@ -43,7 +43,11 @@
 ***********************************************************************/
 int Lpk_FunComputeMinSuppSizeVar( Lpk_Fun_t * p, unsigned ** ppTruths, int nTruths, unsigned ** ppCofs, unsigned uNonDecSupp )
 {
-    int i, Var, VarBest, nSuppSize0, nSuppSize1, nSuppTotalMin, nSuppTotalCur, nSuppMaxMin, nSuppMaxCur;
+    int i, Var, VarBest, nSuppSize0, nSuppSize1;
+    int nSuppTotalMin = -1; // Suppress "might be used uninitialized"
+    int nSuppTotalCur;
+    int nSuppMaxMin = -1; // Suppress "might be used uninitialized"
+    int nSuppMaxCur;
     assert( nTruths > 0 );
     VarBest = -1;
     Lpk_SuppForEachVar( p->uSupp, Var )
@@ -283,7 +287,12 @@ void Lpk_FunCompareBoundSets( Lpk_Fun_t * p, Vec_Int_t * vBSets, int nCofDepth, 
         if ( (uBoundSet & uLateArrSupp) ) // skip those boundsets that are late arriving
             continue;
 if ( fVerbose )
-Lpk_PrintSetOne( uBoundSet );
+{
+Lpk_PrintSetOne( uBoundSet & 0xFFFF );
+//printf( "\n" );
+//Lpk_PrintSetOne( uBoundSet >> 16 );
+//printf( "\n" );
+}
         assert( (uBoundSet & (uBoundSet >> 16)) == 0 );
         nVarsBS = Kit_WordCountOnes( uBoundSet & 0xFFFF );
         if ( nVarsBS == 1 )

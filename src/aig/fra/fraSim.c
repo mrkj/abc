@@ -159,6 +159,27 @@ int Fra_SmlNodeIsZero( Fra_Sml_t * p, Aig_Obj_t * pObj )
     return 1;
 }
 
+/**Function*************************************************************
+
+  Synopsis    [Counts the number of one's in the patten of the output.]
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+int Fra_SmlNodeCountOnes( Fra_Sml_t * p, Aig_Obj_t * pObj )
+{
+    unsigned * pSims;
+    int i, Counter = 0;
+    pSims = Fra_ObjSim(p, pObj->Id);
+    for ( i = 0; i < p->nWordsTotal; i++ )
+        Counter += Aig_WordCountOnes( pSims[i] );
+    return Counter;
+}
+
 
 
 /**Function*************************************************************
@@ -252,12 +273,14 @@ void Fra_SmlSavePattern( Fra_Man_t * p )
   SeeAlso     []
 
 ***********************************************************************/
-void Fra_SmlCheckOutputSavePattern( Fra_Man_t * p, Aig_Obj_t * pObj )
+void Fra_SmlCheckOutputSavePattern( Fra_Man_t * p, Aig_Obj_t * pObjPo )
 { 
+    Aig_Obj_t * pFanin, * pObjPi;
     unsigned * pSims;
     int i, k, BestPat, * pModel;
     // find the word of the pattern
-    pSims = Fra_ObjSim(p->pSml, pObj->Id);
+    pFanin = Aig_ObjFanin0(pObjPo);
+    pSims = Fra_ObjSim(p->pSml, pFanin->Id);
     for ( i = 0; i < p->pSml->nWordsTotal; i++ )
         if ( pSims[i] )
             break;
@@ -270,12 +293,13 @@ void Fra_SmlCheckOutputSavePattern( Fra_Man_t * p, Aig_Obj_t * pObj )
     // determine the best pattern
     BestPat = i * 32 + k;
     // fill in the counter-example data
-    pModel = ALLOC( int, Aig_ManPiNum(p->pManFraig) );
-    Aig_ManForEachPi( p->pManAig, pObj, i )
+    pModel = ABC_ALLOC( int, Aig_ManPiNum(p->pManFraig)+1 );
+    Aig_ManForEachPi( p->pManAig, pObjPi, i )
     {
-        pModel[i] = Aig_InfoHasBit(Fra_ObjSim(p->pSml, pObj->Id), BestPat);
+        pModel[i] = Aig_InfoHasBit(Fra_ObjSim(p->pSml, pObjPi->Id), BestPat);
 //        printf( "%d", pModel[i] );
     }
+    pModel[Aig_ManPiNum(p->pManAig)] = pObjPo->Id;
 //    printf( "\n" );
     // set the model
     assert( p->pManFraig->pData == NULL );
@@ -306,7 +330,7 @@ int Fra_SmlCheckOutput( Fra_Man_t * p )
         if ( !Fra_SmlNodeIsConst( Aig_ObjFanin0(pObj) ) )
         {
             // create the counter-example from this pattern
-            Fra_SmlCheckOutputSavePattern( p, Aig_ObjFanin0(pObj) );
+            Fra_SmlCheckOutputSavePattern( p, pObj );
             return 1;
         }
     }
@@ -412,7 +436,7 @@ void Fra_SmlAssignDist1( Fra_Sml_t * p, unsigned * pPat )
         Aig_ManForEachPi( p->pAig, pObj, i )
             Fra_SmlAssignConst( p, pObj, Aig_InfoHasBit(pPat, i), 0 );
         // flip one bit
-        Limit = AIG_MIN( Aig_ManPiNum(p->pAig), p->nWordsTotal * 32 - 1 );
+        Limit = ABC_MIN( Aig_ManPiNum(p->pAig), p->nWordsTotal * 32 - 1 );
         for ( i = 0; i < Limit; i++ )
             Aig_InfoXorBit( Fra_ObjSim( p, Aig_ManPi(p->pAig,i)->Id ), i+1 );
     }
@@ -434,7 +458,7 @@ void Fra_SmlAssignDist1( Fra_Sml_t * p, unsigned * pPat )
         // flip one bit of the last frame
         if ( fUseDist1 ) //&& p->nFrames == 2 )
         {
-            Limit = AIG_MIN( nTruePis, p->nWordsFrame * 32 - 1 );
+            Limit = ABC_MIN( nTruePis, p->nWordsFrame * 32 - 1 );
             for ( i = 0; i < Limit; i++ )
                 Aig_InfoXorBit( Fra_ObjSim( p, Aig_ManPi(p->pAig, i)->Id ) + p->nWordsFrame*(p->nFrames-1), i+1 );
         }
@@ -505,6 +529,35 @@ void Fra_SmlNodeSimulate( Fra_Sml_t * p, Aig_Obj_t * pObj, int iFrame )
             for ( i = 0; i < p->nWordsFrame; i++ )
                 pSims[i] = (pSims0[i] & pSims1[i]);
     }
+}
+
+/**Function*************************************************************
+
+  Synopsis    [Simulates one node.]
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+int Fra_SmlNodesCompareInFrame( Fra_Sml_t * p, Aig_Obj_t * pObj0, Aig_Obj_t * pObj1, int iFrame0, int iFrame1 )
+{
+    unsigned * pSims0, * pSims1;
+    int i;
+    assert( !Aig_IsComplement(pObj0) );
+    assert( !Aig_IsComplement(pObj1) );
+    assert( iFrame0 == 0 || p->nWordsFrame < p->nWordsTotal );
+    assert( iFrame1 == 0 || p->nWordsFrame < p->nWordsTotal );
+    // get hold of the simulation information
+    pSims0  = Fra_ObjSim(p, pObj0->Id) + p->nWordsFrame * iFrame0;
+    pSims1  = Fra_ObjSim(p, pObj1->Id) + p->nWordsFrame * iFrame1;
+    // compare
+    for ( i = 0; i < p->nWordsFrame; i++ )
+        if ( pSims0[i] != pSims1[i] )
+            return 0;
+    return 1;
 }
 
 /**Function*************************************************************
@@ -654,6 +707,8 @@ clk = clock();
     nChanges += Fra_ClassesRefine1( p->pCla, 1, NULL );
     if ( p->pCla->vImps )
         nChanges += Fra_ImpRefineUsingCex( p, p->pCla->vImps );
+    if ( p->vOneHots )
+        nChanges += Fra_OneHotRefineUsingCex( p, p->vOneHots );
 p->timeRef += clock() - clk;
     if ( !p->pPars->nFramesK && nChanges < 1 )
         printf( "Error: A counter-example did not refine classes!\n" );
@@ -680,7 +735,9 @@ void Fra_SmlSimulate( Fra_Man_t * p, int fInit )
     // start the classes
     Fra_SmlInitialize( p->pSml, fInit );
     Fra_SmlSimulateOne( p->pSml );
-    Fra_ClassesPrepare( p->pCla, p->pPars->fLatchCorr );
+    if ( p->pPars->fProve && Fra_SmlCheckOutput(p) )
+        return;
+    Fra_ClassesPrepare( p->pCla, p->pPars->fLatchCorr, 0 );
 //    Fra_ClassesPrint( p->pCla, 0 );
 if ( fVerbose )
 printf( "Starting classes = %5d.   Lits = %6d.\n", Vec_PtrSize(p->pCla->vClasses), Fra_ClassesCountLits(p->pCla) );
@@ -747,7 +804,7 @@ printf( "Refined classes  = %5d.   Changes = %4d.   Lits = %6d.\n", Vec_PtrSize(
 Fra_Sml_t * Fra_SmlStart( Aig_Man_t * pAig, int nPref, int nFrames, int nWordsFrame )
 {
     Fra_Sml_t * p;
-    p = (Fra_Sml_t *)malloc( sizeof(Fra_Sml_t) + sizeof(unsigned) * Aig_ManObjNumMax(pAig) * (nPref + nFrames) * nWordsFrame );
+    p = (Fra_Sml_t *)ABC_ALLOC( char, sizeof(Fra_Sml_t) + sizeof(unsigned) * Aig_ManObjNumMax(pAig) * (nPref + nFrames) * nWordsFrame );
     memset( p, 0, sizeof(Fra_Sml_t) + sizeof(unsigned) * (nPref + nFrames) * nWordsFrame );
     p->pAig        = pAig;
     p->nPref       = nPref;
@@ -771,7 +828,7 @@ Fra_Sml_t * Fra_SmlStart( Aig_Man_t * pAig, int nPref, int nFrames, int nWordsFr
 ***********************************************************************/
 void Fra_SmlStop( Fra_Sml_t * p )
 {
-    free( p );
+    ABC_FREE( p );
 }
 
 
@@ -806,15 +863,360 @@ Fra_Sml_t * Fra_SmlSimulateComb( Aig_Man_t * pAig, int nWords )
   SeeAlso     []
 
 ***********************************************************************/
-Fra_Sml_t * Fra_SmlSimulateSeq( Aig_Man_t * pAig, int nPref, int nFrames, int nWords )
+Fra_Sml_t * Fra_SmlSimulateSeq( Aig_Man_t * pAig, int nPref, int nFrames, int nWords, int fCheckMiter )
 {
     Fra_Sml_t * p;
     p = Fra_SmlStart( pAig, nPref, nFrames, nWords );
     Fra_SmlInitialize( p, 1 );
     Fra_SmlSimulateOne( p );
+    if ( fCheckMiter )
     p->fNonConstOut = Fra_SmlCheckNonConstOutputs( p );
     return p;
 }
+
+/**Function*************************************************************
+
+  Synopsis    [Allocates a counter-example.]
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+Abc_Cex_t * Fra_SmlAllocCounterExample( int nRegs, int nRealPis, int nFrames )
+{
+    Abc_Cex_t * pCex;
+    int nWords = Aig_BitWordNum( nRegs + nRealPis * nFrames );
+    pCex = (Abc_Cex_t *)ABC_ALLOC( char, sizeof(Abc_Cex_t) + sizeof(unsigned) * nWords );
+    memset( pCex, 0, sizeof(Abc_Cex_t) + sizeof(unsigned) * nWords );
+    pCex->nRegs  = nRegs;
+    pCex->nPis   = nRealPis;
+    pCex->nBits  = nRegs + nRealPis * nFrames;
+    return pCex;
+}
+
+/**Function*************************************************************
+
+  Synopsis    [Frees the counter-example.]
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+void Fra_SmlFreeCounterExample( Abc_Cex_t * pCex )
+{
+    ABC_FREE( pCex );
+}
+
+/**Function*************************************************************
+
+  Synopsis    [Creates sequential counter-example from the simulation info.]
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+Abc_Cex_t * Fra_SmlGetCounterExample( Fra_Sml_t * p )
+{
+    Abc_Cex_t * pCex;
+    Aig_Obj_t * pObj;
+    unsigned * pSims;
+    int iPo, iFrame, iBit, i, k;
+
+    // make sure the simulation manager has it
+    assert( p->fNonConstOut );
+
+    // find the first output that failed
+    iPo = -1;
+    iBit = -1;
+    iFrame = -1;
+    Aig_ManForEachPoSeq( p->pAig, pObj, iPo )
+    {
+        if ( Fra_SmlNodeIsZero(p, pObj) )
+            continue;
+        pSims = Fra_ObjSim( p, pObj->Id );
+        for ( i = p->nWordsPref; i < p->nWordsTotal; i++ )
+            if ( pSims[i] )
+            {
+                iFrame = i / p->nWordsFrame;
+                iBit = 32 * (i % p->nWordsFrame) + Aig_WordFindFirstBit( pSims[i] );
+                break;
+            }
+        break;
+    }
+    assert( iPo < Aig_ManPoNum(p->pAig)-Aig_ManRegNum(p->pAig) );
+    assert( iFrame < p->nFrames );
+    assert( iBit < 32 * p->nWordsFrame );
+
+    // allocate the counter example
+    pCex = Fra_SmlAllocCounterExample( Aig_ManRegNum(p->pAig), Aig_ManPiNum(p->pAig) - Aig_ManRegNum(p->pAig), iFrame + 1 );
+    pCex->iPo    = iPo;
+    pCex->iFrame = iFrame;
+
+    // copy the bit data
+    Aig_ManForEachLoSeq( p->pAig, pObj, k )
+    {
+        pSims = Fra_ObjSim( p, pObj->Id );
+        if ( Aig_InfoHasBit( pSims, iBit ) )
+            Aig_InfoSetBit( pCex->pData, k );
+    }
+    for ( i = 0; i <= iFrame; i++ )
+    {
+        Aig_ManForEachPiSeq( p->pAig, pObj, k )
+        {
+            pSims = Fra_ObjSim( p, pObj->Id );
+            if ( Aig_InfoHasBit( pSims, 32 * p->nWordsFrame * i + iBit ) )
+                Aig_InfoSetBit( pCex->pData, pCex->nRegs + pCex->nPis * i + k );
+        }
+    }
+    // verify the counter example
+    if ( !Fra_SmlRunCounterExample( p->pAig, pCex ) )
+    {
+        printf( "Fra_SmlGetCounterExample(): Counter-example is invalid.\n" );
+        Fra_SmlFreeCounterExample( pCex );
+        pCex = NULL;
+    }
+    return pCex;
+}
+ 
+/**Function*************************************************************
+
+  Synopsis    [Generates seq counter-example from the combinational one.]
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+Abc_Cex_t * Fra_SmlCopyCounterExample( Aig_Man_t * pAig, Aig_Man_t * pFrames, int * pModel )
+{
+    Abc_Cex_t * pCex;
+    Aig_Obj_t * pObj;
+    int i, nFrames, nTruePis, nTruePos, iPo, iFrame;
+    // get the number of frames
+    assert( Aig_ManRegNum(pAig) > 0 );
+    assert( Aig_ManRegNum(pFrames) == 0 );
+    nTruePis = Aig_ManPiNum(pAig)-Aig_ManRegNum(pAig);
+    nTruePos = Aig_ManPoNum(pAig)-Aig_ManRegNum(pAig);
+    nFrames = Aig_ManPiNum(pFrames) / nTruePis;
+    assert( nTruePis * nFrames == Aig_ManPiNum(pFrames) );
+    assert( nTruePos * nFrames == Aig_ManPoNum(pFrames) );
+    // find the PO that failed
+    iPo = -1;
+    iFrame = -1;
+    Aig_ManForEachPo( pFrames, pObj, i )
+        if ( pObj->Id == pModel[Aig_ManPiNum(pFrames)] )
+        {
+            iPo = i % nTruePos;
+            iFrame = i / nTruePos;
+            break;
+        }
+    assert( iPo >= 0 );
+    // allocate the counter example
+    pCex = Fra_SmlAllocCounterExample( Aig_ManRegNum(pAig), nTruePis, iFrame + 1 );
+    pCex->iPo    = iPo;
+    pCex->iFrame = iFrame;
+
+    // copy the bit data
+    for ( i = 0; i < Aig_ManPiNum(pFrames); i++ )
+    {
+        if ( pModel[i] )
+            Aig_InfoSetBit( pCex->pData, pCex->nRegs + i );
+        if ( pCex->nRegs + i == pCex->nBits - 1 )
+            break;
+    }
+
+    // verify the counter example
+    if ( !Fra_SmlRunCounterExample( pAig, pCex ) )
+    {
+        printf( "Fra_SmlGetCounterExample(): Counter-example is invalid.\n" );
+        Fra_SmlFreeCounterExample( pCex );
+        pCex = NULL;
+    }
+    return pCex;
+
+}
+
+/**Function*************************************************************
+
+  Synopsis    [Make the trivial counter-example for the trivially asserted output.]
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+Abc_Cex_t * Fra_SmlTrivCounterExample( Aig_Man_t * pAig, int iFrameOut )
+{
+    Abc_Cex_t * pCex;
+    int nTruePis, nTruePos, iPo, iFrame;
+    assert( Aig_ManRegNum(pAig) > 0 );
+    nTruePis = Aig_ManPiNum(pAig)-Aig_ManRegNum(pAig);
+    nTruePos = Aig_ManPoNum(pAig)-Aig_ManRegNum(pAig);
+    iPo = iFrameOut % nTruePos;
+    iFrame = iFrameOut / nTruePos;
+    // allocate the counter example
+    pCex = Fra_SmlAllocCounterExample( Aig_ManRegNum(pAig), nTruePis, iFrame + 1 );
+    pCex->iPo    = iPo;
+    pCex->iFrame = iFrame;
+    return pCex;
+}
+
+/**Function*************************************************************
+
+  Synopsis    [Resimulates the counter-example.]
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+int Fra_SmlRunCounterExample( Aig_Man_t * pAig, Abc_Cex_t * p )
+{
+    Fra_Sml_t * pSml;
+    Aig_Obj_t * pObj;
+    int RetValue, i, k, iBit;
+    assert( Aig_ManRegNum(pAig) > 0 );
+    assert( Aig_ManRegNum(pAig) < Aig_ManPiNum(pAig) );
+    // start a new sequential simulator
+    pSml = Fra_SmlStart( pAig, 0, p->iFrame+1, 1 );
+    // assign simulation info for the registers
+    iBit = 0;
+    Aig_ManForEachLoSeq( pAig, pObj, i )
+        Fra_SmlAssignConst( pSml, pObj, Aig_InfoHasBit(p->pData, iBit++), 0 );
+    // assign simulation info for the primary inputs
+    for ( i = 0; i <= p->iFrame; i++ )
+        Aig_ManForEachPiSeq( pAig, pObj, k )
+            Fra_SmlAssignConst( pSml, pObj, Aig_InfoHasBit(p->pData, iBit++), i );
+    assert( iBit == p->nBits );
+    // run random simulation
+    Fra_SmlSimulateOne( pSml );
+    // check if the given output has failed
+    RetValue = !Fra_SmlNodeIsZero( pSml, Aig_ManPo(pAig, p->iPo) );
+    Fra_SmlStop( pSml );
+    return RetValue;
+}
+
+/**Function*************************************************************
+
+  Synopsis    [Make the trivial counter-example for the trivially asserted output.]
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+Abc_Cex_t * Fra_SmlSimpleCounterExample( Aig_Man_t * pAig, int * pModel, int iFrame, int iPo )
+{
+    Abc_Cex_t * pCex;
+    int iBit;
+    pCex = Fra_SmlAllocCounterExample( Aig_ManRegNum(pAig), Aig_ManPiNum(pAig)-Aig_ManRegNum(pAig), iFrame + 1 );
+    pCex->iPo    = iPo;
+    pCex->iFrame = iFrame;
+    for ( iBit = Aig_ManRegNum(pAig); iBit < pCex->nBits; iBit++ )
+        if ( pModel[iBit-Aig_ManRegNum(pAig)] )
+            Aig_InfoSetBit( pCex->pData, iBit );
+/*
+    if ( !Fra_SmlRunCounterExample( pAig, pCex ) )
+    {
+        printf( "Fra_SmlSimpleCounterExample(): Counter-example is invalid.\n" );
+//        Fra_SmlFreeCounterExample( pCex );
+//        pCex = NULL;
+    }
+*/
+    return pCex;
+}
+
+/**Function*************************************************************
+
+  Synopsis    [Resimulates the counter-example.]
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+int Fra_SmlWriteCounterExample( FILE * pFile, Aig_Man_t * pAig, Abc_Cex_t * p )
+{
+    Fra_Sml_t * pSml;
+    Aig_Obj_t * pObj;
+    int RetValue, i, k, iBit;
+    unsigned * pSims;
+    assert( Aig_ManRegNum(pAig) > 0 );
+    assert( Aig_ManRegNum(pAig) < Aig_ManPiNum(pAig) );
+    // start a new sequential simulator
+    pSml = Fra_SmlStart( pAig, 0, p->iFrame+1, 1 );
+    // assign simulation info for the registers
+    iBit = 0;
+    Aig_ManForEachLoSeq( pAig, pObj, i )
+//        Fra_SmlAssignConst( pSml, pObj, Aig_InfoHasBit(p->pData, iBit++), 0 );
+        Fra_SmlAssignConst( pSml, pObj, 0, 0 );
+    // assign simulation info for the primary inputs
+    iBit = p->nRegs;
+    for ( i = 0; i <= p->iFrame; i++ )
+        Aig_ManForEachPiSeq( pAig, pObj, k )
+            Fra_SmlAssignConst( pSml, pObj, Aig_InfoHasBit(p->pData, iBit++), i );
+    assert( iBit == p->nBits );
+    // run random simulation
+    Fra_SmlSimulateOne( pSml );
+    // check if the given output has failed
+    RetValue = !Fra_SmlNodeIsZero( pSml, Aig_ManPo(pAig, p->iPo) );
+
+    // write the output file
+    for ( i = 0; i <= p->iFrame; i++ )
+    {
+/*
+        Aig_ManForEachLoSeq( pAig, pObj, k )
+        {
+            pSims = Fra_ObjSim(pSml, pObj->Id);
+            fprintf( pFile, "%d", (int)(pSims[i] != 0) );
+        }
+        fprintf( pFile, " " );
+*/
+        Aig_ManForEachPiSeq( pAig, pObj, k )
+        {
+            pSims = Fra_ObjSim(pSml, pObj->Id);
+            fprintf( pFile, "%d", (int)(pSims[i] != 0) );
+        }
+/*
+        fprintf( pFile, " " );
+        Aig_ManForEachPoSeq( pAig, pObj, k )
+        {
+            pSims = Fra_ObjSim(pSml, pObj->Id);
+            fprintf( pFile, "%d", (int)(pSims[i] != 0) );
+        }
+        fprintf( pFile, " " );
+        Aig_ManForEachLiSeq( pAig, pObj, k )
+        {
+            pSims = Fra_ObjSim(pSml, pObj->Id);
+            fprintf( pFile, "%d", (int)(pSims[i] != 0) );
+        }
+*/
+        fprintf( pFile, "\n" );
+    }
+
+    Fra_SmlStop( pSml );
+    return RetValue;
+}
+
 
 ////////////////////////////////////////////////////////////////////////
 ///                       END OF FILE                                ///

@@ -21,10 +21,6 @@
 #ifndef __CNF_H__
 #define __CNF_H__
 
-#ifdef __cplusplus
-extern "C" {
-#endif 
-
 ////////////////////////////////////////////////////////////////////////
 ///                          INCLUDES                                ///
 ////////////////////////////////////////////////////////////////////////
@@ -42,6 +38,10 @@ extern "C" {
 ////////////////////////////////////////////////////////////////////////
 ///                         PARAMETERS                               ///
 ////////////////////////////////////////////////////////////////////////
+
+#ifdef __cplusplus
+extern "C" {
+#endif 
 
 ////////////////////////////////////////////////////////////////////////
 ///                         BASIC TYPES                              ///
@@ -108,6 +108,10 @@ static inline void         Cnf_ObjSetBestCut( Aig_Obj_t * pObj, Cnf_Cut_t * pCut
 ///                           ITERATORS                              ///
 ////////////////////////////////////////////////////////////////////////
 
+// iterator over the clauses
+#define Cnf_CnfForClause( p, pBeg, pEnd, i )                         \
+    for ( i = 0; i < p->nClauses && (pBeg = p->pClauses[i]) && (pEnd = p->pClauses[i+1]); i++ )
+
 // iterator over leaves of the cut
 #define Cnf_CutForEachLeaf( p, pCut, pLeaf, i )                         \
     for ( i = 0; (i < (int)(pCut)->nFanins) && ((pLeaf) = Aig_ManObj(p, (pCut)->pFanins[i])); i++ )
@@ -117,6 +121,7 @@ static inline void         Cnf_ObjSetBestCut( Aig_Obj_t * pObj, Cnf_Cut_t * pCut
 ////////////////////////////////////////////////////////////////////////
 
 /*=== cnfCore.c ========================================================*/
+extern Vec_Int_t *     Cnf_DeriveMappingArray( Aig_Man_t * pAig );
 extern Cnf_Dat_t *     Cnf_Derive( Aig_Man_t * pAig, int nOutputs );
 extern Cnf_Man_t *     Cnf_ManRead();
 extern void            Cnf_ClearMemory();
@@ -132,9 +137,18 @@ extern void            Cnf_ReadMsops( char ** ppSopSizes, char *** ppSops );
 extern Cnf_Man_t *     Cnf_ManStart();
 extern void            Cnf_ManStop( Cnf_Man_t * p );
 extern Vec_Int_t *     Cnf_DataCollectPiSatNums( Cnf_Dat_t * pCnf, Aig_Man_t * p );
+extern Cnf_Dat_t *     Cnf_DataAlloc( Aig_Man_t * pAig, int nVars, int nClauses, int nLiterals );
+extern Cnf_Dat_t *     Cnf_DataDup( Cnf_Dat_t * p );
 extern void            Cnf_DataFree( Cnf_Dat_t * p );
+extern void            Cnf_DataLift( Cnf_Dat_t * p, int nVarsPlus );
+extern void            Cnf_DataFlipLastLiteral( Cnf_Dat_t * p );
+extern void            Cnf_DataPrint( Cnf_Dat_t * p, int fReadable );
 extern void            Cnf_DataWriteIntoFile( Cnf_Dat_t * p, char * pFileName, int fReadable );
-void *                 Cnf_DataWriteIntoSolver( Cnf_Dat_t * p );
+extern void *          Cnf_DataWriteIntoSolver( Cnf_Dat_t * p, int nFrames, int fInit );
+extern int             Cnf_DataWriteOrClause( void * pSat, Cnf_Dat_t * pCnf );
+extern int             Cnf_DataWriteAndClauses( void * p, Cnf_Dat_t * pCnf );
+extern void            Cnf_DataTranformPolarity( Cnf_Dat_t * pCnf, int fTransformPos );
+extern int             Cnf_DataAddXorClause( void * pSat, int iVarA, int iVarB, int iVarC );
 /*=== cnfMap.c ========================================================*/
 extern void            Cnf_DeriveMapping( Cnf_Man_t * p );
 extern int             Cnf_ManMapForCnf( Cnf_Man_t * p );
@@ -145,10 +159,14 @@ extern void            Cnf_ManPostprocess( Cnf_Man_t * p );
 /*=== cnfUtil.c ========================================================*/
 extern Vec_Ptr_t *     Aig_ManScanMapping( Cnf_Man_t * p, int fCollect );
 extern Vec_Ptr_t *     Cnf_ManScanMapping( Cnf_Man_t * p, int fCollect, int fPreorder );
+extern Vec_Int_t *     Cnf_DataCollectCiSatNums( Cnf_Dat_t * pCnf, Aig_Man_t * p );
+extern Vec_Int_t *     Cnf_DataCollectCoSatNums( Cnf_Dat_t * pCnf, Aig_Man_t * p );
 /*=== cnfWrite.c ========================================================*/
+extern Vec_Int_t *     Cnf_ManWriteCnfMapping( Cnf_Man_t * p, Vec_Ptr_t * vMapped );
 extern void            Cnf_SopConvertToVector( char * pSop, int nCubes, Vec_Int_t * vCover );
 extern Cnf_Dat_t *     Cnf_ManWriteCnf( Cnf_Man_t * p, Vec_Ptr_t * vMapped, int nOutputs );
 extern Cnf_Dat_t *     Cnf_DeriveSimple( Aig_Man_t * p, int nOutputs );
+extern Cnf_Dat_t *     Cnf_DeriveSimpleForRetiming( Aig_Man_t * p );
 
 #ifdef __cplusplus
 }

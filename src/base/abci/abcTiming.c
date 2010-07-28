@@ -157,7 +157,7 @@ void Abc_NtkTimeSetDefaultRequired( Abc_Ntk_t * pNtk, float Rise, float Fall )
     if ( pNtk->pManTime == NULL )
         pNtk->pManTime = Abc_ManTimeStart();
     pNtk->pManTime->tReqDef.Rise  = Rise;
-    pNtk->pManTime->tReqDef.Rise  = Fall;
+    pNtk->pManTime->tReqDef.Fall  = Fall;
     pNtk->pManTime->tReqDef.Worst = ABC_MAX( Rise, Fall );
 }
 
@@ -185,7 +185,7 @@ void Abc_NtkTimeSetArrival( Abc_Ntk_t * pNtk, int ObjId, float Rise, float Fall 
     vTimes = pNtk->pManTime->vArrs;
     pTime = vTimes->pArray[ObjId];
     pTime->Rise  = Rise;
-    pTime->Fall  = Rise;
+    pTime->Fall  = Fall;
     pTime->Worst = ABC_MAX( Rise, Fall );
 }
 
@@ -213,7 +213,7 @@ void Abc_NtkTimeSetRequired( Abc_Ntk_t * pNtk, int ObjId, float Rise, float Fall
     vTimes = pNtk->pManTime->vReqs;
     pTime = vTimes->pArray[ObjId];
     pTime->Rise  = Rise;
-    pTime->Fall  = Rise;
+    pTime->Fall  = Fall;
     pTime->Worst = ABC_MAX( Rise, Fall );
 }
 
@@ -320,7 +320,7 @@ void Abc_NtkTimePrepare( Abc_Ntk_t * pNtk )
 Abc_ManTime_t * Abc_ManTimeStart()
 {
     Abc_ManTime_t * p;
-    p = ALLOC( Abc_ManTime_t, 1 );
+    p = ABC_ALLOC( Abc_ManTime_t, 1 );
     memset( p, 0, sizeof(Abc_ManTime_t) );
     p->vArrs = Vec_PtrAlloc( 0 );
     p->vReqs = Vec_PtrAlloc( 0 );
@@ -342,15 +342,15 @@ void Abc_ManTimeStop( Abc_ManTime_t * p )
 {
     if ( p->vArrs->nSize > 0 )
     {
-        free( p->vArrs->pArray[0] );
+        ABC_FREE( p->vArrs->pArray[0] );
         Vec_PtrFree( p->vArrs );
     }
     if ( p->vReqs->nSize > 0 )
     {
-        free( p->vReqs->pArray[0] );
+        ABC_FREE( p->vReqs->pArray[0] );
         Vec_PtrFree( p->vReqs );
     }
-    free( p );
+    ABC_FREE( p );
 }
 
 /**Function*************************************************************
@@ -420,7 +420,7 @@ void Abc_ManTimeExpand( Abc_ManTime_t * p, int nSize, int fProgressive )
     Vec_PtrGrow( vTimes, nSizeNew );
     vTimes->nSize = nSizeNew;
     ppTimesOld = ( nSizeOld == 0 )? NULL : vTimes->pArray[0];
-    ppTimes = REALLOC( Abc_Time_t, ppTimesOld, nSizeNew );
+    ppTimes = ABC_REALLOC( Abc_Time_t, ppTimesOld, nSizeNew );
     for ( i = 0; i < nSizeNew; i++ )
         vTimes->pArray[i] = ppTimes + i;
     for ( i = nSizeOld; i < nSizeNew; i++ )
@@ -435,7 +435,7 @@ void Abc_ManTimeExpand( Abc_ManTime_t * p, int nSize, int fProgressive )
     Vec_PtrGrow( vTimes, nSizeNew );
     vTimes->nSize = nSizeNew;
     ppTimesOld = ( nSizeOld == 0 )? NULL : vTimes->pArray[0];
-    ppTimes = REALLOC( Abc_Time_t, ppTimesOld, nSizeNew );
+    ppTimes = ABC_REALLOC( Abc_Time_t, ppTimesOld, nSizeNew );
     for ( i = 0; i < nSizeNew; i++ )
         vTimes->pArray[i] = ppTimes + i;
     for ( i = nSizeOld; i < nSizeNew; i++ )
@@ -496,7 +496,7 @@ Abc_Time_t * Abc_NtkGetCiArrivalTimes( Abc_Ntk_t * pNtk )
     Abc_Time_t * p;
     Abc_Obj_t * pNode;
     int i;
-    p = ALLOC( Abc_Time_t, Abc_NtkCiNum(pNtk) );
+    p = ABC_ALLOC( Abc_Time_t, Abc_NtkCiNum(pNtk) );
     memset( p, 0, sizeof(Abc_Time_t) * Abc_NtkCiNum(pNtk) );
     if ( pNtk->pManTime == NULL )
         return p;
@@ -523,7 +523,7 @@ float * Abc_NtkGetCiArrivalFloats( Abc_Ntk_t * pNtk )
     float * p;
     Abc_Obj_t * pNode;
     int i;
-    p = ALLOC( float, Abc_NtkCiNum(pNtk) );
+    p = ABC_ALLOC( float, Abc_NtkCiNum(pNtk) );
     memset( p, 0, sizeof(float) * Abc_NtkCiNum(pNtk) );
     if ( pNtk->pManTime == NULL )
         return p;
@@ -795,6 +795,7 @@ void Abc_NtkUpdateLevel( Abc_Obj_t * pObjNew, Vec_Vec_t * vLevels )
 {
     Abc_Obj_t * pFanout, * pTemp;
     int LevelOld, Lev, k, m;
+//    int Counter = 0, CounterMax = 0;
     // check if level has changed
     LevelOld = Abc_ObjLevel(pObjNew);
     if ( LevelOld == Abc_ObjLevelNew(pObjNew) )
@@ -808,6 +809,7 @@ void Abc_NtkUpdateLevel( Abc_Obj_t * pObjNew, Vec_Vec_t * vLevels )
     // recursively update level
     Vec_VecForEachEntryStart( vLevels, pTemp, Lev, k, LevelOld )
     {
+//        Counter--;
         pTemp->fMarkA = 0;
         assert( Abc_ObjLevel(pTemp) == Lev );
         Abc_ObjSetLevel( pTemp, Abc_ObjLevelNew(pTemp) );
@@ -821,10 +823,13 @@ void Abc_NtkUpdateLevel( Abc_Obj_t * pObjNew, Vec_Vec_t * vLevels )
             {
                 assert( Abc_ObjLevel(pFanout) >= Lev );
                 Vec_VecPush( vLevels, Abc_ObjLevel(pFanout), pFanout );
+//                Counter++;
+//                CounterMax = ABC_MAX( CounterMax, Counter );
                 pFanout->fMarkA = 1;
             }
         }
     }
+//    printf( "%d ", CounterMax );
 }
 
 /**Function*************************************************************

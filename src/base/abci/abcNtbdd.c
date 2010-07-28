@@ -258,7 +258,7 @@ DdManager * Abc_NtkBuildGlobalBdds( Abc_Ntk_t * pNtk, int nBddSizeMax, int fDrop
     // start the manager
     assert( Abc_NtkGlobalBdd(pNtk) == NULL );
     dd = Cudd_Init( Abc_NtkCiNum(pNtk), 0, CUDD_UNIQUE_SLOTS, CUDD_CACHE_SLOTS, 0 );
-    pAttMan = Vec_AttAlloc( 0, Abc_NtkObjNumMax(pNtk) + 1, dd, Extra_StopManager, NULL, Cudd_RecursiveDeref );
+    pAttMan = Vec_AttAlloc( Abc_NtkObjNumMax(pNtk) + 1, dd, (void (*)(void*))Extra_StopManager, NULL, (void (*)(void*,void*))Cudd_RecursiveDeref );
     Vec_PtrWriteEntry( pNtk->vAttrs, VEC_ATTR_GLOBAL_BDD, pAttMan );
 
     // set reordering
@@ -293,7 +293,16 @@ DdManager * Abc_NtkBuildGlobalBdds( Abc_Ntk_t * pNtk, int nBddSizeMax, int fDrop
             if ( fVerbose )
             printf( "Constructing global BDDs is aborted.\n" );
             Abc_NtkFreeGlobalBdds( pNtk, 0 );
-            Cudd_Quit( dd );
+            Cudd_Quit( dd ); 
+
+            // reset references
+            Abc_NtkForEachObj( pNtk, pObj, i )
+                if ( !Abc_ObjIsBox(pObj) && !Abc_ObjIsBi(pObj) )
+                    pObj->vFanouts.nSize = 0;
+            Abc_NtkForEachObj( pNtk, pObj, i )
+                if ( !Abc_ObjIsBox(pObj) && !Abc_ObjIsBo(pObj) )
+                    Abc_ObjForEachFanin( pObj, pFanin, k )
+                        pFanin->vFanouts.nSize++;
             return NULL;
         }
         bFunc = Cudd_NotCond( bFunc, Abc_ObjFaninC0(pObj) );  Cudd_Ref( bFunc ); 
@@ -321,6 +330,9 @@ DdManager * Abc_NtkBuildGlobalBdds( Abc_Ntk_t * pNtk, int nBddSizeMax, int fDrop
     }
 */
     // reset references
+    Abc_NtkForEachObj( pNtk, pObj, i )
+        if ( !Abc_ObjIsBox(pObj) && !Abc_ObjIsBi(pObj) )
+            pObj->vFanouts.nSize = 0;
     Abc_NtkForEachObj( pNtk, pObj, i )
         if ( !Abc_ObjIsBox(pObj) && !Abc_ObjIsBo(pObj) )
             Abc_ObjForEachFanin( pObj, pFanin, k )
@@ -570,7 +582,7 @@ clk = clock();
     printf( "The BDD before = %d.\n", Cudd_DagSize(bSum) );
     Cudd_ReduceHeap( dd, CUDD_REORDER_SIFT, 1 );
     printf( "The BDD after  = %d.\n", Cudd_DagSize(bSum) );
-PRT( "Time", clock() - clk );
+ABC_PRT( "Time", clock() - clk );
     Cudd_RecursiveDeref( dd, bSum );
     Cudd_Quit( dd );
 }

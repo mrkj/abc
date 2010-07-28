@@ -49,22 +49,6 @@ static char *pScanStr;
 
 /**Function*************************************************************
 
-  Synopsis    [util_cpu_time()]
-
-  Description []
-               
-  SideEffects []
-
-  SeeAlso     []
-
-***********************************************************************/
-long Extra_CpuTime()
-{
-    return clock();
-}
-
-/**Function*************************************************************
-
   Synopsis    [getSoftDataLimit()]
 
   Description []
@@ -185,7 +169,7 @@ char * Extra_UtilStrsav( char *s )
        return s;
     }
     else {
-       return strcpy(ALLOC(char, strlen(s)+1), s);
+       return strcpy(ABC_ALLOC(char, strlen(s)+1), s);
     }
 }
 
@@ -193,7 +177,7 @@ char * Extra_UtilStrsav( char *s )
 
   Synopsis    [util_tilde_expand()]
 
-  Description []
+  Description [The code contributed by Niklas Sorensson.]
                
   SideEffects []
 
@@ -203,6 +187,32 @@ char * Extra_UtilStrsav( char *s )
 char * Extra_UtilTildeExpand( char *fname )
 {
     return Extra_UtilStrsav( fname );
+/*
+    int         n_tildes = 0;
+    const char* home;
+    char*       expanded;
+    int         length;
+    int         i, j, k;
+
+    for (i = 0; i < (int)strlen(fname); i++)
+        if (fname[i] == '~') n_tildes++;
+
+    home     = getenv("HOME");
+    length   = n_tildes * strlen(home) + strlen(fname);
+    expanded = ABC_ALLOC(char, length + 1);
+
+    j = 0;
+    for (i = 0; i < (int)strlen(fname); i++){
+        if (fname[i] == '~'){
+            for (k = 0; k < (int)strlen(home); k++)
+                expanded[j++] = home[k];
+        }else
+            expanded[j++] = fname[i];
+    }
+
+    expanded[j] = '\0';
+    return expanded; 
+*/
 }
 
 /**Function*************************************************************
@@ -269,22 +279,22 @@ char * Extra_UtilFileSearch(char *file, char *path, char *mode)
 	if (strcmp(path, ".") == 0) {
 	    buffer = Extra_UtilStrsav(file);
 	} else {
-	    buffer = ALLOC(char, strlen(path) + strlen(file) + 4);
+	    buffer = ABC_ALLOC(char, strlen(path) + strlen(file) + 4);
 	    (void) sprintf(buffer, "%s/%s", path, file);
 	}
 	filename = Extra_UtilTildeExpand(buffer);
-	FREE(buffer);
+	ABC_FREE(buffer);
 
 	/* see if we can access it */
 	if (Extra_UtilCheckFile(filename, mode)) {
-	    FREE(save_path);
+	    ABC_FREE(save_path);
 	    return filename;
 	}
-	FREE(filename);
+	ABC_FREE(filename);
 	path = ++cp;
     } while (! quit); 
 
-    FREE(save_path);
+    ABC_FREE(save_path);
     return 0;
 }
 
@@ -322,6 +332,66 @@ void Extra_UtilMMout_Of_Memory( long size )
 ***********************************************************************/
 void (*Extra_UtilMMoutOfMemory)() = Extra_UtilMMout_Of_Memory;
 
+
+/**Function*************************************************************
+
+  Synopsis    [util_cpu_time()]
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+long Extra_CpuTime()
+{
+    return clock();
+}
+
+/**Function*************************************************************
+
+  Synopsis    [util_cpu_time()]
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+#if defined(NT) || defined(NT64) || defined(WIN32)
+double Extra_CpuTimeDouble()
+{
+    return (double)clock()/CLOCKS_PER_SEC;
+}
+#else
+#include <sys/time.h>
+#include <sys/resource.h>
+#include <unistd.h>
+double Extra_CpuTimeDouble()
+{
+    struct rusage ru;
+    getrusage(RUSAGE_SELF, &ru);
+    return (double)ru.ru_utime.tv_sec + (double)ru.ru_utime.tv_usec / 1000000; 
+}
+#endif
+
+/**Function*************************************************************
+
+  Synopsis    [Testing memory leaks.]
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+void Extra_MemTest()
+{
+    ABC_ALLOC( char, 1002 );
+}
 
 ////////////////////////////////////////////////////////////////////////
 ///                       END OF FILE                                ///

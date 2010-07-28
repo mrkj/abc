@@ -71,7 +71,7 @@ Fxu_Matrix * Fxu_CreateMatrix( Fxu_Data_t * pData )
     nPairsStore =  0;
     nBitsMax    = -1; 
     for ( i = 0; i < pData->nNodesOld; i++ )
-        if ( pSopCover = pData->vSops->pArray[i] )
+        if ( (pSopCover = pData->vSops->pArray[i]) )
         {
             nCubes       = Abc_SopGetCubeNum( pSopCover );
             nFanins      = Abc_SopGetVarNum( pSopCover );
@@ -98,18 +98,18 @@ Fxu_Matrix * Fxu_CreateMatrix( Fxu_Data_t * pData )
     // start the matrix
 	p = Fxu_MatrixAllocate();
     // create the column labels 
-    p->ppVars = ALLOC( Fxu_Var *, 2 * (pData->nNodesOld + pData->nNodesExt) );
+    p->ppVars = ABC_ALLOC( Fxu_Var *, 2 * (pData->nNodesOld + pData->nNodesExt) );
     for ( i = 0; i < 2 * pData->nNodesOld; i++ )
         p->ppVars[i] = Fxu_MatrixAddVar( p );
 
     // allocate storage for all cube pairs at once
-    p->pppPairs = ALLOC( Fxu_Pair **, nCubesTotal + 100 );
-    p->ppPairs  = ALLOC( Fxu_Pair *,  nPairsStore + 100 );
+    p->pppPairs = ABC_ALLOC( Fxu_Pair **, nCubesTotal + 100 );
+    p->ppPairs  = ABC_ALLOC( Fxu_Pair *,  nPairsStore + 100 );
     memset( p->ppPairs, 0, sizeof(Fxu_Pair *) * nPairsStore );
     iCube = 0;
     iPair = 0;
     for ( i = 0; i < pData->nNodesOld; i++ )
-        if ( pSopCover = pData->vSops->pArray[i] )
+        if ( (pSopCover = pData->vSops->pArray[i]) )
         {
             // get the number of cubes
             nCubes = Abc_SopGetCubeNum( pSopCover );
@@ -133,10 +133,10 @@ Fxu_Matrix * Fxu_CreateMatrix( Fxu_Data_t * pData )
 
 
     // allocate room for the reordered literals
-    pOrder = ALLOC( int, nBitsMax );
+    pOrder = ABC_ALLOC( int, nBitsMax );
     // create the rows
     for ( i = 0; i < pData->nNodesOld; i++ )
-    if ( pSopCover = pData->vSops->pArray[i] )
+    if ( (pSopCover = pData->vSops->pArray[i]) )
     {
         // get the new var in the matrix
         pVar = p->ppVars[2*i+1];
@@ -174,7 +174,7 @@ Fxu_Matrix * Fxu_CreateMatrix( Fxu_Data_t * pData )
 				    Fxu_MatrixAddDivisor( p, pCube1, pCube2 );
         }
     }
-    FREE( pOrder );
+    ABC_FREE( pOrder );
 
     // consider the case when cube pairs should be preprocessed
     // before adding them to the set of divisors
@@ -272,7 +272,7 @@ void Fxu_CreateCovers( Fxu_Matrix * p, Fxu_Data_t * pData )
 
     // go through the internal nodes
     for ( n = 0; n < pData->nNodesOld; n++ )
-    if ( pSopCover = pData->vSops->pArray[n] )
+    if ( (pSopCover = pData->vSops->pArray[n]) )
     {
         // get the number of this node
         iNode = n;

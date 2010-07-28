@@ -59,9 +59,9 @@ Abc_Ntk_t * Abc_NtkMap( Abc_Ntk_t * pNtk, double DelayTarget, int fRecovery, int
     int fShowSwitching = 1;
     Abc_Ntk_t * pNtkNew;
     Map_Man_t * pMan;
-    Vec_Int_t * vSwitching;
+    Vec_Int_t * vSwitching = NULL;
     float * pSwitching = NULL;
-    int clk;
+    int clk, clkTotal = clock();
 
     assert( Abc_NtkIsStrash(pNtk) );
 
@@ -109,12 +109,16 @@ clk = clock();
 
     // reconstruct the network after mapping
     pNtkNew = Abc_NtkFromMap( pMan, pNtk );
+    Map_ManFree( pMan );
     if ( pNtkNew == NULL )
         return NULL;
-    Map_ManFree( pMan );
 
     if ( pNtk->pExdc )
         pNtkNew->pExdc = Abc_NtkDup( pNtk->pExdc );
+if ( fVerbose )
+{
+ABC_PRT( "Total runtime", clock() - clkTotal );
+}
 
     // make sure that everything is okay
     if ( !Abc_NtkCheck( pNtkNew ) )
@@ -259,7 +263,12 @@ Abc_Obj_t * Abc_NodeFromMap_rec( Abc_Ntk_t * pNtkNew, Map_Node_t * pNodeMap, int
 
     // check the case of constant node
     if ( Map_NodeIsConst(pNodeMap) )
-        return fPhase? Abc_NtkCreateNodeConst1(pNtkNew) : Abc_NtkCreateNodeConst0(pNtkNew);
+    {
+        pNodeNew = fPhase? Abc_NtkCreateNodeConst1(pNtkNew) : Abc_NtkCreateNodeConst0(pNtkNew);
+        if ( pNodeNew->pData == NULL )
+            printf( "Error creating mapped network: Library does not have a constant %d gate.\n", fPhase );
+        return pNodeNew;
+    }
 
     // check if the phase is already implemented
     pNodeNew = (Abc_Obj_t *)Map_NodeReadData( pNodeMap, fPhase );

@@ -19,17 +19,197 @@
 
 ***********************************************************************/
 
-#include "io.h"
+// The code in this file is developed in collaboration with Mark Jarvin of Toronto.
+
+#include "ioAbc.h"
+#include "bzlib.h"
+#include "zlib.h"
 
 ////////////////////////////////////////////////////////////////////////
 ///                        DECLARATIONS                              ///
 ////////////////////////////////////////////////////////////////////////
 
-unsigned Io_ReadAigerDecode( char ** ppPos );
-
 ////////////////////////////////////////////////////////////////////////
 ///                     FUNCTION DEFINITIONS                         ///
 ////////////////////////////////////////////////////////////////////////
+
+/**Function*************************************************************
+
+  Synopsis    [Extracts one unsigned AIG edge from the input buffer.]
+
+  Description [This procedure is a slightly modified version of Armin Biere's
+  procedure "unsigned decode (FILE * file)". ]
+  
+  SideEffects [Updates the current reading position.]
+
+  SeeAlso     []
+
+***********************************************************************/
+static inline unsigned Io_ReadAigerDecode( char ** ppPos )
+{
+    unsigned x = 0, i = 0;
+    unsigned char ch;
+
+//    while ((ch = getnoneofch (file)) & 0x80)
+    while ((ch = *(*ppPos)++) & 0x80)
+        x |= (ch & 0x7f) << (7 * i++);
+
+    return x | (ch << (7 * i));
+}
+
+/**Function*************************************************************
+
+  Synopsis    [Decodes the encoded array of literals.]
+
+  Description []
+  
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+Vec_Int_t * Io_WriteDecodeLiterals( char ** ppPos, int nEntries )
+{
+    Vec_Int_t * vLits;
+    int Lit, LitPrev, Diff, i;
+    vLits = Vec_IntAlloc( nEntries );
+    LitPrev = Io_ReadAigerDecode( ppPos );
+    Vec_IntPush( vLits, LitPrev );
+    for ( i = 1; i < nEntries; i++ )
+    {
+//        Diff = Lit - LitPrev;
+//        Diff = (Lit < LitPrev)? -Diff : Diff;
+//        Diff = ((2 * Diff) << 1) | (int)(Lit < LitPrev);
+        Diff = Io_ReadAigerDecode( ppPos );
+        Diff = (Diff & 1)? -(Diff >> 1) : Diff >> 1;
+        Lit  = Diff + LitPrev;
+        Vec_IntPush( vLits, Lit );
+        LitPrev = Lit;
+    }
+    return vLits;
+}
+
+
+/**Function*************************************************************
+
+  Synopsis    [Reads the file into a character buffer.]
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+typedef struct buflist {
+  char buf[1<<20];
+  int nBuf;
+  struct buflist * next;
+} buflist;
+
+static char * Ioa_ReadLoadFileBz2Aig( char * pFileName, int * pFileSize )
+{
+    FILE    * pFile;
+    int       nFileSize = 0;
+    char    * pContents;
+    BZFILE  * b;
+    int       bzError;
+    struct buflist * pNext;
+    buflist * bufHead = NULL, * buf = NULL;
+
+    pFile = fopen( pFileName, "rb" );
+    if ( pFile == NULL )
+    {
+        printf( "Ioa_ReadLoadFileBz2(): The file is unavailable (absent or open).\n" );
+        return NULL;
+    }
+    b = BZ2_bzReadOpen(&bzError,pFile,0,0,NULL,0);
+    if (bzError != BZ_OK) {
+        printf( "Ioa_ReadLoadFileBz2(): BZ2_bzReadOpen() failed with error %d.\n",bzError );
+        return NULL;
+    }
+    do {
+        if (!bufHead)
+            buf = bufHead = ABC_ALLOC( buflist, 1 );
+        else
+            buf = buf->next = ABC_ALLOC( buflist, 1 );
+        nFileSize += buf->nBuf = BZ2_bzRead(&bzError,b,buf->buf,1<<20);
+        buf->next = NULL;
+    } while (bzError == BZ_OK);
+    if (bzError == BZ_STREAM_END) {
+        // we're okay
+        char * p;
+        int nBytes = 0;
+        BZ2_bzReadClose(&bzError,b);
+        p = pContents = ABC_ALLOC( char, nFileSize + 10 );
+        buf = bufHead;
+        do {
+            memcpy(p+nBytes,buf->buf,buf->nBuf);
+            nBytes += buf->nBuf;
+//        } while((buf = buf->next));
+            pNext = buf->next;
+            ABC_FREE( buf );
+        } while((buf = pNext));
+    } else if (bzError == BZ_DATA_ERROR_MAGIC) {
+        // not a BZIP2 file
+        BZ2_bzReadClose(&bzError,b);
+        fseek( pFile, 0, SEEK_END );
+        nFileSize = ftell( pFile );
+        if ( nFileSize == 0 )
+        {
+            printf( "Ioa_ReadLoadFileBz2(): The file is empty.\n" );
+            return NULL;
+        }
+        pContents = ABC_ALLOC( char, nFileSize + 10 );
+        rewind( pFile );
+        fread( pContents, nFileSize, 1, pFile );
+    } else { 
+        // Some other error.
+        printf( "Ioa_ReadLoadFileBz2(): Unable to read the compressed BLIF.\n" );
+        return NULL;
+    }
+    fclose( pFile );
+    // finish off the file with the spare .end line
+    // some benchmarks suddenly break off without this line
+//    strcpy( pContents + nFileSize, "\n.end\n" );
+    *pFileSize = nFileSize;
+    return pContents;
+}
+
+/**Function*************************************************************
+
+  Synopsis    [Reads the file into a character buffer.]
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+static char * Ioa_ReadLoadFileGzAig( char * pFileName, int * pFileSize )
+{
+    const int READ_BLOCK_SIZE = 100000;
+    FILE * pFile;
+    char * pContents;
+    int amtRead, readBlock, nFileSize = READ_BLOCK_SIZE;
+    pFile = gzopen( pFileName, "rb" ); // if pFileName doesn't end in ".gz" then this acts as a passthrough to fopen
+    pContents = ABC_ALLOC( char, nFileSize );        
+    readBlock = 0;
+    while ((amtRead = gzread(pFile, pContents + readBlock * READ_BLOCK_SIZE, READ_BLOCK_SIZE)) == READ_BLOCK_SIZE) {
+        //printf("%d: read %d bytes\n", readBlock, amtRead);
+        nFileSize += READ_BLOCK_SIZE;
+        pContents = ABC_REALLOC(char, pContents, nFileSize);
+        ++readBlock;
+    }
+    //printf("%d: read %d bytes\n", readBlock, amtRead);
+    assert( amtRead != -1 ); // indicates a zlib error
+    nFileSize -= (READ_BLOCK_SIZE - amtRead);
+    gzclose(pFile);
+    *pFileSize = nFileSize;
+    return pContents;
+}
+
 
 /**Function*************************************************************
 
@@ -47,23 +227,34 @@ Abc_Ntk_t * Io_ReadAiger( char * pFileName, int fCheck )
     ProgressBar * pProgress;
     FILE * pFile;
     Vec_Ptr_t * vNodes, * vTerms;
+    Vec_Int_t * vLits = NULL;
     Abc_Obj_t * pObj, * pNode0, * pNode1;
     Abc_Ntk_t * pNtkNew;
-    int nTotal, nInputs, nOutputs, nLatches, nAnds, nFileSize, iTerm, nDigits, i;
-    char * pContents, * pDrivers, * pSymbols, * pCur, * pName, * pType;
+    int nTotal, nInputs, nOutputs, nLatches, nAnds, nFileSize = -1, iTerm, nDigits, i;
+    char * pContents, * pDrivers = NULL, * pSymbols, * pCur, * pName, * pType;
     unsigned uLit0, uLit1, uLit;
 
     // read the file into the buffer
-    nFileSize = Extra_FileSize( pFileName );
-    pFile = fopen( pFileName, "rb" );
-    pContents = ALLOC( char, nFileSize );
-    fread( pContents, nFileSize, 1, pFile );
-    fclose( pFile );
+    if ( !strncmp(pFileName+strlen(pFileName)-4,".bz2",4) )
+        pContents = Ioa_ReadLoadFileBz2Aig( pFileName, &nFileSize );
+    else if ( !strncmp(pFileName+strlen(pFileName)-3,".gz",3) )
+        pContents = Ioa_ReadLoadFileGzAig( pFileName, &nFileSize );
+    else
+    {
+//        pContents = Ioa_ReadLoadFile( pFileName );
+        nFileSize = Extra_FileSize( pFileName );
+        pFile = fopen( pFileName, "rb" );
+        pContents = ABC_ALLOC( char, nFileSize );
+        fread( pContents, nFileSize, 1, pFile );
+        fclose( pFile );
+    }
+
 
     // check if the input file format is correct
-    if ( strncmp(pContents, "aig", 3) != 0 )
+    if ( strncmp(pContents, "aig", 3) != 0 || (pContents[3] != ' ' && pContents[3] != '2') )
     {
         fprintf( stdout, "Wrong input file format.\n" );
+        free( pContents );
         return NULL;
     }
 
@@ -72,7 +263,7 @@ Abc_Ntk_t * Io_ReadAiger( char * pFileName, int fCheck )
     pName = Extra_FileNameGeneric( pFileName );
     pNtkNew->pName = Extra_UtilStrsav( pName );
     pNtkNew->pSpec = Extra_UtilStrsav( pFileName );
-    free( pName );
+    ABC_FREE( pName );
 
 
     // read the file type
@@ -125,13 +316,20 @@ Abc_Ntk_t * Io_ReadAiger( char * pFileName, int fCheck )
 //        printf( "Creating latch %s with input %d and output %d.\n", Abc_ObjName(pObj), pNode0->Id, pNode1->Id );
     } 
     
-    // remember the beginning of latch/PO literals
-    pDrivers = pCur;
 
-    // scroll to the beginning of the binary data
-    for ( i = 0; i < nLatches + nOutputs; )
-        if ( *pCur++ == '\n' )
-            i++;
+    if ( pContents[3] == ' ' ) // standard AIGER
+    {
+        // remember the beginning of latch/PO literals
+        pDrivers = pCur;
+        // scroll to the beginning of the binary data
+        for ( i = 0; i < nLatches + nOutputs; )
+            if ( *pCur++ == '\n' )
+                i++;
+    }
+    else // modified AIGER
+    { 
+        vLits = Io_WriteDecodeLiterals( &pCur, nLatches + nOutputs );
+    }
 
     // create the AND gates
     pProgress = Extra_ProgressBarStart( stdout, nAnds );
@@ -154,21 +352,39 @@ Abc_Ntk_t * Io_ReadAiger( char * pFileName, int fCheck )
 
     // read the latch driver literals
     pCur = pDrivers;
-    Abc_NtkForEachLatchInput( pNtkNew, pObj, i )
+    if ( pContents[3] == ' ' ) // standard AIGER
     {
-        uLit0 = atoi( pCur );  while ( *pCur++ != '\n' );
-        pNode0 = Abc_ObjNotCond( Vec_PtrEntry(vNodes, uLit0 >> 1), (uLit0 & 1) );//^ (uLit0 < 2) );
-        Abc_ObjAddFanin( pObj, pNode0 );
-
-//        printf( "Adding input %d to latch input %d.\n", pNode0->Id, pObj->Id );
-
+        Abc_NtkForEachLatchInput( pNtkNew, pObj, i )
+        {
+            uLit0 = atoi( pCur );  while ( *pCur++ != '\n' );
+            pNode0 = Abc_ObjNotCond( Vec_PtrEntry(vNodes, uLit0 >> 1), (uLit0 & 1) );//^ (uLit0 < 2) );
+            Abc_ObjAddFanin( pObj, pNode0 );
+        }
+        // read the PO driver literals
+        Abc_NtkForEachPo( pNtkNew, pObj, i )
+        {
+            uLit0 = atoi( pCur );  while ( *pCur++ != '\n' );
+            pNode0 = Abc_ObjNotCond( Vec_PtrEntry(vNodes, uLit0 >> 1), (uLit0 & 1) );//^ (uLit0 < 2) );
+            Abc_ObjAddFanin( pObj, pNode0 );
+        }
     }
-    // read the PO driver literals
-    Abc_NtkForEachPo( pNtkNew, pObj, i )
+    else
     {
-        uLit0 = atoi( pCur );  while ( *pCur++ != '\n' );
-        pNode0 = Abc_ObjNotCond( Vec_PtrEntry(vNodes, uLit0 >> 1), (uLit0 & 1) );//^ (uLit0 < 2) );
-        Abc_ObjAddFanin( pObj, pNode0 );
+        // read the latch driver literals
+        Abc_NtkForEachLatchInput( pNtkNew, pObj, i )
+        {
+            uLit0 = Vec_IntEntry( vLits, i );
+            pNode0 = Abc_ObjNotCond( Vec_PtrEntry(vNodes, uLit0 >> 1), (uLit0 & 1) );
+            Abc_ObjAddFanin( pObj, pNode0 );
+        }
+        // read the PO driver literals
+        Abc_NtkForEachPo( pNtkNew, pObj, i )
+        {
+            uLit0 = Vec_IntEntry( vLits, i+Abc_NtkLatchNum(pNtkNew) );
+            pNode0 = Abc_ObjNotCond( Vec_PtrEntry(vNodes, uLit0 >> 1), (uLit0 & 1) );
+            Abc_ObjAddFanin( pObj, pNode0 );
+        }
+        Vec_IntFree( vLits );
     }
  
     // read the names if present
@@ -237,8 +453,8 @@ Abc_Ntk_t * Io_ReadAiger( char * pFileName, int fCheck )
             Abc_ObjAssignName( pObj, Abc_ObjName(pObj), NULL );
             Counter++;
         }
-        if ( Counter )
-            printf( "Io_ReadAiger(): Added %d default names for nameless I/O/register objects.\n", Counter );
+//        if ( Counter )
+//            printf( "Io_ReadAiger(): Added %d default names for nameless I/O/register objects.\n", Counter );
     }
     else
     {
@@ -247,21 +463,21 @@ Abc_Ntk_t * Io_ReadAiger( char * pFileName, int fCheck )
     }
 
     // read the name of the model if given
-    if ( *pCur == 'c' )
+    pCur = pSymbols;
+    if ( pCur + 1 < pContents + nFileSize && *pCur == 'c' )
     {
-        if ( !strncmp( pCur + 2, ".model", 6 ) )
+        pCur++;
+        if ( *pCur == 'n' )
         {
-            char * pTemp;
-            for ( pTemp = pCur + 9; *pTemp && *pTemp != '\n'; pTemp++ );
-            *pTemp = 0;
-            free( pNtkNew->pName );
-            pNtkNew->pName = Extra_UtilStrsav( pCur + 9 );
+            pCur++;
+            // read model name
+            ABC_FREE( pNtkNew->pName );
+            pNtkNew->pName = Extra_UtilStrsav( pCur );
         }
     }
 
-
     // skipping the comments
-    free( pContents );
+    ABC_FREE( pContents );
     Vec_PtrFree( vNodes );
 
     // remove the extra nodes
@@ -277,30 +493,6 @@ Abc_Ntk_t * Io_ReadAiger( char * pFileName, int fCheck )
     return pNtkNew;
 }
 
-
-/**Function*************************************************************
-
-  Synopsis    [Extracts one unsigned AIG edge from the input buffer.]
-
-  Description [This procedure is a slightly modified version of Armin Biere's
-  procedure "unsigned decode (FILE * file)". ]
-  
-  SideEffects [Updates the current reading position.]
-
-  SeeAlso     []
-
-***********************************************************************/
-unsigned Io_ReadAigerDecode( char ** ppPos )
-{
-    unsigned x = 0, i = 0;
-    unsigned char ch;
-
-//    while ((ch = getnoneofch (file)) & 0x80)
-    while ((ch = *(*ppPos)++) & 0x80)
-        x |= (ch & 0x7f) << (7 * i++);
-
-    return x | (ch << (7 * i));
-}
 
 
 ////////////////////////////////////////////////////////////////////////

@@ -290,7 +290,7 @@ char * Abc_ConvertBddToSop( Extra_MmFlex_t * pMan, DdManager * dd, DdNode * bFun
         if ( pMan )
             pSop = Extra_MmFlexEntryFetch( pMan, nFanins + 4 );
         else
-            pSop = ALLOC( char, nFanins + 4 );
+            pSop = ABC_ALLOC( char, nFanins + 4 );
         if ( bFuncOn == Cudd_ReadOne(dd) )
             sprintf( pSop, "%s %d\n", vCube->pArray, fMode );
         else
@@ -385,7 +385,7 @@ char * Abc_ConvertBddToSop( Extra_MmFlex_t * pMan, DdManager * dd, DdNode * bFun
     if ( pMan )
         pSop = Extra_MmFlexEntryFetch( pMan, (nFanins + 3) * nCubes + 1 );
     else 
-        pSop = ALLOC( char, (nFanins + 3) * nCubes + 1 );
+        pSop = ABC_ALLOC( char, (nFanins + 3) * nCubes + 1 );
     pSop[(nFanins + 3) * nCubes] = 0;
     // create the SOP
     Vec_StrFill( vCube, nFanins, '-' );
@@ -597,21 +597,30 @@ Hop_Obj_t * Abc_ConvertSopToAigInternal( Hop_Man_t * pMan, char * pSop )
     char * pCube;
     // get the number of variables
     nFanins = Abc_SopGetVarNum(pSop);
-    // go through the cubes of the node's SOP
-    pSum = Hop_ManConst0(pMan);
-    Abc_SopForEachCube( pSop, nFanins, pCube )
+    if ( Abc_SopIsExorType(pSop) )
     {
-        // create the AND of literals
-        pAnd = Hop_ManConst1(pMan);
-        Abc_CubeForEachVar( pCube, Value, i )
+        pSum = Hop_ManConst0(pMan); 
+        for ( i = 0; i < nFanins; i++ )
+            pSum = Hop_Exor( pMan, pSum, Hop_IthVar(pMan,i) );
+    }
+    else
+    {
+        // go through the cubes of the node's SOP
+        pSum = Hop_ManConst0(pMan); 
+        Abc_SopForEachCube( pSop, nFanins, pCube )
         {
-            if ( Value == '1' )
-                pAnd = Hop_And( pMan, pAnd, Hop_IthVar(pMan,i) );
-            else if ( Value == '0' )
-                pAnd = Hop_And( pMan, pAnd, Hop_Not(Hop_IthVar(pMan,i)) );
+            // create the AND of literals
+            pAnd = Hop_ManConst1(pMan);
+            Abc_CubeForEachVar( pCube, Value, i )
+            {
+                if ( Value == '1' )
+                    pAnd = Hop_And( pMan, pAnd, Hop_IthVar(pMan,i) );
+                else if ( Value == '0' )
+                    pAnd = Hop_And( pMan, pAnd, Hop_Not(Hop_IthVar(pMan,i)) );
+            }
+            // add to the sum of cubes
+            pSum = Hop_Or( pMan, pSum, pAnd );
         }
-        // add to the sum of cubes
-        pSum = Hop_Or( pMan, pSum, pAnd );
     }
     // decide whether to complement the result
     if ( Abc_SopIsComplement(pSop) )
@@ -637,11 +646,8 @@ Hop_Obj_t * Abc_ConvertSopToAig( Hop_Man_t * pMan, char * pSop )
     // consider the constant node
     if ( Abc_SopGetVarNum(pSop) == 0 )
         return Hop_NotCond( Hop_ManConst1(pMan), Abc_SopIsConst0(pSop) );
-    // consider the special case of EXOR function
-    if ( Abc_SopIsExorType(pSop) )
-        return Hop_NotCond( Hop_CreateExor(pMan, Abc_SopGetVarNum(pSop)), Abc_SopIsComplement(pSop) );
     // decide when to use factoring
-    if ( fUseFactor && Abc_SopGetVarNum(pSop) > 2 && Abc_SopGetCubeNum(pSop) > 1 )
+    if ( fUseFactor && Abc_SopGetVarNum(pSop) > 2 && Abc_SopGetCubeNum(pSop) > 1 && !Abc_SopIsExorType(pSop) )
         return Dec_GraphFactorSop( pMan, pSop );
     return Abc_ConvertSopToAigInternal( pMan, pSop );
 }
@@ -784,159 +790,6 @@ DdNode * Abc_ConvertAigToBdd( DdManager * dd, Hop_Obj_t * pRoot )
 }
 
 
-
-/**Function*************************************************************
-
-  Synopsis    [Construct BDDs and mark AIG nodes.]
-
-  Description []
-               
-  SideEffects []
-
-  SeeAlso     []
-
-***********************************************************************/
-int Abc_ConvertAigToTruth_rec1( Hop_Obj_t * pObj )
-{
-    int Counter = 0;
-    assert( !Hop_IsComplement(pObj) );
-    if ( !Hop_ObjIsNode(pObj) || Hop_ObjIsMarkA(pObj) )
-        return 0;
-    Counter += Abc_ConvertAigToTruth_rec1( Hop_ObjFanin0(pObj) ); 
-    Counter += Abc_ConvertAigToTruth_rec1( Hop_ObjFanin1(pObj) );
-    assert( !Hop_ObjIsMarkA(pObj) ); // loop detection
-    Hop_ObjSetMarkA( pObj );
-    return Counter + 1;
-}
-
-/**Function*************************************************************
-
-  Synopsis    [Computes truth table of the cut.]
-
-  Description []
-               
-  SideEffects []
-
-  SeeAlso     []
-
-***********************************************************************/
-unsigned * Abc_ConvertAigToTruth_rec2( Hop_Obj_t * pObj, Vec_Int_t * vTruth, int nWords )
-{
-    unsigned * pTruth, * pTruth0, * pTruth1;
-    int i;
-    assert( !Hop_IsComplement(pObj) );
-    if ( !Hop_ObjIsNode(pObj) || !Hop_ObjIsMarkA(pObj) )
-        return pObj->pData;
-    // compute the truth tables of the fanins
-    pTruth0 = Abc_ConvertAigToTruth_rec2( Hop_ObjFanin0(pObj), vTruth, nWords );
-    pTruth1 = Abc_ConvertAigToTruth_rec2( Hop_ObjFanin1(pObj), vTruth, nWords );
-    // creat the truth table of the node
-    pTruth  = Vec_IntFetch( vTruth, nWords );
-    if ( Hop_ObjIsExor(pObj) )
-        for ( i = 0; i < nWords; i++ )
-            pTruth[i] = pTruth0[i] ^ pTruth1[i];
-    else if ( !Hop_ObjFaninC0(pObj) && !Hop_ObjFaninC1(pObj) )
-        for ( i = 0; i < nWords; i++ )
-            pTruth[i] = pTruth0[i] & pTruth1[i];
-    else if ( !Hop_ObjFaninC0(pObj) && Hop_ObjFaninC1(pObj) )
-        for ( i = 0; i < nWords; i++ )
-            pTruth[i] = pTruth0[i] & ~pTruth1[i];
-    else if ( Hop_ObjFaninC0(pObj) && !Hop_ObjFaninC1(pObj) )
-        for ( i = 0; i < nWords; i++ )
-            pTruth[i] = ~pTruth0[i] & pTruth1[i];
-    else // if ( Hop_ObjFaninC0(pObj) && Hop_ObjFaninC1(pObj) )
-        for ( i = 0; i < nWords; i++ )
-            pTruth[i] = ~pTruth0[i] & ~pTruth1[i];
-    assert( Hop_ObjIsMarkA(pObj) ); // loop detection
-    Hop_ObjClearMarkA( pObj );
-    pObj->pData = pTruth;
-    return pTruth;
-}
-
-/**Function*************************************************************
-
-  Synopsis    [Computes truth table of the node.]
-
-  Description [Assumes that the structural support is no more than 8 inputs.
-  Uses array vTruth to store temporary truth tables. The returned pointer should 
-  be used immediately.]
-               
-  SideEffects []
-
-  SeeAlso     []
-
-***********************************************************************/
-unsigned * Abc_ConvertAigToTruth( Hop_Man_t * p, Hop_Obj_t * pRoot, int nVars, Vec_Int_t * vTruth, int fMsbFirst )
-{
-    static unsigned uTruths[8][8] = { // elementary truth tables
-        { 0xAAAAAAAA,0xAAAAAAAA,0xAAAAAAAA,0xAAAAAAAA,0xAAAAAAAA,0xAAAAAAAA,0xAAAAAAAA,0xAAAAAAAA },
-        { 0xCCCCCCCC,0xCCCCCCCC,0xCCCCCCCC,0xCCCCCCCC,0xCCCCCCCC,0xCCCCCCCC,0xCCCCCCCC,0xCCCCCCCC },
-        { 0xF0F0F0F0,0xF0F0F0F0,0xF0F0F0F0,0xF0F0F0F0,0xF0F0F0F0,0xF0F0F0F0,0xF0F0F0F0,0xF0F0F0F0 },
-        { 0xFF00FF00,0xFF00FF00,0xFF00FF00,0xFF00FF00,0xFF00FF00,0xFF00FF00,0xFF00FF00,0xFF00FF00 },
-        { 0xFFFF0000,0xFFFF0000,0xFFFF0000,0xFFFF0000,0xFFFF0000,0xFFFF0000,0xFFFF0000,0xFFFF0000 }, 
-        { 0x00000000,0xFFFFFFFF,0x00000000,0xFFFFFFFF,0x00000000,0xFFFFFFFF,0x00000000,0xFFFFFFFF }, 
-        { 0x00000000,0x00000000,0xFFFFFFFF,0xFFFFFFFF,0x00000000,0x00000000,0xFFFFFFFF,0xFFFFFFFF }, 
-        { 0x00000000,0x00000000,0x00000000,0x00000000,0xFFFFFFFF,0xFFFFFFFF,0xFFFFFFFF,0xFFFFFFFF } 
-    };
-    Hop_Obj_t * pObj;
-    unsigned * pTruth, * pTruth2;
-    int i, nWords, nNodes;
-    Vec_Ptr_t * vTtElems;
-
-    // if the number of variables is more than 8, allocate truth tables
-    if ( nVars > 8 )
-        vTtElems = Vec_PtrAllocTruthTables( nVars );
-    else
-        vTtElems = NULL;
-
-    // clear the data fields and set marks
-    nNodes = Abc_ConvertAigToTruth_rec1( pRoot );
-    // prepare memory
-    nWords = Hop_TruthWordNum( nVars );
-    Vec_IntClear( vTruth );
-    Vec_IntGrow( vTruth, nWords * (nNodes+1) );
-    pTruth = Vec_IntFetch( vTruth, nWords );
-    // check the case of a constant
-    if ( Hop_ObjIsConst1( Hop_Regular(pRoot) ) )
-    {
-        assert( nNodes == 0 );
-        if ( Hop_IsComplement(pRoot) )
-            Extra_TruthClear( pTruth, nVars );
-        else
-            Extra_TruthFill( pTruth, nVars );
-        return pTruth;
-    }
-    // set elementary truth tables at the leaves
-    assert( nVars <= Hop_ManPiNum(p) );
-//    assert( Hop_ManPiNum(p) <= 8 ); 
-    if ( fMsbFirst )
-    {
-        Hop_ManForEachPi( p, pObj, i )
-        {
-            if ( vTtElems )
-                pObj->pData = Vec_PtrEntry(vTtElems, nVars-1-i);
-            else               
-                pObj->pData = (void *)uTruths[nVars-1-i];
-        }
-    }
-    else
-    {
-        Hop_ManForEachPi( p, pObj, i )
-        {
-            if ( vTtElems )
-                pObj->pData = Vec_PtrEntry(vTtElems, i);
-            else               
-                pObj->pData = (void *)uTruths[i];
-        }
-    }
-    // clear the marks and compute the truth table
-    pTruth2 = Abc_ConvertAigToTruth_rec2( pRoot, vTruth, nWords );
-    // copy the result
-    Extra_TruthCopy( pTruth, pTruth2, nVars );
-    if ( vTtElems )
-        Vec_PtrFree( vTtElems );
-    return pTruth;
-}
 
 
 /**Function*************************************************************

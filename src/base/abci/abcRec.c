@@ -184,7 +184,7 @@ void Abc_NtkRecStart( Abc_Ntk_t * pNtk, int nVars, int nCuts )
     Abc_NtkCleanEquiv( pNtk );
 
     // start the manager
-    p = ALLOC( Abc_ManRec_t, 1 );
+    p = ABC_ALLOC( Abc_ManRec_t, 1 );
     memset( p, 0, sizeof(Abc_ManRec_t) );
     p->pNtk = pNtk;
     p->nVars = Abc_NtkPiNum(pNtk);
@@ -206,7 +206,7 @@ void Abc_NtkRecStart( Abc_Ntk_t * pNtk, int nVars, int nCuts )
 
     // create hash table
     p->nBins = 50011;
-    p->pBins = ALLOC( Abc_Obj_t *, p->nBins );
+    p->pBins = ABC_ALLOC( Abc_Obj_t *, p->nBins );
     memset( p->pBins, 0, sizeof(Abc_Obj_t *) * p->nBins );
 
     // set elementary tables
@@ -232,11 +232,6 @@ p->timeTruth += clock() - clk;
         pObj = Abc_ObjFanin0(pObj);
         pTruth = Vec_PtrEntry( p->vTtNodes, pObj->Id );
 
-        if ( pTruth[0] == 1128481603 )
-        {
-            int x = 0;
-        }
-
         // add the resulting truth table to the hash table 
         ppSpot = Abc_NtkRecTableLookup( p, pTruth, p->nVars );
         assert( pObj->pEquiv == NULL );
@@ -256,10 +251,10 @@ p->timeTruth += clock() - clk;
     }
 
     // temporaries
-    p->pBytes = ALLOC( int, 4*p->nWords );
-    p->pMints = ALLOC( int, 2*p->nVars );
-    p->pTemp1 = ALLOC( unsigned, p->nWords );
-    p->pTemp2 = ALLOC( unsigned, p->nWords );
+    p->pBytes = ABC_ALLOC( int, 4*p->nWords );
+    p->pMints = ABC_ALLOC( int, 2*p->nVars );
+    p->pTemp1 = ABC_ALLOC( unsigned, p->nWords );
+    p->pTemp2 = ABC_ALLOC( unsigned, p->nWords );
     p->vNodes = Vec_PtrAlloc( 100 );
     p->vTtTemps = Vec_PtrAllocSimInfo( 64, p->nWords );
     p->vMemory = Vec_IntAlloc( Abc_TruthWordNum(p->nVars) * 1000 );
@@ -287,13 +282,13 @@ void Abc_NtkRecStop()
         Abc_NtkDelete( s_pMan->pNtk );
     Vec_PtrFree( s_pMan->vTtNodes );
     Vec_PtrFree( s_pMan->vTtElems );
-    free( s_pMan->pBins );
+    ABC_FREE( s_pMan->pBins );
 
     // temporaries
-    free( s_pMan->pBytes );
-    free( s_pMan->pMints );
-    free( s_pMan->pTemp1 );
-    free( s_pMan->pTemp2 );
+    ABC_FREE( s_pMan->pBytes );
+    ABC_FREE( s_pMan->pMints );
+    ABC_FREE( s_pMan->pTemp1 );
+    ABC_FREE( s_pMan->pTemp2 );
     Vec_PtrFree( s_pMan->vNodes );
     Vec_PtrFree( s_pMan->vTtTemps );
     if ( s_pMan->vLabels )
@@ -302,7 +297,7 @@ void Abc_NtkRecStop()
         Vec_StrFree( s_pMan->vCosts );
     Vec_IntFree( s_pMan->vMemory );
 
-    free( s_pMan );
+    ABC_FREE( s_pMan );
     s_pMan = NULL;
 }
 
@@ -401,11 +396,11 @@ void Abc_NtkRecPs()
     printf( "Functions added                             = %8d. (%6.2f %%)\n", p->nAddedFuncs,   !p->nTried? 0 : 100.0*p->nAddedFuncs/p->nTried );
 
     p->timeOther = p->timeTotal - p->timeCollect - p->timeTruth - p->timeCanon;
-    PRTP( "Collecting nodes ", p->timeCollect, p->timeTotal );
-    PRTP( "Computing truth  ", p->timeTruth, p->timeTotal );
-    PRTP( "Canonicizing     ", p->timeCanon, p->timeTotal );
-    PRTP( "Other            ", p->timeOther, p->timeTotal );
-    PRTP( "TOTAL            ", p->timeTotal, p->timeTotal );
+    ABC_PRTP( "Collecting nodes ", p->timeCollect, p->timeTotal );
+    ABC_PRTP( "Computing truth  ", p->timeTruth, p->timeTotal );
+    ABC_PRTP( "Canonicizing     ", p->timeCanon, p->timeTotal );
+    ABC_PRTP( "Other            ", p->timeOther, p->timeTotal );
+    ABC_PRTP( "TOTAL            ", p->timeTotal, p->timeTotal );
     if ( p->nFunsFound )
     printf( "During rewriting found = %d and not found = %d functions.\n", p->nFunsFound, p->nFunsNotFound );
 }
@@ -523,6 +518,7 @@ void Abc_NtkRecAdd( Abc_Ntk_t * pNtk )
     pPars->nFlowIters  =  0;
     pPars->nAreaIters  =  0;
     pPars->DelayTarget = -1;
+    pPars->Epsilon     =  (float)0.005;
     pPars->fPreprocess =  0;
     pPars->fArea       =  1;
     pPars->fFancy      =  0;
@@ -776,7 +772,7 @@ int Abc_NtkRecAddCut( If_Man_t * pIfMan, If_Obj_t * pRoot, If_Cut_t * pCut )
     static int s_MaxSize[16] = { 0 };
     char Buffer[40], Name[20], Truth[20];
     char pCanonPerm[16];
-    Abc_Obj_t * pObj, * pFanin0, * pFanin1, ** ppSpot, * pObjPo;
+    Abc_Obj_t * pObj = NULL, * pFanin0, * pFanin1, ** ppSpot, * pObjPo;
     Abc_Ntk_t * pAig = s_pMan->pNtk;
     If_Obj_t * pIfObj;
     Vec_Ptr_t * vNodes = s_pMan->vNodes;
@@ -786,11 +782,6 @@ int Abc_NtkRecAddCut( If_Man_t * pIfMan, If_Obj_t * pRoot, If_Cut_t * pCut )
     int i, RetValue, nNodes, nNodesBeg, nInputs = s_pMan->nVars, nLeaves = If_CutLeaveNum(pCut);
     unsigned uCanonPhase;
     int clk;
-
-    if ( pRoot->Id == 2639 )
-    {
-        int y = 0;
-    }
 
     assert( nInputs <= 16 );
     assert( nInputs == (int)pCut->nLimit );
@@ -847,7 +838,7 @@ s_pMan->timeCanon += clock() - clk;
     for ( i = 0; i < nLeaves; i++ )
     {
         // get hold of the corresponding leaf
-        pIfObj = If_ManObj( pIfMan, pCut->pLeaves[pCanonPerm[i]] );
+        pIfObj = If_ManObj( pIfMan, pCut->pLeaves[(int)pCanonPerm[i]] );
         // get hold of the corresponding new node
         pObj = Abc_NtkPi( pAig, i );
         pObj = Abc_ObjNotCond( pObj, (uCanonPhase & (1 << i)) );
@@ -896,6 +887,7 @@ s_pMan->timeCanon += clock() - clk;
         }
     }
 
+    assert(pObj);
     pTruth = Vec_PtrEntry( s_pMan->vTtNodes, pObj->Id );
     if ( Kit_TruthSupport(pTruth, nInputs) != Kit_BitMask(nLeaves) )
     {

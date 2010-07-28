@@ -98,8 +98,6 @@ void Abc_NtkOrderCisCos( Abc_Ntk_t * pNtk )
         Vec_PtrPush( pNtk->vCis, pObj );
     Abc_NtkForEachPo( pNtk, pObj, i )
         Vec_PtrPush( pNtk->vCos, pObj );
-    Abc_NtkForEachAssert( pNtk, pObj, i )
-        Vec_PtrPush( pNtk->vCos, pObj );
     Abc_NtkForEachBox( pNtk, pObj, i )
     {
         if ( Abc_ObjIsLatch(pObj) )
@@ -223,6 +221,28 @@ int Abc_NtkGetLitFactNum( Abc_Ntk_t * pNtk )
         nNodes += 1 + Dec_GraphNodeNum(pFactor);
         Dec_GraphFree( pFactor );
     }
+    return nNodes;
+}
+
+/**Function*************************************************************
+
+  Synopsis    [Counts the number of nodes with more than 1 reference.]
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+int Abc_NtkGetMultiRefNum( Abc_Ntk_t * pNtk )
+{
+    Abc_Obj_t * pNode;
+    int nNodes, i;
+    assert( Abc_NtkIsStrash(pNtk) );
+    nNodes = 0;
+    Abc_NtkForEachNode( pNtk, pNode, i )
+        nNodes += (int)(Abc_ObjFanoutNum(pNode) > 1);
     return nNodes;
 }
 
@@ -510,7 +530,9 @@ void Abc_NtkCleanEquiv( Abc_Ntk_t * pNtk )
     Abc_Obj_t * pObj;
     int i;
     Abc_NtkForEachObj( pNtk, pObj, i )
-        pObj->pEquiv = NULL;
+    {
+//        pObj->pEquiv = NULL;
+    }
 }
 
 /**Function*************************************************************
@@ -933,13 +955,34 @@ bool Abc_NodeIsMuxType( Abc_Obj_t * pNode )
     pNode0 = Abc_ObjFanin0(pNode);
     pNode1 = Abc_ObjFanin1(pNode);
     // if the children are not ANDs, this is not MUX
-    if ( Abc_ObjFaninNum(pNode0) != 2 || Abc_ObjFaninNum(pNode1) != 2 )
+    if ( !Abc_AigNodeIsAnd(pNode0) || !Abc_AigNodeIsAnd(pNode1) )
         return 0;
-    // otherwise the node is MUX iff it has a pair of equal grandchildren
+    // otherwise the node is MUX iff it has a pair of equal grandchildren with opposite polarity
     return (Abc_ObjFaninId0(pNode0) == Abc_ObjFaninId0(pNode1) && (Abc_ObjFaninC0(pNode0) ^ Abc_ObjFaninC0(pNode1))) || 
            (Abc_ObjFaninId0(pNode0) == Abc_ObjFaninId1(pNode1) && (Abc_ObjFaninC0(pNode0) ^ Abc_ObjFaninC1(pNode1))) ||
            (Abc_ObjFaninId1(pNode0) == Abc_ObjFaninId0(pNode1) && (Abc_ObjFaninC1(pNode0) ^ Abc_ObjFaninC0(pNode1))) ||
            (Abc_ObjFaninId1(pNode0) == Abc_ObjFaninId1(pNode1) && (Abc_ObjFaninC1(pNode0) ^ Abc_ObjFaninC1(pNode1)));
+}
+
+/**Function*************************************************************
+
+  Synopsis    [Returns 1 if the node is the root of MUX or EXOR/NEXOR.]
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+int Abc_NtkCountMuxes( Abc_Ntk_t * pNtk )
+{
+    Abc_Obj_t * pNode;
+    int i;
+    int Counter = 0;
+    Abc_NtkForEachNode( pNtk, pNode, i )
+        Counter += Abc_NodeIsMuxType( pNode );
+    return Counter;
 }
 
 /**Function*************************************************************
@@ -1082,7 +1125,7 @@ int Abc_NtkPrepareTwoNtks( FILE * pErr, Abc_Ntk_t * pNtk, char ** argv, int argc
 {
     int fCheck = 1;
     FILE * pFile;
-    Abc_Ntk_t * pNtk1, * pNtk2;
+    Abc_Ntk_t * pNtk1, * pNtk2, * pNtkTemp;
     int util_optind = 0;
 
     *pfDelete1 = 0;
@@ -1145,6 +1188,25 @@ int Abc_NtkPrepareTwoNtks( FILE * pErr, Abc_Ntk_t * pNtk, char ** argv, int argc
         fprintf( pErr, "Wrong number of arguments.\n" );
         return 0;
     }
+
+    // make sure the networks are strashed
+    if ( !Abc_NtkIsStrash(pNtk1) )
+    {
+        pNtkTemp = Abc_NtkStrash( pNtk1, 0, 1, 0 );
+        if ( *pfDelete1 )
+            Abc_NtkDelete( pNtk1 );
+        pNtk1 = pNtkTemp;
+        *pfDelete1 = 1;
+    }
+    if ( !Abc_NtkIsStrash(pNtk2) )
+    {
+        pNtkTemp = Abc_NtkStrash( pNtk2, 0, 1, 0 );
+        if ( *pfDelete2 )
+            Abc_NtkDelete( pNtk2 );
+        pNtk2 = pNtkTemp;
+        *pfDelete2 = 1;
+    }
+
     *ppNtk1 = pNtk1;
     *ppNtk2 = pNtk2;
     return 1;
@@ -1360,12 +1422,6 @@ void Abc_NtkReassignIds( Abc_Ntk_t * pNtk )
         pNode->Id = Vec_PtrSize( vObjsNew );
         Vec_PtrPush( vObjsNew, pNode );
     }
-    // put assert nodes next
-    Abc_NtkForEachAssert( pNtk, pNode, i )
-    {
-        pNode->Id = Vec_PtrSize( vObjsNew );
-        Vec_PtrPush( vObjsNew, pNode );
-    }
     // put latches and their inputs/outputs next
     Abc_NtkForEachBox( pNtk, pNode, i )
     {
@@ -1517,9 +1573,9 @@ void Abc_NtkTransferCopy( Abc_Ntk_t * pNtk )
 static inline int Abc_ObjCrossCutInc( Abc_Obj_t * pObj )
 {
 //    pObj->pCopy = (void *)(((int)pObj->pCopy)++);
-    int Value = (int)pObj->pCopy;
-    pObj->pCopy = (void *)(Value + 1);
-    return (int)pObj->pCopy == Abc_ObjFanoutNum(pObj);
+    int Value = (int)(ABC_PTRINT_T)pObj->pCopy;
+    pObj->pCopy = (void *)(ABC_PTRINT_T)(Value + 1);
+    return (int)(ABC_PTRINT_T)pObj->pCopy == Abc_ObjFanoutNum(pObj);
 }
 
 /**Function*************************************************************
@@ -1665,8 +1721,8 @@ void Abc_NtkCompareCones( Abc_Ntk_t * pNtk )
     int * pPerms;
 
     // sort COs by support size
-    pPerms = ALLOC( int, Abc_NtkCoNum(pNtk) );
-    pSupps = ALLOC( int, Abc_NtkCoNum(pNtk) );
+    pPerms = ABC_ALLOC( int, Abc_NtkCoNum(pNtk) );
+    pSupps = ABC_ALLOC( int, Abc_NtkCoNum(pNtk) );
     Abc_NtkForEachCo( pNtk, pObj, i )
     {
         pPerms[i] = i;
@@ -1717,8 +1773,8 @@ void Abc_NtkCompareCones( Abc_Ntk_t * pNtk )
     Abc_NtkForEachCo( pNtk, pObj, i )
         pObj->fMarkA = 0;
 
-    free( pPerms );
-    free( pSupps );
+    ABC_FREE( pPerms );
+    ABC_FREE( pSupps );
 }
 
 /**Function*************************************************************

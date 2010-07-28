@@ -22,10 +22,12 @@ OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWA
 #ifndef satSolver_h
 #define satSolver_h
 
-#ifdef _WIN32
-#define inline __inline // compatible with MS VS 6.0
-#endif
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <assert.h>
 
+#include "abc_global.h"
 #include "satVec.h"
 #include "satMem.h"
 
@@ -46,17 +48,6 @@ static const bool  false     = 0;
 typedef int                lit;
 typedef char               lbool;
 
-#ifndef SINT64
-#define SINT64
-
-#ifdef _WIN32
-typedef signed __int64     sint64;   // compatible with MS VS 6.0
-#else
-typedef long long          sint64;
-#endif
-
-#endif
-
 static const int   var_Undef = -1;
 static const lit   lit_Undef = -2;
 
@@ -71,6 +62,7 @@ static inline int  lit_var  (lit l)        { return l >> 1; }
 static inline int  lit_sign (lit l)        { return l & 1; }
 static inline int  lit_print(lit l)        { return lit_sign(l)? -lit_var(l)-1 : lit_var(l)+1; }
 static inline lit  lit_read (int s)        { return s > 0 ? toLit(s-1) : lit_neg(toLit(-s-1)); }
+static inline int  lit_check(lit l, int n) { return l >= 0 && lit_var(l) < n;                  }
 
 
 //=================================================================================================
@@ -84,7 +76,7 @@ extern void        sat_solver_delete(sat_solver* s);
 
 extern bool        sat_solver_addclause(sat_solver* s, lit* begin, lit* end);
 extern bool        sat_solver_simplify(sat_solver* s);
-extern int         sat_solver_solve(sat_solver* s, lit* begin, lit* end, sint64 nConfLimit, sint64 nInsLimit, sint64 nConfLimitGlobal, sint64 nInsLimitGlobal);
+extern int         sat_solver_solve(sat_solver* s, lit* begin, lit* end, ABC_INT64_T nConfLimit, ABC_INT64_T nInsLimit, ABC_INT64_T nConfLimitGlobal, ABC_INT64_T nInsLimitGlobal);
 
 extern int         sat_solver_nvars(sat_solver* s);
 extern int         sat_solver_nclauses(sat_solver* s);
@@ -94,8 +86,8 @@ extern void        sat_solver_setnvars(sat_solver* s,int n);
 
 struct stats_t
 {
-    sint64   starts, decisions, propagations, inspects, conflicts;
-    sint64   clauses, clauses_literals, learnts, learnts_literals, max_literals, tot_literals;
+    ABC_INT64_T   starts, decisions, propagations, inspects, conflicts;
+    ABC_INT64_T   clauses, clauses_literals, learnts, learnts_literals, max_literals, tot_literals;
 };
 typedef struct stats_t stats;
 
@@ -147,6 +139,7 @@ struct sat_solver_t
     clause** reasons;       //
     int*     levels;        //
     lit*     trail;
+    char*    polarity;
 
     clause*  binary;        // A temporary binary clause
     lbool*   tags;          //
@@ -166,8 +159,8 @@ struct sat_solver_t
 
     stats    stats;
 
-    sint64   nConfLimit;    // external limit on the number of conflicts
-    sint64   nInsLimit;     // external limit on the number of implications
+    ABC_INT64_T   nConfLimit;    // external limit on the number of conflicts
+    ABC_INT64_T   nInsLimit;     // external limit on the number of implications
 
     veci     act_vars;      // variables whose activity has changed
     double*  factors;       // the activity factors
@@ -179,13 +172,43 @@ struct sat_solver_t
 
     int      fSkipSimplify; // set to one to skip simplification of the clause database
 
+    int *    pGlobalVars;   // for experiments with global vars during interpolation
     // clause store
     void *   pStore;
+    int      fSolved;
 
     // trace recording
     FILE *   pFile;
     int      nClauses;
     int      nRoots;
+
+    veci     temp_clause;    // temporary storage for a CNF clause
 };
+
+static int sat_solver_var_value( sat_solver* s, int v ) 
+{
+    assert( s->model.ptr != NULL && v < s->size );
+    return (int)(s->model.ptr[v] == l_True);
+}
+static int sat_solver_var_literal( sat_solver* s, int v ) 
+{
+    assert( s->model.ptr != NULL && v < s->size );
+    return toLitCond( v, s->model.ptr[v] != l_True );
+}
+static void sat_solver_act_var_clear(sat_solver* s) 
+{
+    int i;
+    for (i = 0; i < s->size; i++)
+        s->activity[i] = 0.0;
+    s->var_inc = 1.0;
+}
+static void sat_solver_compress(sat_solver* s) 
+{
+    if ( s->qtail != s->qhead )
+    {
+        int RetValue = sat_solver_simplify(s);
+        assert( RetValue != 0 );
+    }
+}
 
 #endif

@@ -51,7 +51,7 @@ static inline void Vec_IntPushMem( Extra_MmStep_t * pMemMan, Vec_Int_t * p, int 
         if ( pMemMan )
             pArray = (int *)Extra_MmStepEntryFetch( pMemMan, p->nCap * 8 );
         else
-            pArray = ALLOC( int, p->nCap * 2 );
+            pArray = ABC_ALLOC( int, p->nCap * 2 );
         if ( p->pArray )
         {
             for ( i = 0; i < p->nSize; i++ )
@@ -59,7 +59,7 @@ static inline void Vec_IntPushMem( Extra_MmStep_t * pMemMan, Vec_Int_t * p, int 
             if ( pMemMan )
                 Extra_MmStepEntryRecycle( pMemMan, (char *)p->pArray, p->nCap * 4 );
             else
-                free( p->pArray );
+                ABC_FREE( p->pArray );
         }
         p->nCap *= 2;
         p->pArray = pArray;
@@ -90,10 +90,14 @@ void Abc_ObjAddFanin( Abc_Obj_t * pObj, Abc_Obj_t * pFanin )
         Abc_ObjSetFaninC( pObj, Abc_ObjFaninNum(pObj)-1 );
     if ( Abc_ObjIsNet(pObj) && Abc_ObjFaninNum(pObj) > 1 )
     {
-        int x = 0; 
+        printf( "Abc_ObjAddFanin(): Error! Creating net \"%s\" with two fanins.\n", Abc_ObjName(pObj) );
     }
-//    printf( "Adding fanin of %s ", Abc_ObjName(pObj) );
-//    printf( "to be %s\n", Abc_ObjName(pFanin) );
+/*
+    if ( Abc_ObjIsCo(pFanin) )
+    {
+        printf( "Abc_ObjAddFanin(): Error! Creating fanout of a CO.\n", Abc_ObjName(pFanin) );
+    }
+*/
 }
 
 
@@ -270,7 +274,7 @@ void Abc_ObjTransferFanout( Abc_Obj_t * pNodeFrom, Abc_Obj_t * pNodeTo )
     assert( !Abc_ObjIsPo(pNodeFrom) && !Abc_ObjIsPo(pNodeTo) );
     assert( pNodeFrom->pNtk == pNodeTo->pNtk );
     assert( pNodeFrom != pNodeTo );
-    assert( Abc_ObjFanoutNum(pNodeFrom) > 0 );
+    assert( !Abc_ObjIsNode(pNodeFrom) || Abc_ObjFanoutNum(pNodeFrom) > 0 );
     // get the fanouts of the old node
     nFanoutsOld = Abc_ObjFanoutNum(pNodeTo);
     vFanouts = Vec_PtrAlloc( nFanoutsOld );

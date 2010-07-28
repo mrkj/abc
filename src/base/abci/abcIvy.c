@@ -73,7 +73,6 @@ extern int timeRetime;
 Ivy_Man_t * Abc_NtkIvyBefore( Abc_Ntk_t * pNtk, int fSeq, int fUseDc )
 {
     Ivy_Man_t * pMan;
-    int fCleanup = 1;
 //timeRetime = clock();
     assert( !Abc_NtkIsNetlist(pNtk) );
     if ( Abc_NtkIsBddLogic(pNtk) )
@@ -217,13 +216,13 @@ clk = clock();
     Ivy_ManRewriteSeq( pMan, 1, 0 );
 //printf( "%d ", Ivy_ManNodeNum(pMan) );
 //printf( "%d ", Ivy_ManNodeNum(pMan->pHaig) );
-//PRT( " ", clock() - clk );
+//ABC_PRT( " ", clock() - clk );
 //printf( "\n" );
 /*
     printf( "Moves = %d.  ", nMoves );
     printf( "MovesS = %d.  ", nMovesS );
     printf( "Clauses = %d.  ", nClauses );
-    PRT( "Time", timeInv );
+    ABC_PRT( "Time", timeInv );
 */
 //    Ivy_ManRewriteSeq( pMan, 1, 0 );
 //printf( "Haig size = %d.\n", Ivy_ManNodeNum(pMan->pHaig) );
@@ -505,25 +504,27 @@ int Abc_NtkIvyProve( Abc_Ntk_t ** ppNtk, void * pPars )
         pNtk = Abc_NtkStrash( pNtkTemp = pNtk, 0, 1, 0 );
         Abc_NtkDelete( pNtkTemp );
     }
-
+ 
     // check the case when the 0000 simulation pattern detect the bug
     pObj = Abc_NtkPo(pNtk,0);
     pFanin = Abc_ObjFanin0(pObj);
     if ( Abc_ObjFanin0(pObj)->fPhase != (unsigned)Abc_ObjFaninC0(pObj) )
     {
-        pNtk->pModel = ALLOC( int, Abc_NtkPiNum(pNtk) );
+        pNtk->pModel = ABC_ALLOC( int, Abc_NtkPiNum(pNtk) );
         memset( pNtk->pModel, 0, sizeof(int) * Abc_NtkPiNum(pNtk) );
         return 0;
     }
 
     // if SAT only, solve without iteration
-    RetValue = Abc_NtkMiterSat( pNtk, 2*(sint64)pParams->nMiteringLimitStart, (sint64)0, 0, NULL, NULL );
+    RetValue = Abc_NtkMiterSat( pNtk, 2*(ABC_INT64_T)pParams->nMiteringLimitStart, (ABC_INT64_T)0, 0, NULL, NULL );
     if ( RetValue >= 0 )
         return RetValue;
 
     // apply AIG rewriting
     if ( pParams->fUseRewriting && Abc_NtkNodeNum(pNtk) > 500 )
     {
+//        int clk = clock();
+//printf( "Before rwsat = %d. ", Abc_NtkNodeNum(pNtk) );
         pParams->fUseRewriting = 0;
         pNtk = Abc_NtkBalance( pNtkTemp = pNtk, 0, 0, 0 );          
         Abc_NtkDelete( pNtkTemp );
@@ -532,6 +533,8 @@ int Abc_NtkIvyProve( Abc_Ntk_t ** ppNtk, void * pPars )
         Abc_NtkDelete( pNtkTemp );
         Abc_NtkRewrite( pNtk, 0, 0, 0, 0, 0 );
         Abc_NtkRefactor( pNtk, 10, 16, 0, 0, 0, 0 );
+//printf( "After rwsat = %d. ", Abc_NtkNodeNum(pNtk) );
+//ABC_PRT( "Time", clock() - clk );
     }
 
     // convert ABC network into IVY network
@@ -584,9 +587,9 @@ Abc_Ntk_t * Abc_NtkIvy( Abc_Ntk_t * pNtk )
 {
 //    Abc_Ntk_t * pNtkAig;
     Ivy_Man_t * pMan;//, * pTemp;
-    int fCleanup = 1;
+//    int fCleanup = 1;
 //    int nNodes;
-    int nLatches = Abc_NtkLatchNum(pNtk);
+//    int nLatches = Abc_NtkLatchNum(pNtk);
     Vec_Int_t * vInit = Abc_NtkCollectLatchValuesIvy( pNtk, 0 );
 
     assert( !Abc_NtkIsNetlist(pNtk) );
@@ -669,13 +672,13 @@ Abc_Ntk_t * Abc_NtkIvy( Abc_Ntk_t * pNtk )
     // make sure everything is okay
     if ( !Abc_NtkCheck( pNtkAig ) )
     {
-        FREE( pInit );
+        ABC_FREE( pInit );
         printf( "Abc_NtkStrash: The network check has failed.\n" );
         Abc_NtkDelete( pNtkAig );
         return NULL;
     }
 
-    FREE( pInit );
+    ABC_FREE( pInit );
     return pNtkAig;
 */
 }
@@ -943,12 +946,8 @@ Ivy_Obj_t * Abc_NodeStrashAig( Ivy_Man_t * pMan, Abc_Obj_t * pNode )
     if ( Abc_NodeIsConst(pNode) )
         return Ivy_NotCond( Ivy_ManConst1(pMan), Abc_SopIsConst0(pSop) );
 
-    // consider the special case of EXOR function
-    if ( Abc_SopIsExorType(pSop) )
-        return Abc_NodeStrashAigExorAig( pMan, pNode, pSop );
-
     // decide when to use factoring
-    if ( fUseFactor && Abc_ObjFaninNum(pNode) > 2 && Abc_SopGetCubeNum(pSop) > 1 )
+    if ( fUseFactor && Abc_ObjFaninNum(pNode) > 2 && Abc_SopGetCubeNum(pSop) > 1 && !Abc_SopIsExorType(pSop) )
         return Abc_NodeStrashAigFactorAig( pMan, pNode, pSop );
     return Abc_NodeStrashAigSopAig( pMan, pNode, pSop );
 }
@@ -970,6 +969,7 @@ Ivy_Obj_t * Abc_NodeStrashAigSopAig( Ivy_Man_t * pMan, Abc_Obj_t * pNode, char *
     Ivy_Obj_t * pAnd, * pSum;
     char * pCube;
     int i, nFanins;
+    int fExor = Abc_SopIsExorType(pSop);
 
     // get the number of node's fanins
     nFanins = Abc_ObjFaninNum( pNode );
@@ -988,7 +988,10 @@ Ivy_Obj_t * Abc_NodeStrashAigSopAig( Ivy_Man_t * pMan, Abc_Obj_t * pNode, char *
                 pAnd = Ivy_And( pMan, pAnd, Ivy_Not((Ivy_Obj_t *)pFanin->pCopy) );
         }
         // add to the sum of cubes
-        pSum = Ivy_Or( pMan, pSum, pAnd );
+        if ( fExor )
+            pSum = Ivy_Exor( pMan, pSum, pAnd );
+        else
+            pSum = Ivy_Or( pMan, pSum, pAnd );
     }
     // decide whether to complement the result
     if ( Abc_SopIsComplement(pSop) )

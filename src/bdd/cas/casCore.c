@@ -52,7 +52,7 @@ DdNode * Cudd_bddTransferPermute( DdManager * ddSource, DdManager * ddDestinatio
 ////////////////////////////////////////////////////////////////////////
 
 #define PRD(p)       printf( "\nDECOMPOSITION TREE:\n\n" ); PrintDecEntry( (p), 0 ) 
-#define PRB(f)       printf( #f " = " ); Cudd_bddPrint(dd,f); printf( "\n" )
+#define PRB_(f)       printf( #f " = " ); Cudd_bddPrint(dd,f); printf( "\n" )
 #define PRK(f,n)     Cudd_PrintKMap(stdout,dd,(f),Cudd_Not(f),(n),NULL,0); printf( "K-map for function" #f "\n\n" )
 #define PRK2(f,g,n)  Cudd_PrintKMap(stdout,dd,(f),(g),(n),NULL,0); printf( "K-map for function <" #f ", " #g ">\n\n" ) 
 
@@ -265,7 +265,7 @@ int Abc_CascadeExperiment( char * pFileGeneric, DdManager * dd, DdNode ** pOutpu
 
     // release the names
     for ( i = 0; i < nNames; i++ )
-        free( pNames[i] );
+        ABC_FREE( pNames[i] );
 
 
 //fprintf( pTable, "\n" );
@@ -437,7 +437,7 @@ void Experiment2( BFunc * pFunc )
 
     // release the names
     for ( i = 0; i < nNames; i++ )
-        free( pNames[i] );
+        ABC_FREE( pNames[i] );
 
 
     
@@ -459,16 +459,16 @@ void Experiment2( BFunc * pFunc )
 ////////////////////////////////////////////////////////////////////////
 
 // the bit count for the first 256 integer numbers
-static unsigned char BitCount8[256] = {
-    0,1,1,2,1,2,2,3,1,2,2,3,2,3,3,4,1,2,2,3,2,3,3,4,2,3,3,4,3,4,4,5,
-    1,2,2,3,2,3,3,4,2,3,3,4,3,4,4,5,2,3,3,4,3,4,4,5,3,4,4,5,4,5,5,6,
-    1,2,2,3,2,3,3,4,2,3,3,4,3,4,4,5,2,3,3,4,3,4,4,5,3,4,4,5,4,5,5,6,
-    2,3,3,4,3,4,4,5,3,4,4,5,4,5,5,6,3,4,4,5,4,5,5,6,4,5,5,6,5,6,6,7,
-    1,2,2,3,2,3,3,4,2,3,3,4,3,4,4,5,2,3,3,4,3,4,4,5,3,4,4,5,4,5,5,6,
-    2,3,3,4,3,4,4,5,3,4,4,5,4,5,5,6,3,4,4,5,4,5,5,6,4,5,5,6,5,6,6,7,
-    2,3,3,4,3,4,4,5,3,4,4,5,4,5,5,6,3,4,4,5,4,5,5,6,4,5,5,6,5,6,6,7,
-    3,4,4,5,4,5,5,6,4,5,5,6,5,6,6,7,4,5,5,6,5,6,6,7,5,6,6,7,6,7,7,8
-};
+//static unsigned char BitCount8[256] = {
+//    0,1,1,2,1,2,2,3,1,2,2,3,2,3,3,4,1,2,2,3,2,3,3,4,2,3,3,4,3,4,4,5,
+//    1,2,2,3,2,3,3,4,2,3,3,4,3,4,4,5,2,3,3,4,3,4,4,5,3,4,4,5,4,5,5,6,
+//    1,2,2,3,2,3,3,4,2,3,3,4,3,4,4,5,2,3,3,4,3,4,4,5,3,4,4,5,4,5,5,6,
+//    2,3,3,4,3,4,4,5,3,4,4,5,4,5,5,6,3,4,4,5,4,5,5,6,4,5,5,6,5,6,6,7,
+//    1,2,2,3,2,3,3,4,2,3,3,4,3,4,4,5,2,3,3,4,3,4,4,5,3,4,4,5,4,5,5,6,
+//    2,3,3,4,3,4,4,5,3,4,4,5,4,5,5,6,3,4,4,5,4,5,5,6,4,5,5,6,5,6,6,7,
+//    2,3,3,4,3,4,4,5,3,4,4,5,4,5,5,6,3,4,4,5,4,5,5,6,4,5,5,6,5,6,6,7,
+//    3,4,4,5,4,5,5,6,4,5,5,6,5,6,6,7,4,5,5,6,5,6,6,7,5,6,6,7,6,7,7,8
+//};
 
 /////////////////////////////////////////////////////////////
 static int s_SuppSize[MAXOUTPUTS];
@@ -605,7 +605,6 @@ DdNode * GetSingleOutputFunctionRemapped( DdManager * dd, DdNode ** pOutputs, in
 
     DdNode * bSupp, * bTemp;
     int i, Counter;
-    int nSuppPrev = -1;
     DdNode * bFunc;
     DdNode * aFunc;
 
@@ -669,7 +668,6 @@ DdNode * GetSingleOutputFunctionRemappedNewDD( DdManager * dd, DdNode ** pOutput
 
     DdNode * bSupp, * bTemp;
     int i, v, Counter;
-    int nSuppPrev = -1;
     DdNode * bFunc;
 
     // these are in the new manager

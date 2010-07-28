@@ -391,7 +391,7 @@ void Fraig_FeedBackCovering( Fraig_Man_t * p, Msat_IntVec_t * vPats )
     vColumns = Fraig_FeedBackCoveringStart( p );
     // collect the number of 1s in each simulation vector
     nOnesTotal = 0;
-    pHits = ALLOC( int, vColumns->nSize );
+    pHits = ABC_ALLOC( int, vColumns->nSize );
     for ( i = 0; i < vColumns->nSize; i++ )
     {
         pSims = (unsigned *)vColumns->pArray[i];
@@ -427,7 +427,7 @@ void Fraig_FeedBackCovering( Fraig_Man_t * p, Msat_IntVec_t * vPats )
         printf( "\n" );
     }
     Fraig_NodeVecFree( vColumns );
-    free( pHits );
+    ABC_FREE( pHits );
 }
 
 
@@ -634,7 +634,6 @@ void Fraig_FeedBackCheckTable( Fraig_Man_t * p )
     Fraig_HashTable_t * pT = p->pTableF;
     Fraig_Node_t * pEntF, * pEntD;
     int i, k, m, nPairs;
-    int clk = clock();
 
     nPairs = 0;
     for ( i = 0; i < pT->nBins; i++ )
@@ -784,7 +783,7 @@ void Fraig_ReallocateSimulationInfo( Fraig_Man_t * p )
 int * Fraig_ManAllocCounterExample( Fraig_Man_t * p )
 {
     int * pModel;
-    pModel = ALLOC( int, p->vInputs->nSize );
+    pModel = ABC_ALLOC( int, p->vInputs->nSize );
     memset( pModel, 0, sizeof(int) * p->vInputs->nSize );
     return pModel;
 }
@@ -897,7 +896,7 @@ printf( "\n" );
         assert( Fraig_ManSimulateBitNode( p, pNode, pModel ) );
         return pModel;
     }
-    FREE( pModel );
+    ABC_FREE( pModel );
     return NULL;
 }
 

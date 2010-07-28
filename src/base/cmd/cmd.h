@@ -21,10 +21,6 @@
 #ifndef __CMD_H__
 #define __CMD_H__
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 ////////////////////////////////////////////////////////////////////////
 ///                          INCLUDES                                ///
 ////////////////////////////////////////////////////////////////////////
@@ -32,6 +28,10 @@ extern "C" {
 ////////////////////////////////////////////////////////////////////////
 ///                         PARAMETERS                               ///
 ////////////////////////////////////////////////////////////////////////
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 ////////////////////////////////////////////////////////////////////////
 ///                    STRUCTURE DEFINITIONS                         ///
@@ -53,7 +53,7 @@ extern void        Cmd_Init();
 extern void        Cmd_End();
 /*=== cmdApi.c ========================================================*/
 extern void        Cmd_CommandAdd( Abc_Frame_t * pAbc, char * sGroup, char * sName, void * pFunc, int fChanges );
-extern int         Cmd_CommandExecute( Abc_Frame_t * pAbc, char * sCommand );
+extern ABC_DLL int Cmd_CommandExecute( Abc_Frame_t * pAbc, char * sCommand );
 /*=== cmdFlag.c ========================================================*/
 extern char *      Cmd_FlagReadByName( Abc_Frame_t * pAbc, char * flag );
 extern void        Cmd_FlagDeleteByName( Abc_Frame_t * pAbc, char * key );

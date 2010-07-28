@@ -29,10 +29,6 @@
 #ifndef __EXTRA_H__
 #define __EXTRA_H__
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 #ifdef _WIN32
 #define inline __inline // compatible with MS VS 6.0
 #endif
@@ -41,17 +37,18 @@ extern "C" {
 /* Nested includes                                                           */
 /*---------------------------------------------------------------------------*/
 
-// this include should be the first one in the list
-// it is used to catch memory leaks on Windows
-#include "leaks.h"
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
 #include <time.h>
+#include "abc_global.h"
 #include "st.h"
 #include "cuddInt.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 /*---------------------------------------------------------------------------*/
 /* Constant declarations                                                     */
@@ -76,11 +73,6 @@ extern "C" {
 typedef unsigned char      uint8;
 typedef unsigned short     uint16;
 typedef unsigned int       uint32;
-#ifdef WIN32
-typedef unsigned __int64   uint64;
-#else
-typedef unsigned long long uint64;
-#endif
 
 /* constants of the manager */
 #define     b0     Cudd_Not((dd)->one)
@@ -92,30 +84,21 @@ typedef unsigned long long uint64;
 
 // hash key macros
 #define hashKey1(a,TSIZE) \
-((unsigned)(a) % TSIZE)
+((ABC_PTRUINT_T)(a) % TSIZE)
 
 #define hashKey2(a,b,TSIZE) \
-(((unsigned)(a) + (unsigned)(b) * DD_P1) % TSIZE)
+(((ABC_PTRUINT_T)(a) + (ABC_PTRUINT_T)(b) * DD_P1) % TSIZE)
 
 #define hashKey3(a,b,c,TSIZE) \
-(((((unsigned)(a) + (unsigned)(b)) * DD_P1 + (unsigned)(c)) * DD_P2 ) % TSIZE)
+(((((ABC_PTRUINT_T)(a) + (ABC_PTRUINT_T)(b)) * DD_P1 + (ABC_PTRUINT_T)(c)) * DD_P2 ) % TSIZE)
 
 #define hashKey4(a,b,c,d,TSIZE) \
-((((((unsigned)(a) + (unsigned)(b)) * DD_P1 + (unsigned)(c)) * DD_P2 + \
-   (unsigned)(d)) * DD_P3) % TSIZE)
+((((((ABC_PTRUINT_T)(a) + (ABC_PTRUINT_T)(b)) * DD_P1 + (ABC_PTRUINT_T)(c)) * DD_P2 + \
+   (ABC_PTRUINT_T)(d)) * DD_P3) % TSIZE)
 
 #define hashKey5(a,b,c,d,e,TSIZE) \
-(((((((unsigned)(a) + (unsigned)(b)) * DD_P1 + (unsigned)(c)) * DD_P2 + \
-   (unsigned)(d)) * DD_P3 + (unsigned)(e)) * DD_P1) % TSIZE)
-
-#ifndef PRT
-#define PRT(a,t)  printf("%s = ", (a)); printf("%6.2f sec\n", (float)(t)/(float)(CLOCKS_PER_SEC))
-#define PRTn(a,t)  printf("%s = ", (a)); printf("%6.2f sec  ", (float)(t)/(float)(CLOCKS_PER_SEC))
-#endif
-
-#ifndef PRTP
-#define PRTP(a,t,T)  printf("%s = ", (a)); printf("%6.2f sec (%6.2f %%)\n", (float)(t)/(float)(CLOCKS_PER_SEC), (T)? 100.0*(t)/(T) : 0.0)
-#endif
+(((((((ABC_PTRUINT_T)(a) + (ABC_PTRUINT_T)(b)) * DD_P1 + (ABC_PTRUINT_T)(c)) * DD_P2 + \
+   (ABC_PTRUINT_T)(d)) * DD_P3 + (ABC_PTRUINT_T)(e)) * DD_P1) % TSIZE)
 
 /*===========================================================================*/
 /*     Various Utilities                                                     */
@@ -161,12 +144,32 @@ extern int          Extra_bddNodePathsUnderCutArray( DdManager * dd, DdNode ** p
 /* find the profile of a DD (the number of edges crossing each level) */
 extern int          Extra_ProfileWidth( DdManager * dd, DdNode * F, int * Profile, int CutLevel );
 
+/*=== extraBddImage.c ================================================================*/
+
+typedef struct Extra_ImageTree_t_  Extra_ImageTree_t;
+extern Extra_ImageTree_t * Extra_bddImageStart( 
+    DdManager * dd, DdNode * bCare,
+    int nParts, DdNode ** pbParts,
+    int nVars, DdNode ** pbVars, int fVerbose );
+extern DdNode *    Extra_bddImageCompute( Extra_ImageTree_t * pTree, DdNode * bCare );
+extern void        Extra_bddImageTreeDelete( Extra_ImageTree_t * pTree );
+extern DdNode *    Extra_bddImageRead( Extra_ImageTree_t * pTree );
+
+typedef struct Extra_ImageTree2_t_  Extra_ImageTree2_t;
+extern Extra_ImageTree2_t * Extra_bddImageStart2( 
+    DdManager * dd, DdNode * bCare,
+    int nParts, DdNode ** pbParts,
+    int nVars, DdNode ** pbVars, int fVerbose );
+extern DdNode *    Extra_bddImageCompute2( Extra_ImageTree2_t * pTree, DdNode * bCare );
+extern void        Extra_bddImageTreeDelete2( Extra_ImageTree2_t * pTree );
+extern DdNode *    Extra_bddImageRead2( Extra_ImageTree2_t * pTree );
+
 /*=== extraBddMisc.c ========================================================*/
 
 extern DdNode *     Extra_TransferPermute( DdManager * ddSource, DdManager * ddDestination, DdNode * f, int * Permute );
 extern DdNode *     Extra_TransferLevelByLevel( DdManager * ddSource, DdManager * ddDestination, DdNode * f );
 extern DdNode *     Extra_bddRemapUp( DdManager * dd, DdNode * bF );
-extern DdNode *     Extra_bddMove( DdManager * dd, DdNode * bF, int fShiftUp );
+extern DdNode *     Extra_bddMove( DdManager * dd, DdNode * bF, int nVars );
 extern DdNode *     extraBddMove( DdManager * dd, DdNode * bF, DdNode * bFlag );
 extern void         Extra_StopManager( DdManager * dd );
 extern void         Extra_bddPrint( DdManager * dd, DdNode * F );
@@ -189,6 +192,11 @@ extern DdNode *     Extra_bddCreateOr( DdManager * dd, int nVars );
 extern DdNode *     Extra_bddCreateExor( DdManager * dd, int nVars );
 extern DdNode *     Extra_zddPrimes( DdManager * dd, DdNode * F );
 extern void         Extra_bddPermuteArray( DdManager * dd, DdNode ** bNodesIn, DdNode ** bNodesOut, int nNodes, int *permut );
+extern DdNode *     Extra_bddComputeCube( DdManager * dd, DdNode ** bXVars, int nVars );
+
+#ifndef ABC_PRB
+#define ABC_PRB(dd,f)       printf("%s = ", #f); Extra_bddPrint(dd,f); printf("\n")
+#endif
 
 /*=== extraBddKmap.c ================================================================*/
 
@@ -314,8 +322,10 @@ extern char *       Extra_FileGetSimilarName( char * pFileNameWrong, char * pS1,
 extern char *       Extra_FileNameExtension( char * FileName );
 extern char *       Extra_FileNameAppend( char * pBase, char * pSuffix );
 extern char *       Extra_FileNameGeneric( char * FileName );
+extern char *       Extra_FileNameGenericAppend( char * pBase, char * pSuffix );
 extern int          Extra_FileSize( char * pFileName );
 extern char *       Extra_FileRead( FILE * pFile );
+extern int          Extra_FileIsType( char * pFileName, char * pS1, char * pS2, char * pS3 );
 extern char *       Extra_TimeStamp();
 extern char *       Extra_StringAppend( char * pStrGiven, char * pStrAdd );
 extern unsigned     Extra_ReadBinary( char * Buffer );
@@ -323,7 +333,7 @@ extern void         Extra_PrintBinary( FILE * pFile, unsigned Sign[], int nBits 
 extern int          Extra_ReadHexadecimal( unsigned Sign[], char * pString, int nVars );
 extern void         Extra_PrintHexadecimal( FILE * pFile, unsigned Sign[], int nVars );
 extern void         Extra_PrintHexadecimalString( char * pString, unsigned Sign[], int nVars );
-extern void         Extra_PrintHex( FILE * pFile, unsigned uTruth, int nVars );
+extern void         Extra_PrintHex( FILE * pFile, unsigned * pTruth, int nVars );
 extern void         Extra_PrintSymbols( FILE * pFile, char Char, int nTimes, int fPrintNewLine );
 
 /*=== extraUtilReader.c ========================================================*/
@@ -428,8 +438,10 @@ static inline void Extra_ProgressBarUpdate( ProgressBar * p, int nItemsCur, char
 
 /*=== extraUtilTruth.c ================================================================*/
 
-static inline int   Extra_Float2Int( float Val )     { return *((int *)&Val);               }
-static inline float Extra_Int2Float( int Num )       { return *((float *)&Num);             }
+//static inline int   Extra_Float2Int( float Val )     { return *((int *)&Val);               }
+//static inline float Extra_Int2Float( int Num )       { return *((float *)&Num);             }
+static inline int   Extra_Float2Int( float Val )     { union { int x; float y; } v; v.y = Val; return v.x;     }
+static inline float Extra_Int2Float( int Num )       { union { int x; float y; } v; v.x = Num; return v.y;     }
 static inline int   Extra_BitWordNum( int nBits )    { return nBits/(8*sizeof(unsigned)) + ((nBits%(8*sizeof(unsigned))) > 0);  }
 static inline int   Extra_TruthWordNum( int nVars )  { return nVars <= 5 ? 1 : (1 << (nVars - 5)); }
 
@@ -577,45 +589,19 @@ extern unsigned    Extra_TruthSemiCanonicize( unsigned * pInOut, unsigned * pAux
 
 /*=== extraUtilUtil.c ================================================================*/
 
-#ifndef ABS
-#define ABS(a)			((a) < 0 ? -(a) : (a))
-#endif
+extern long          Extra_CpuTime();
+extern double        Extra_CpuTimeDouble();
+extern int           Extra_GetSoftDataLimit();
+extern ABC_DLL void  Extra_UtilGetoptReset();
+extern int           Extra_UtilGetopt( int argc, char *argv[], char *optstring );
+extern char *        Extra_UtilPrintTime( long t );
+extern char *        Extra_UtilStrsav( char *s );
+extern char *        Extra_UtilTildeExpand( char *fname );
+extern char *        Extra_UtilFileSearch( char *file, char *path, char *mode );
+extern void          (*Extra_UtilMMoutOfMemory)();
 
-#ifndef MAX
-#define MAX(a,b)		((a) > (b) ? (a) : (b))
-#endif
-
-#ifndef MIN
-#define MIN(a,b)		((a) < (b) ? (a) : (b))
-#endif
-
-#ifndef ALLOC
-#define ALLOC(type, num)	 ((type *) malloc(sizeof(type) * (num)))
-#endif
-
-#ifndef FREE
-#define FREE(obj)		     ((obj) ? (free((char *) (obj)), (obj) = 0) : 0)
-#endif
-
-#ifndef REALLOC
-#define REALLOC(type, obj, num)	\
-        ((obj) ? ((type *) realloc((char *)(obj), sizeof(type) * (num))) : \
-	     ((type *) malloc(sizeof(type) * (num))))
-#endif
-
-
-extern long        Extra_CpuTime();
-extern int         Extra_GetSoftDataLimit();
-extern void        Extra_UtilGetoptReset();
-extern int         Extra_UtilGetopt( int argc, char *argv[], char *optstring );
-extern char *      Extra_UtilPrintTime( long t );
-extern char *      Extra_UtilStrsav( char *s );
-extern char *      Extra_UtilTildeExpand( char *fname );
-extern char *      Extra_UtilFileSearch( char *file, char *path, char *mode );
-extern void        (*Extra_UtilMMoutOfMemory)();
-
-extern char *      globalUtilOptarg;
-extern int         globalUtilOptind;
+extern char *        globalUtilOptarg;
+extern int           globalUtilOptind;
 
 /**AutomaticEnd***************************************************************/
 

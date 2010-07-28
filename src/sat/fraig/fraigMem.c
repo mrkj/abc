@@ -61,7 +61,7 @@ Fraig_MemFixed_t * Fraig_MemFixedStart( int nEntrySize )
 {
     Fraig_MemFixed_t * p;
 
-    p = ALLOC( Fraig_MemFixed_t, 1 );
+    p = ABC_ALLOC( Fraig_MemFixed_t, 1 );
     memset( p, 0, sizeof(Fraig_MemFixed_t) );
 
     p->nEntrySize    = nEntrySize;
@@ -78,7 +78,7 @@ Fraig_MemFixed_t * Fraig_MemFixedStart( int nEntrySize )
 
     p->nChunksAlloc  = 64;
     p->nChunks       = 0;
-    p->pChunks       = ALLOC( char *, p->nChunksAlloc );
+    p->pChunks       = ABC_ALLOC( char *, p->nChunksAlloc );
 
     p->nMemoryUsed   = 0;
     p->nMemoryAlloc  = 0;
@@ -109,9 +109,9 @@ void Fraig_MemFixedStop( Fraig_MemFixed_t * p, int fVerbose )
             p->nEntriesUsed, p->nEntriesMax, p->nEntrySize * p->nEntriesUsed, p->nMemoryAlloc );
     }
     for ( i = 0; i < p->nChunks; i++ )
-        free( p->pChunks[i] );
-    free( p->pChunks );
-    free( p );
+        ABC_FREE( p->pChunks[i] );
+    ABC_FREE( p->pChunks );
+    ABC_FREE( p );
 }
 
 /**Function*************************************************************
@@ -137,9 +137,9 @@ char * Fraig_MemFixedEntryFetch( Fraig_MemFixed_t * p )
         if ( p->nChunks == p->nChunksAlloc )
         {
             p->nChunksAlloc *= 2;
-            p->pChunks = REALLOC( char *, p->pChunks, p->nChunksAlloc ); 
+            p->pChunks = ABC_REALLOC( char *, p->pChunks, p->nChunksAlloc ); 
         }
-        p->pEntriesFree = ALLOC( char, p->nEntrySize * p->nChunkSize );
+        p->pEntriesFree = ABC_ALLOC( char, p->nEntrySize * p->nChunkSize );
         p->nMemoryAlloc += p->nEntrySize * p->nChunkSize;
         // transform these entries into a linked list
         pTemp = p->pEntriesFree;
@@ -203,7 +203,7 @@ void Fraig_MemFixedRestart( Fraig_MemFixed_t * p )
 
     // deallocate all chunks except the first one
     for ( i = 1; i < p->nChunks; i++ )
-        free( p->pChunks[i] );
+        ABC_FREE( p->pChunks[i] );
     p->nChunks = 1;
     // transform these entries into a linked list
     pTemp = p->pChunks[0];

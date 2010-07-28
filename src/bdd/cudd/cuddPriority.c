@@ -157,7 +157,7 @@ Cudd_PrioritySelect(
     /* Create z variables if needed. */
     if (z == NULL) {
 	if (Pi != NULL) return(NULL);
-	z = ALLOC(DdNode *,n);
+	z = ABC_ALLOC(DdNode *,n);
 	if (z == NULL) {
 	    dd->errorCode = CUDD_MEMORY_OUT;
 	    return(NULL);
@@ -212,7 +212,7 @@ Cudd_PrioritySelect(
 endgame:
     if (zcube != NULL) Cudd_RecursiveDeref(dd,zcube);
     if (createdZ) {
-	FREE(z);
+	ABC_FREE(z);
     }
     if (createdPi) {
 	Cudd_RecursiveDeref(dd,Pi);
@@ -937,7 +937,8 @@ cuddCProjectionRecur(
 {
     DdNode *res, *res1, *res2, *resA;
     DdNode *r, *y, *RT, *RE, *YT, *YE, *Yrest, *Ra, *Ran, *Gamma, *Alpha;
-    unsigned int topR, topY, top, index;
+    unsigned int topR, topY, top;
+    unsigned int index = 0; // Suppress "might be used uninitialized"
     DdNode *one = DD_ONE(dd);
 
     statLine(dd);

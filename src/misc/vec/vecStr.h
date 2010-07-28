@@ -68,12 +68,12 @@ struct Vec_Str_t_
 static inline Vec_Str_t * Vec_StrAlloc( int nCap )
 {
     Vec_Str_t * p;
-    p = ALLOC( Vec_Str_t, 1 );
+    p = ABC_ALLOC( Vec_Str_t, 1 );
     if ( nCap > 0 && nCap < 16 )
         nCap = 16;
     p->nSize  = 0;
     p->nCap   = nCap;
-    p->pArray = p->nCap? ALLOC( char, p->nCap ) : NULL;
+    p->pArray = p->nCap? ABC_ALLOC( char, p->nCap ) : NULL;
     return p;
 }
 
@@ -111,7 +111,7 @@ static inline Vec_Str_t * Vec_StrStart( int nSize )
 static inline Vec_Str_t * Vec_StrAllocArray( char * pArray, int nSize )
 {
     Vec_Str_t * p;
-    p = ALLOC( Vec_Str_t, 1 );
+    p = ABC_ALLOC( Vec_Str_t, 1 );
     p->nSize  = nSize;
     p->nCap   = nSize;
     p->pArray = pArray;
@@ -132,10 +132,10 @@ static inline Vec_Str_t * Vec_StrAllocArray( char * pArray, int nSize )
 static inline Vec_Str_t * Vec_StrAllocArrayCopy( char * pArray, int nSize )
 {
     Vec_Str_t * p;
-    p = ALLOC( Vec_Str_t, 1 );
+    p = ABC_ALLOC( Vec_Str_t, 1 );
     p->nSize  = nSize;
     p->nCap   = nSize;
-    p->pArray = ALLOC( char, nSize );
+    p->pArray = ABC_ALLOC( char, nSize );
     memcpy( p->pArray, pArray, sizeof(char) * nSize );
     return p;
 }
@@ -154,10 +154,10 @@ static inline Vec_Str_t * Vec_StrAllocArrayCopy( char * pArray, int nSize )
 static inline Vec_Str_t * Vec_StrDup( Vec_Str_t * pVec )
 {
     Vec_Str_t * p;
-    p = ALLOC( Vec_Str_t, 1 );
+    p = ABC_ALLOC( Vec_Str_t, 1 );
     p->nSize  = pVec->nSize;
     p->nCap   = pVec->nCap;
-    p->pArray = p->nCap? ALLOC( char, p->nCap ) : NULL;
+    p->pArray = p->nCap? ABC_ALLOC( char, p->nCap ) : NULL;
     memcpy( p->pArray, pVec->pArray, sizeof(char) * pVec->nSize );
     return p;
 }
@@ -176,7 +176,7 @@ static inline Vec_Str_t * Vec_StrDup( Vec_Str_t * pVec )
 static inline Vec_Str_t * Vec_StrDupArray( Vec_Str_t * pVec )
 {
     Vec_Str_t * p;
-    p = ALLOC( Vec_Str_t, 1 );
+    p = ABC_ALLOC( Vec_Str_t, 1 );
     p->nSize  = pVec->nSize;
     p->nCap   = pVec->nCap;
     p->pArray = pVec->pArray;
@@ -199,8 +199,27 @@ static inline Vec_Str_t * Vec_StrDupArray( Vec_Str_t * pVec )
 ***********************************************************************/
 static inline void Vec_StrFree( Vec_Str_t * p )
 {
-    FREE( p->pArray );
-    FREE( p );
+    ABC_FREE( p->pArray );
+    ABC_FREE( p );
+}
+
+/**Function*************************************************************
+
+  Synopsis    []
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+static inline void Vec_StrFreeP( Vec_Str_t ** p )
+{
+    if ( *p == NULL )
+        return;
+    ABC_FREE( (*p)->pArray );
+    ABC_FREE( (*p) );
 }
 
 /**Function*************************************************************
@@ -321,7 +340,7 @@ static inline void Vec_StrGrow( Vec_Str_t * p, int nCapMin )
 {
     if ( p->nCap >= nCapMin )
         return;
-    p->pArray = REALLOC( char, p->pArray, 2 * nCapMin ); 
+    p->pArray = ABC_REALLOC( char, p->pArray, 2 * nCapMin ); 
     p->nCap   = 2 * nCapMin;
 }
 
@@ -336,13 +355,73 @@ static inline void Vec_StrGrow( Vec_Str_t * p, int nCapMin )
   SeeAlso     []
 
 ***********************************************************************/
-static inline void Vec_StrFill( Vec_Str_t * p, int nSize, char Entry )
+static inline void Vec_StrFill( Vec_Str_t * p, int nSize, char Fill )
 {
     int i;
     Vec_StrGrow( p, nSize );
     p->nSize = nSize;
     for ( i = 0; i < p->nSize; i++ )
-        p->pArray[i] = Entry;
+        p->pArray[i] = Fill;
+}
+
+/**Function*************************************************************
+
+  Synopsis    [Fills the vector with given number of entries.]
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+static inline void Vec_StrFillExtra( Vec_Str_t * p, int nSize, char Fill )
+{
+    int i;
+    if ( nSize <= p->nSize )
+        return;
+    assert( nSize > p->nSize );
+    if ( nSize < 2 * p->nSize )
+        Vec_StrGrow( p, 2 * nSize );
+    else
+        Vec_StrGrow( p, nSize );
+    for ( i = p->nSize; i < nSize; i++ )
+        p->pArray[i] = Fill;
+    p->nSize = nSize;
+}
+
+/**Function*************************************************************
+
+  Synopsis    [Returns the entry even if the place not exist.]
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+static inline char Vec_StrGetEntry( Vec_Str_t * p, int i )
+{
+    Vec_StrFillExtra( p, i + 1, 0 );
+    return Vec_StrEntry( p, i );
+}
+
+/**Function*************************************************************
+
+  Synopsis    [Inserts the entry even if the place does not exist.]
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+static inline void Vec_StrSetEntry( Vec_Str_t * p, int i, char Entry )
+{
+    Vec_StrFillExtra( p, i + 1, 0 );
+    Vec_StrWriteEntry( p, i, Entry );
 }
 
 /**Function*************************************************************
@@ -401,26 +480,22 @@ static inline void Vec_StrPush( Vec_Str_t * p, char Entry )
     p->pArray[p->nSize++] = Entry;
 }
 
-/**Function********************************************************************
+/**Function*************************************************************
 
-  Synopsis    [Finds the smallest integer larger of equal than the logarithm.]
+  Synopsis    [Returns the last entry and removes it from the list.]
 
-  Description [Returns [Log10(Num)].]
-
+  Description []
+               
   SideEffects []
 
   SeeAlso     []
 
-******************************************************************************/
-static inline int Vec_StrBase10Log( unsigned Num )
+***********************************************************************/
+static inline char Vec_StrPop( Vec_Str_t * p )
 {
-    int Res;
-    assert( Num >= 0 );
-    if ( Num == 0 ) return 0;
-    if ( Num == 1 ) return 1;
-	for ( Res = 0, Num--;  Num;  Num /= 10,  Res++ );
-    return Res;
-} /* end of Extra_Base2Log */
+    assert( p->nSize > 0 );
+    return p->pArray[--p->nSize];
+}
 
 /**Function*************************************************************
 
@@ -435,26 +510,22 @@ static inline int Vec_StrBase10Log( unsigned Num )
 ***********************************************************************/
 static inline void Vec_StrPrintNum( Vec_Str_t * p, int Num )
 {
-    int i, nDigits;
+    int i;
+    char Digits[16];
+    if ( Num == 0 )
+    {
+        Vec_StrPush( p, '0' );
+        return;
+    }
     if ( Num < 0 )
     {
         Vec_StrPush( p, '-' );
         Num = -Num;
     }
-    if ( Num < 10 )
-    {
-        Vec_StrPush( p, (char)('0' + Num) );
-        return;
-    }
-    nDigits = Vec_StrBase10Log( Num );
-    Vec_StrGrow( p, p->nSize + nDigits );
-    for ( i = nDigits - 1; i >= 0; i-- )
-    {
-        Vec_StrWriteEntry( p, p->nSize + i, (char)('0' + Num % 10) );
-        Num /= 10;
-    }
-    assert( Num == 0 );
-    p->nSize += nDigits;
+    for ( i = 0; Num; Num /= 10,  i++ )
+        Digits[i] = (char)('0' + Num % 10);
+    for ( i--; i >= 0; i-- )
+        Vec_StrPush( p, Digits[i] );
 }
 
 /**Function*************************************************************
@@ -488,16 +559,12 @@ static inline void Vec_StrPrintStr( Vec_Str_t * p, char * pStr )
 ***********************************************************************/
 static inline void Vec_StrAppend( Vec_Str_t * p, char * pString )
 {
-    int i, nLength = strlen(pString);
-    Vec_StrGrow( p, p->nSize + nLength );
-    for ( i = 0; i < nLength; i++ )
-        p->pArray[p->nSize + i] = pString[i];
-    p->nSize += nLength;
+    Vec_StrPrintStr( p, pString );
 }
 
 /**Function*************************************************************
 
-  Synopsis    [Returns the last entry and removes it from the list.]
+  Synopsis    [Reverses the order of entries.]
 
   Description []
                
@@ -506,10 +573,15 @@ static inline void Vec_StrAppend( Vec_Str_t * p, char * pString )
   SeeAlso     []
 
 ***********************************************************************/
-static inline char Vec_StrPop( Vec_Str_t * p )
+static inline void Vec_StrReverseOrder( Vec_Str_t * p )
 {
-    assert( p->nSize > 0 );
-    return p->pArray[--p->nSize];
+    int i, Temp;
+    for ( i = 0; i < p->nSize/2; i++ )
+    {
+        Temp = p->pArray[i];
+        p->pArray[i] = p->pArray[p->nSize-1-i];
+        p->pArray[p->nSize-1-i] = Temp;
+    }
 }
 
 /**Function*************************************************************
@@ -523,7 +595,7 @@ static inline char Vec_StrPop( Vec_Str_t * p )
   SeeAlso     []
 
 ***********************************************************************/
-static inline int Vec_StrSortCompare1( char * pp1, char * pp2 )
+static int Vec_StrSortCompare1( char * pp1, char * pp2 )
 {
     // for some reason commenting out lines (as shown) led to crashing of the release version
     if ( *pp1 < *pp2 )
@@ -544,7 +616,7 @@ static inline int Vec_StrSortCompare1( char * pp1, char * pp2 )
   SeeAlso     []
 
 ***********************************************************************/
-static inline int Vec_StrSortCompare2( char * pp1, char * pp2 )
+static int Vec_StrSortCompare2( char * pp1, char * pp2 )
 {
     // for some reason commenting out lines (as shown) led to crashing of the release version
     if ( *pp1 > *pp2 )

@@ -21,6 +21,9 @@
 #include "darInt.h"
 #include "kit.h"
 
+#include "bdc.h"
+#include "bdcInt.h"
+
 ////////////////////////////////////////////////////////////////////////
 ///                        DECLARATIONS                              ///
 ////////////////////////////////////////////////////////////////////////
@@ -44,6 +47,9 @@ struct Ref_Man_t_
     Kit_Graph_t *    pGraphBest;     // the best factored form
     int              GainBest;       // the best gain
     int              LevelBest;      // the level of node with the best gain
+    // bi-decomposition
+    Bdc_Par_t        DecPars;        // decomposition parameters
+    Bdc_Man_t *      pManDec;        // decomposition manager
     // node statistics
     int              nNodesInit;     // the initial number of nodes
     int              nNodesTried;    // the number of nodes tried
@@ -100,17 +106,22 @@ Ref_Man_t * Dar_ManRefStart( Aig_Man_t * pAig, Dar_RefPar_t * pPars )
 {
     Ref_Man_t * p;
     // start the manager
-    p = ALLOC( Ref_Man_t, 1 );
+    p = ABC_ALLOC( Ref_Man_t, 1 );
     memset( p, 0, sizeof(Ref_Man_t) );
     p->pAig         = pAig;
     p->pPars        = pPars;
     // other data
     p->vCuts        = Vec_VecStart( pPars->nCutsMax );
     p->vTruthElem   = Vec_PtrAllocTruthTables( pPars->nLeafMax );
-    p->vTruthStore  = Vec_PtrAllocSimInfo( 256, Kit_TruthWordNum(pPars->nLeafMax) );
+    p->vTruthStore  = Vec_PtrAllocSimInfo( 1024, Kit_TruthWordNum(pPars->nLeafMax) );
     p->vMemory      = Vec_IntAlloc( 1 << 16 );
     p->vCutNodes    = Vec_PtrAlloc( 256 );
     p->vLeavesBest  = Vec_PtrAlloc( pPars->nLeafMax );
+    // alloc bi-decomposition manager
+    p->DecPars.nVarsMax = pPars->nLeafMax;
+    p->DecPars.fVerbose = pPars->fVerbose;
+    p->DecPars.fVeryVerbose = 0;
+//    p->pManDec = Bdc_ManAlloc( &p->DecPars );
     return p;
 }
 
@@ -132,10 +143,10 @@ void Dar_ManRefPrintStats( Ref_Man_t * p )
         p->nNodesInit, Aig_ManNodeNum(p->pAig), Gain, 100.0*Gain/p->nNodesInit );
     printf( "Tried = %6d. Below = %5d. Extended = %5d.  Used = %5d.  Levels = %4d.\n", 
         p->nNodesTried, p->nNodesBelow, p->nNodesExten, p->nCutsUsed, Aig_ManLevels(p->pAig) );
-    PRT( "Cuts  ", p->timeCuts );
-    PRT( "Eval  ", p->timeEval );
-    PRT( "Other ", p->timeOther );
-    PRT( "TOTAL ", p->timeTotal );
+    ABC_PRT( "Cuts  ", p->timeCuts );
+    ABC_PRT( "Eval  ", p->timeEval );
+    ABC_PRT( "Other ", p->timeOther );
+    ABC_PRT( "TOTAL ", p->timeTotal );
 }
 
 /**Function*************************************************************
@@ -151,6 +162,8 @@ void Dar_ManRefPrintStats( Ref_Man_t * p )
 ***********************************************************************/
 void Dar_ManRefStop( Ref_Man_t * p )
 {
+    if ( p->pManDec )
+        Bdc_ManFree( p->pManDec );
     if ( p->pPars->fVerbose )
         Dar_ManRefPrintStats( p );
     Vec_VecFree( p->vCuts );
@@ -159,7 +172,7 @@ void Dar_ManRefStop( Ref_Man_t * p )
     Vec_PtrFree( p->vLeavesBest );
     Vec_IntFree( p->vMemory );
     Vec_PtrFree( p->vCutNodes );
-    free( p );
+    ABC_FREE( p );
 }
 
 /**Function*************************************************************
@@ -222,7 +235,7 @@ int Dar_RefactTryGraph( Aig_Man_t * pAig, Aig_Obj_t * pRoot, Vec_Ptr_t * vCut, K
     {
         pNode->pFunc = Vec_PtrEntry(vCut, i);
         pNode->Level = Aig_Regular(pNode->pFunc)->Level;
-        assert( Aig_Regular(pNode->pFunc)->Level < (1<<14)-1 );
+        assert( Aig_Regular(pNode->pFunc)->Level < (1<<24)-1 );
     }
 //printf( "Trying:\n" );
     // compute the AIG size after adding the internal nodes
@@ -254,7 +267,7 @@ int Dar_RefactTryGraph( Aig_Man_t * pAig, Aig_Obj_t * pRoot, Vec_Ptr_t * vCut, K
                 return -1;
         }
         // count the number of new levels
-        LevelNew = 1 + AIG_MAX( pNode0->Level, pNode1->Level );
+        LevelNew = 1 + ABC_MAX( pNode0->Level, pNode1->Level );
         if ( pAnd )
         {
             if ( Aig_Regular(pAnd) == Aig_ManConst1(pAig) )
@@ -363,14 +376,14 @@ int Dar_ManRefactorTryCuts( Ref_Man_t * p, Aig_Obj_t * pObj, int nNodesSaved, in
         pTruth = Aig_ManCutTruth( pObj, vCut, p->vCutNodes, p->vTruthElem, p->vTruthStore );
         if ( Kit_TruthIsConst0(pTruth, Vec_PtrSize(vCut)) )
         {
-            p->GainBest = Vec_PtrSize(p->vCutNodes);
+            p->GainBest = Aig_NodeMffcSupp( p->pAig, pObj, 0, NULL );
             p->pGraphBest = Kit_GraphCreateConst0();
             Vec_PtrCopy( p->vLeavesBest, vCut );
             return p->GainBest;
         }
         if ( Kit_TruthIsConst1(pTruth, Vec_PtrSize(vCut)) )
         {
-            p->GainBest = Vec_PtrSize(p->vCutNodes);
+            p->GainBest = Aig_NodeMffcSupp( p->pAig, pObj, 0, NULL );
             p->pGraphBest = Kit_GraphCreateConst1();
             Vec_PtrCopy( p->vLeavesBest, vCut );
             return p->GainBest;
@@ -381,6 +394,13 @@ int Dar_ManRefactorTryCuts( Ref_Man_t * p, Aig_Obj_t * pObj, int nNodesSaved, in
         if ( RetValue > -1 )
         {
             pGraphCur = Kit_SopFactor( p->vMemory, 0, Vec_PtrSize(vCut), p->vMemory );
+/*
+{
+    int RetValue;
+    RetValue = Bdc_ManDecompose( p->pManDec, pTruth, NULL, Vec_PtrSize(vCut), NULL, 1000 );
+    printf( "Graph = %d. Bidec = %d.\n", Kit_GraphNodeNum(pGraphCur), RetValue );
+}
+*/
             nNodesAdded = Dar_RefactTryGraph( p->pAig, pObj, vCut, pGraphCur, nNodesSaved - !p->pPars->fUseZeros, Required );
             if ( nNodesAdded > -1 )
             {
@@ -403,9 +423,17 @@ int Dar_ManRefactorTryCuts( Ref_Man_t * p, Aig_Obj_t * pObj, int nNodesSaved, in
         // try negative phase
         Kit_TruthNot( pTruth, pTruth, Vec_PtrSize(vCut) );
         RetValue = Kit_TruthIsop( pTruth, Vec_PtrSize(vCut), p->vMemory, 0 );
+//        Kit_TruthNot( pTruth, pTruth, Vec_PtrSize(vCut) );
         if ( RetValue > -1 )
         {
             pGraphCur = Kit_SopFactor( p->vMemory, 1, Vec_PtrSize(vCut), p->vMemory );
+/*
+{
+    int RetValue;
+    RetValue = Bdc_ManDecompose( p->pManDec, pTruth, NULL, Vec_PtrSize(vCut), NULL, 1000 );
+    printf( "Graph = %d. Bidec = %d.\n", Kit_GraphNodeNum(pGraphCur), RetValue );
+}
+*/
             nNodesAdded = Dar_RefactTryGraph( p->pAig, pObj, vCut, pGraphCur, nNodesSaved - !p->pPars->fUseZeros, Required );
             if ( nNodesAdded > -1 )
             {
@@ -426,6 +454,7 @@ int Dar_ManRefactorTryCuts( Ref_Man_t * p, Aig_Obj_t * pObj, int nNodesSaved, in
                 Kit_GraphFree( pGraphCur );
         }
     }
+
     return p->GainBest;
 }
 
@@ -498,8 +527,8 @@ int Dar_ManRefactor( Aig_Man_t * pAig, Dar_RefPar_t * pPars )
 //printf( "\nConsidering node %d.\n", pObj->Id );
         // get the bounded MFFC size
 clk = clock();
-        nLevelMin = AIG_MAX( 0, Aig_ObjLevel(pObj) - 10 );
-        nNodesSaved = Aig_NodeMffsSupp( pAig, pObj, nLevelMin, vCut );
+        nLevelMin = ABC_MAX( 0, Aig_ObjLevel(pObj) - 10 );
+        nNodesSaved = Aig_NodeMffcSupp( pAig, pObj, nLevelMin, vCut );
         if ( nNodesSaved < p->pPars->nMffcMin ) // too small to consider
         {
 p->timeCuts += clock() - clk;
@@ -509,15 +538,15 @@ p->timeCuts += clock() - clk;
         if ( Vec_PtrSize(vCut) > p->pPars->nLeafMax ) // get one reconv-driven cut
         {
             Aig_ManFindCut( pObj, vCut, p->vCutNodes, p->pPars->nLeafMax, 50 );
-            nNodesSaved = Aig_NodeMffsLabelCut( p->pAig, pObj, vCut );
+            nNodesSaved = Aig_NodeMffcLabelCut( p->pAig, pObj, vCut );
         }
         else if ( Vec_PtrSize(vCut) < p->pPars->nLeafMax - 2 && p->pPars->fExtend )
         {
             if ( !Dar_ObjCutLevelAchieved(vCut, nLevelMin) )
             {
-                if ( Aig_NodeMffsExtendCut( pAig, pObj, vCut, vCut2 ) )
+                if ( Aig_NodeMffcExtendCut( pAig, pObj, vCut, vCut2 ) )
                 {
-                    nNodesSaved2 = Aig_NodeMffsLabelCut( p->pAig, pObj, vCut );
+                    nNodesSaved2 = Aig_NodeMffcLabelCut( p->pAig, pObj, vCut );
                     assert( nNodesSaved2 == nNodesSaved );
                 }
                 if ( Vec_PtrSize(vCut2) > p->pPars->nLeafMax )
@@ -535,7 +564,7 @@ p->timeCuts += clock() - clk;
 
         // try the cuts
 clk = clock();
-        Required = pAig->vLevelR? Aig_ObjRequiredLevel(pAig, pObj) : AIG_INFINITY;
+        Required = pAig->vLevelR? Aig_ObjRequiredLevel(pAig, pObj) : ABC_INFINITY;
         Dar_ManRefactorTryCuts( p, pObj, nNodesSaved, Required );
 p->timeEval += clock() - clk;
 
@@ -553,7 +582,7 @@ p->timeEval += clock() - clk;
         pObjNew = Dar_RefactBuildGraph( pAig, p->vLeavesBest, p->pGraphBest );
         assert( (int)Aig_Regular(pObjNew)->Level <= Required );
         // replace the node
-        Aig_ObjReplace( pAig, pObj, pObjNew, 1, p->pPars->fUpdateLevel );
+        Aig_ObjReplace( pAig, pObj, pObjNew, p->pPars->fUpdateLevel );
         // compare the gains
         nNodeAfter = Aig_ManNodeNum( pAig );
         assert( p->GainBest <= nNodeBefore - nNodeAfter );
@@ -571,10 +600,21 @@ p->timeOther = p->timeTotal - p->timeCuts - p->timeEval;
     Aig_ManFanoutStop( pAig );
     if ( p->pPars->fUpdateLevel )
         Aig_ManStopReverseLevels( pAig );
+/*
+    Aig_ManForEachObj( p->pAig, pObj, i )
+        if ( Aig_ObjIsNode(pObj) && Aig_ObjRefs(pObj) == 0 )
+        {
+            printf( "Unreferenced " );
+            Aig_ObjPrintVerbose( pObj, 0 );
+            printf( "\n" );
+        }
+*/
+    // remove dangling nodes (they should not be here!)
+    Aig_ManCleanup( pAig );
 
     // stop the rewriting manager
     Dar_ManRefStop( p );
-    Aig_ManCheckPhase( pAig );
+//    Aig_ManCheckPhase( pAig );
     if ( !Aig_ManCheck( pAig ) )
     {
         printf( "Dar_ManRefactor: The network check has failed.\n" );

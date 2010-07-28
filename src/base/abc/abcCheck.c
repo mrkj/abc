@@ -122,7 +122,7 @@ bool Abc_NtkDoCheck( Abc_Ntk_t * pNtk )
             fprintf( stdout, "in procedure Abc_NtkCreateObj() and in the user's code.\n" );
             return 0;
         }
-        if ( Abc_NtkPoNum(pNtk) + Abc_NtkAssertNum(pNtk) + Abc_NtkLatchNum(pNtk) != Abc_NtkCoNum(pNtk) )
+        if ( Abc_NtkPoNum(pNtk) + Abc_NtkLatchNum(pNtk) != Abc_NtkCoNum(pNtk) )
         {
             fprintf( stdout, "NetworkCheck: Number of COs does not match number of POs, asserts, and latches.\n" );
             fprintf( stdout, "One possible reason is that latches are added twice:\n" );
@@ -154,10 +154,7 @@ bool Abc_NtkDoCheck( Abc_Ntk_t * pNtk )
     if ( Abc_NtkIsNetlist(pNtk) )
     {
         if ( Abc_NtkNetNum(pNtk) == 0 )
-        {
-            fprintf( stdout, "NetworkCheck: Netlist has no nets.\n" );
-            return 0;
-        }
+            fprintf( stdout, "NetworkCheck: Warning! Netlist has no nets.\n" );
         // check the nets
         Abc_NtkForEachNet( pNtk, pNet, i )
             if ( !Abc_NtkCheckNet( pNtk, pNet ) )
@@ -194,7 +191,7 @@ bool Abc_NtkDoCheck( Abc_Ntk_t * pNtk )
         fprintf( stdout, "NetworkCheck: Network contains a combinational loop.\n" );
         return 0;
     }
-//  PRT( "Acyclic  ", clock() - clk );
+//  ABC_PRT( "Acyclic  ", clock() - clk );
 
     // check the EXDC network if present
     if ( pNtk->pExdc )
@@ -237,7 +234,7 @@ bool Abc_NtkDoCheck( Abc_Ntk_t * pNtk )
 ***********************************************************************/
 bool Abc_NtkCheckNames( Abc_Ntk_t * pNtk )
 {
-    Abc_Obj_t * pObj;
+    Abc_Obj_t * pObj = NULL; // Ensure pObj isn't used uninitialized.
     Vec_Int_t * vNameIds;
     char * pName;
     int i, NameId;
@@ -264,6 +261,8 @@ bool Abc_NtkCheckNames( Abc_Ntk_t * pNtk )
             return 0;
         }
     }
+
+    assert(pObj); // pObj should point to something here.
 
     // return the array of all IDs, which have names
     vNameIds = Nm_ManReturnNameIds( pNtk->pManName );
@@ -574,10 +573,10 @@ bool Abc_NtkCheckLatch( Abc_Ntk_t * pNtk, Abc_Obj_t * pLatch )
         Value = 0;
     }
     // make sure the latch has a reasonable return value
-    if ( (int)pLatch->pData < ABC_INIT_ZERO || (int)pLatch->pData > ABC_INIT_DC )
+    if ( (int)(ABC_PTRINT_T)pLatch->pData < ABC_INIT_ZERO || (int)(ABC_PTRINT_T)pLatch->pData > ABC_INIT_DC )
     {
         fprintf( stdout, "NodeCheck: Latch \"%s\" has incorrect reset value (%d).\n", 
-            Abc_ObjName(pLatch), (int)pLatch->pData );
+            Abc_ObjName(pLatch), (int)(ABC_PTRINT_T)pLatch->pData );
         Value = 0;
     }
     // make sure the latch has only one fanin
@@ -728,7 +727,8 @@ bool Abc_NtkCompareBoxes( Abc_Ntk_t * pNtk1, Abc_Ntk_t * pNtk2, int fComb )
 
   Description []
                
-  SideEffects []
+  SideEffects [Ordering POs by name is a very bad idea! It destroys
+  the natural order of the logic in the circuit.]
 
   SeeAlso     []
 
@@ -859,7 +859,7 @@ int Abc_NtkCheckUniqueCiNames( Abc_Ntk_t * pNtk )
     for ( i = 1; i < Abc_NtkCiNum(pNtk); i++ )
         if ( !strcmp( Vec_PtrEntry(vNames,i-1), Vec_PtrEntry(vNames,i) ) )
         {
-            printf( "Abc_NtkCheck: Repeated CI names: %s and %s.\n", Vec_PtrEntry(vNames,i-1), Vec_PtrEntry(vNames,i) );
+            printf( "Abc_NtkCheck: Repeated CI names: %s and %s.\n", (char*)Vec_PtrEntry(vNames,i-1), (char*)Vec_PtrEntry(vNames,i) );
             fRetValue = 0;
         }
     Vec_PtrFree( vNames );
@@ -892,7 +892,7 @@ int Abc_NtkCheckUniqueCoNames( Abc_Ntk_t * pNtk )
 //        printf( "%s\n", Vec_PtrEntry(vNames,i) );
         if ( !strcmp( Vec_PtrEntry(vNames,i-1), Vec_PtrEntry(vNames,i) ) )
         {
-            printf( "Abc_NtkCheck: Repeated CO names: %s and %s.\n", Vec_PtrEntry(vNames,i-1), Vec_PtrEntry(vNames,i) );
+            printf( "Abc_NtkCheck: Repeated CO names: %s and %s.\n", (char*)Vec_PtrEntry(vNames,i-1), (char*)Vec_PtrEntry(vNames,i) );
             fRetValue = 0;
         }
     }
@@ -913,7 +913,7 @@ int Abc_NtkCheckUniqueCoNames( Abc_Ntk_t * pNtk )
 ***********************************************************************/
 int Abc_NtkCheckUniqueCioNames( Abc_Ntk_t * pNtk )
 {
-    Abc_Obj_t * pObj, * pObjCi;
+    Abc_Obj_t * pObj, * pObjCi, * pFanin;
     int i, nCiId, fRetValue = 1;
     assert( !Abc_NtkIsNetlist(pNtk) );
     Abc_NtkForEachCo( pNtk, pObj, i )
@@ -923,9 +923,11 @@ int Abc_NtkCheckUniqueCioNames( Abc_Ntk_t * pNtk )
             continue;
         pObjCi = Abc_NtkObj( pNtk, nCiId );
         assert( !strcmp( Abc_ObjName(pObj), Abc_ObjName(pObjCi) ) );
-        if ( Abc_ObjFanin0(pObj) != pObjCi )
+        pFanin = Abc_ObjFanin0(pObj);
+        if ( pFanin != pObjCi )
         {
-            printf( "Abc_NtkCheck: A CI/CO pair share the name (%s) but do not link directly.\n", Abc_ObjName(pObj) );
+            printf( "Abc_NtkCheck: A CI/CO pair share the name (%s) but do not link directly. The name of the CO fanin is %s.\n", 
+                Abc_ObjName(pObj), Abc_ObjName(Abc_ObjFanin0(pObj)) );
             fRetValue = 0;
         }
     }

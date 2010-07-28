@@ -21,12 +21,16 @@
 #include "mainInt.h"
 #include "abc.h"
 #include "dec.h"
+#include "gia.h"
 
 ////////////////////////////////////////////////////////////////////////
 ///                        DECLARATIONS                              ///
 ////////////////////////////////////////////////////////////////////////
 
 static Abc_Frame_t * s_GlobalFrame = NULL;
+
+extern void * Aig_ManDupSimple( void * p );
+extern void Aig_ManStop( void * pAig );
 
 ////////////////////////////////////////////////////////////////////////
 ///                     FUNCTION DEFINITIONS                         ///
@@ -43,21 +47,32 @@ static Abc_Frame_t * s_GlobalFrame = NULL;
   SeeAlso     []
 
 ***********************************************************************/
-Vec_Ptr_t * Abc_FrameReadStore()                     { return s_GlobalFrame->vStore;       } 
-int         Abc_FrameReadStoreSize()                 { return Vec_PtrSize(s_GlobalFrame->vStore); }
-void *      Abc_FrameReadLibLut()                    { return s_GlobalFrame->pLibLut;      } 
-void *      Abc_FrameReadLibGen()                    { return s_GlobalFrame->pLibGen;      } 
-void *      Abc_FrameReadLibSuper()                  { return s_GlobalFrame->pLibSuper;    } 
-void *      Abc_FrameReadLibVer()                    { return s_GlobalFrame->pLibVer;      } 
-void *      Abc_FrameReadManDd()                     { if ( s_GlobalFrame->dd == NULL )      s_GlobalFrame->dd = Cudd_Init( 0, 0, CUDD_UNIQUE_SLOTS, CUDD_CACHE_SLOTS, 0 );  return s_GlobalFrame->dd;      } 
-void *      Abc_FrameReadManDec()                    { if ( s_GlobalFrame->pManDec == NULL ) s_GlobalFrame->pManDec = Dec_ManStart();                                        return s_GlobalFrame->pManDec; } 
-char *      Abc_FrameReadFlag( char * pFlag )        { return Cmd_FlagReadByName( s_GlobalFrame, pFlag );  } 
+Vec_Ptr_t * Abc_FrameReadStore()                             { return s_GlobalFrame->vStore;       } 
+int         Abc_FrameReadStoreSize()                         { return Vec_PtrSize(s_GlobalFrame->vStore); }
+void *      Abc_FrameReadLibLut()                            { return s_GlobalFrame->pLibLut;      } 
+void *      Abc_FrameReadLibGen()                            { return s_GlobalFrame->pLibGen;      } 
+void *      Abc_FrameReadLibGen2()                           { return s_GlobalFrame->pLibGen2;     } 
+void *      Abc_FrameReadLibSuper()                          { return s_GlobalFrame->pLibSuper;    } 
+void *      Abc_FrameReadLibVer()                            { return s_GlobalFrame->pLibVer;      } 
+void *      Abc_FrameReadManDd()                             { if ( s_GlobalFrame->dd == NULL )      s_GlobalFrame->dd = Cudd_Init( 0, 0, CUDD_UNIQUE_SLOTS, CUDD_CACHE_SLOTS, 0 );  return s_GlobalFrame->dd;      } 
+void *      Abc_FrameReadManDec()                            { if ( s_GlobalFrame->pManDec == NULL ) s_GlobalFrame->pManDec = Dec_ManStart();                                        return s_GlobalFrame->pManDec; } 
+char *      Abc_FrameReadFlag( char * pFlag )                { return Cmd_FlagReadByName( s_GlobalFrame, pFlag );   } 
 
-void        Abc_FrameSetLibLut( void * pLib )        { s_GlobalFrame->pLibLut   = pLib;    } 
-void        Abc_FrameSetLibGen( void * pLib )        { s_GlobalFrame->pLibGen   = pLib;    } 
-void        Abc_FrameSetLibSuper( void * pLib )      { s_GlobalFrame->pLibSuper = pLib;    } 
-void        Abc_FrameSetLibVer( void * pLib )        { s_GlobalFrame->pLibVer   = pLib;    } 
-void        Abc_FrameSetFlag( char * pFlag, char * pValue )  { Cmd_FlagUpdateValue( s_GlobalFrame, pFlag, pValue );  } 
+int         Abc_FrameReadBmcFrames( Abc_Frame_t * p )        { return s_GlobalFrame->nFrames;      }               
+int         Abc_FrameReadProbStatus( Abc_Frame_t * p )       { return s_GlobalFrame->Status;       }               
+void *      Abc_FrameReadCex( Abc_Frame_t * p )              { return s_GlobalFrame->pCex;         }        
+       
+int         Abc_FrameReadCexPiNum( Abc_Frame_t * p )         { return s_GlobalFrame->pCex->nPis;      }               
+int         Abc_FrameReadCexRegNum( Abc_Frame_t * p )        { return s_GlobalFrame->pCex->nRegs;     }               
+int         Abc_FrameReadCexPo( Abc_Frame_t * p )            { return s_GlobalFrame->pCex->iPo;       }               
+int         Abc_FrameReadCexFrame( Abc_Frame_t * p )         { return s_GlobalFrame->pCex->iFrame;    }               
+
+void        Abc_FrameSetLibLut( void * pLib )                { s_GlobalFrame->pLibLut   = pLib;    } 
+void        Abc_FrameSetLibGen( void * pLib )                { s_GlobalFrame->pLibGen   = pLib;    } 
+void        Abc_FrameSetLibGen2( void * pLib )               { s_GlobalFrame->pLibGen2  = pLib;    } 
+void        Abc_FrameSetLibSuper( void * pLib )              { s_GlobalFrame->pLibSuper = pLib;    } 
+void        Abc_FrameSetLibVer( void * pLib )                { s_GlobalFrame->pLibVer   = pLib;    } 
+void        Abc_FrameSetFlag( char * pFlag, char * pValue )  { Cmd_FlagUpdateValue( s_GlobalFrame, pFlag, pValue ); } 
 
 /**Function*************************************************************
 
@@ -100,22 +115,23 @@ Abc_Frame_t * Abc_FrameAllocate()
     extern void define_cube_size( int n );
     extern void set_espresso_flags();
     // allocate and clean
-    p = ALLOC( Abc_Frame_t, 1 );
-    memset( p, 0, sizeof(Abc_Frame_t) );
+    p = ABC_CALLOC( Abc_Frame_t, 1 );
     // get version
     p->sVersion = Abc_UtilsGetVersion( p );
     // set streams
     p->Err = stderr;
     p->Out = stdout;
     p->Hst = NULL;
+    p->Status     = -1;
+    p->nFrames    = -1;
     // set the starting step
-    p->nSteps = 1;
-	p->fBatchMode = 0;
+    p->nSteps     =  1;
+	p->fBatchMode =  0;
     // networks to be used by choice
     p->vStore = Vec_PtrAlloc( 16 );
     // initialize decomposition manager
-    define_cube_size(20);
-    set_espresso_flags();
+//    define_cube_size(20);
+//    set_espresso_flags();
     // initialize the trace manager
 //    Abc_HManStart();
     return p;
@@ -139,17 +155,23 @@ void Abc_FrameDeallocate( Abc_Frame_t * p )
     extern void undefine_cube_size();
 //    extern void Ivy_TruthManStop();
 //    Abc_HManStop();
-    undefine_cube_size();
+//    undefine_cube_size();
     Rwt_ManGlobalStop();
 //    Ivy_TruthManStop();
     if ( p->pLibVer ) Abc_LibFree( p->pLibVer, NULL );
     if ( p->pManDec ) Dec_ManStop( p->pManDec );
     if ( p->dd )      Extra_StopManager( p->dd );
     if ( p->vStore )  Vec_PtrFree( p->vStore );
+    if ( p->pSave1 )  Aig_ManStop( p->pSave1 );
+    if ( p->pSave2 )  Aig_ManStop( p->pSave2 );
+    if ( p->pSave3 )  Aig_ManStop( p->pSave3 );
+    if ( p->pSave4 )  Aig_ManStop( p->pSave4 );
     Abc_FrameDeleteAllNetworks( p );
-    free( p );
+    ABC_FREE( p->pCex );
+    ABC_FREE( p );
     s_GlobalFrame = NULL;
 }
+
 
 /**Function*************************************************************
 
@@ -164,6 +186,24 @@ void Abc_FrameDeallocate( Abc_Frame_t * p )
 ***********************************************************************/
 void Abc_FrameRestart( Abc_Frame_t * p )
 {
+}
+
+/**Function*************************************************************
+
+  Synopsis    []
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+void Abc_FrameClearVerifStatus( Abc_Frame_t * p )
+{
+    p->nFrames = -1;
+    p->Status  = -1;
+    ABC_FREE( p->pCex );
 }
 
 /**Function*************************************************************
@@ -495,6 +535,73 @@ Abc_Frame_t * Abc_FrameGetGlobalFrame()
 	return s_GlobalFrame;
 }
 
+/**Function*************************************************************
+
+  Synopsis    []
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+Abc_Frame_t * Abc_FrameReadGlobalFrame()
+{
+	return s_GlobalFrame;
+}
+
+/**Function*************************************************************
+
+  Synopsis    []
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+void Abc_FrameSetSave1( void * pAig )
+{
+    Abc_Frame_t * pFrame = Abc_FrameGetGlobalFrame();
+    if ( pFrame->pSave1 )
+        Aig_ManStop( pFrame->pSave1 );
+    pFrame->pSave1 = pAig;
+}
+
+/**Function*************************************************************
+
+  Synopsis    []
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+void Abc_FrameSetSave2( void * pAig )
+{
+    Abc_Frame_t * pFrame = Abc_FrameGetGlobalFrame();
+    if ( pFrame->pSave2 )
+        Aig_ManStop( pFrame->pSave2 );
+    pFrame->pSave2 = pAig;
+}
+
+/**Function*************************************************************
+
+  Synopsis    []
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+void * Abc_FrameReadSave1()  { void * pAig = Abc_FrameGetGlobalFrame()->pSave1; Abc_FrameGetGlobalFrame()->pSave1 = NULL; return pAig; }
+void * Abc_FrameReadSave2()  { void * pAig = Abc_FrameGetGlobalFrame()->pSave2; Abc_FrameGetGlobalFrame()->pSave2 = NULL; return pAig; }
 
 ////////////////////////////////////////////////////////////////////////
 ///                       END OF FILE                                ///
