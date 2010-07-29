@@ -233,7 +233,7 @@ DdNode ** Aig_ManCreatePartitions( DdManager * dd, Aig_Man_t * p, int fReorder, 
   SeeAlso     []
 
 ***********************************************************************/
-int Aig_ManComputeReachable( DdManager * dd, Aig_Man_t * p, DdNode ** pbParts, DdNode * bInitial, DdNode ** pbOutputs, Saig_ParBbr_t * pPars )
+int Aig_ManComputeReachable( DdManager * dd, Aig_Man_t * p, DdNode ** pbParts, DdNode * bInitial, DdNode ** pbOutputs, Saig_ParBbr_t * pPars, int fCheckOutputs )
 {
     int fInternalReorder = 0;
     Bbr_ImageTree_t * pTree = NULL; // Suppress "might be used uninitialized"
@@ -275,7 +275,7 @@ int Aig_ManComputeReachable( DdManager * dd, Aig_Man_t * p, DdNode ** pbParts, D
     bCurrent = bInitial;   Cudd_Ref( bCurrent );
     bReached = bInitial;   Cudd_Ref( bReached );
     Vec_PtrPush( vOnionRings, bCurrent );  Cudd_Ref( bCurrent );
-    for ( nIters = 1; nIters <= pPars->nIterMax; nIters++ )
+    for ( nIters = 0; nIters < pPars->nIterMax; nIters++ )
     { 
         // check the runtime limit
         if ( pPars->TimeLimit && ((float)pPars->TimeLimit <= (float)(clock()-clk)/(float)(CLOCKS_PER_SEC)) )
@@ -287,7 +287,7 @@ int Aig_ManComputeReachable( DdManager * dd, Aig_Man_t * p, DdNode ** pbParts, D
                 Bbr_bddImageTreeDelete( pTree );
             else
                 Bbr_bddImageTreeDelete2( pTree2 );
-            pPars->iFrame = nIters - 2;
+            pPars->iFrame = nIters - 1;
             return -1;
         }
 
@@ -305,7 +305,7 @@ int Aig_ManComputeReachable( DdManager * dd, Aig_Man_t * p, DdNode ** pbParts, D
             else
                 Bbr_bddImageTreeDelete2( pTree2 );
             Vec_PtrFree( vOnionRings );
-            pPars->iFrame = nIters - 2;
+            pPars->iFrame = nIters - 1;
             return -1;
         }
         Cudd_Ref( bNext );
@@ -324,7 +324,7 @@ int Aig_ManComputeReachable( DdManager * dd, Aig_Man_t * p, DdNode ** pbParts, D
         // check the result
         for ( i = 0; i < Saig_ManPoNum(p); i++ )
         {
-            if ( !Cudd_bddLeq( dd, bNext, Cudd_Not(pbOutputs[i]) ) )
+            if ( fCheckOutputs && !Cudd_bddLeq( dd, bNext, Cudd_Not(pbOutputs[i]) ) )
             {
                 DdNode * bIntersect;
                 bIntersect = Cudd_bddIntersect( dd, bNext, pbOutputs[i] );  Cudd_Ref( bIntersect );
@@ -336,7 +336,7 @@ int Aig_ManComputeReachable( DdManager * dd, Aig_Man_t * p, DdNode ** pbParts, D
                     printf( "Output %d was asserted in frame %d (use \"write_counter\" to dump a witness). ", i, Vec_PtrSize(vOnionRings) );
                 Cudd_RecursiveDeref( dd, bReached );
                 bReached = NULL;
-                pPars->iFrame = nIters - 1;
+                pPars->iFrame = nIters;
                 break;
             }
         }
@@ -365,7 +365,8 @@ int Aig_ManComputeReachable( DdManager * dd, Aig_Man_t * p, DdNode ** pbParts, D
             nThreshold *= 2;
         }
         if ( pPars->fVerbose )
-            fprintf( stdout, "\r" );
+//            fprintf( stdout, "\r" );
+            fprintf( stdout, "\n" );
     }
     Cudd_RecursiveDeref( dd, bNext );
     // free the onion rings
@@ -383,7 +384,7 @@ int Aig_ManComputeReachable( DdManager * dd, Aig_Man_t * p, DdNode ** pbParts, D
     if ( pPars->fVerbose )
     {
         double nMints = Cudd_CountMinterm(dd, bReached, Saig_ManRegNum(p) );
-        if ( nIters > pPars->nIterMax || Cudd_DagSize(bReached) > pPars->nBddMax )
+        if ( nIters > pPars->nIterMax || nBddSize > pPars->nBddMax )
             fprintf( stdout, "Reachability analysis is stopped after %d frames.\n", nIters );
         else
             fprintf( stdout, "Reachability analysis completed after %d frames.\n", nIters );
@@ -392,7 +393,7 @@ int Aig_ManComputeReachable( DdManager * dd, Aig_Man_t * p, DdNode ** pbParts, D
     }
 //ABC_PRB( dd, bReached );
     Cudd_RecursiveDeref( dd, bReached );
-    if ( nIters > pPars->nIterMax || Cudd_DagSize(bReached) > pPars->nBddMax )
+    if ( nIters > pPars->nIterMax || nBddSize > pPars->nBddMax )
     {
         if ( !pPars->fSilent )
             printf( "Verified only for states reachable in %d frames.  ", nIters );
@@ -417,6 +418,7 @@ int Aig_ManComputeReachable( DdManager * dd, Aig_Man_t * p, DdNode ** pbParts, D
 ***********************************************************************/
 int Aig_ManVerifyUsingBdds_int( Aig_Man_t * p, Saig_ParBbr_t * pPars )
 {
+    int fCheckOutputs = !pPars->fSkipOutCheck;
     DdManager * dd;
     DdNode ** pbParts, ** pbOutputs;
     DdNode * bInitial, * bTemp;
@@ -464,7 +466,7 @@ int Aig_ManVerifyUsingBdds_int( Aig_Man_t * p, Saig_ParBbr_t * pPars )
     RetValue = -1;
     for ( i = 0; i < Saig_ManPoNum(p); i++ )
     {
-        if ( !Cudd_bddLeq( dd, bInitial, Cudd_Not(pbOutputs[i]) ) )
+        if ( fCheckOutputs && !Cudd_bddLeq( dd, bInitial, Cudd_Not(pbOutputs[i]) ) )
         {
             DdNode * bIntersect;
             bIntersect = Cudd_bddIntersect( dd, bInitial, pbOutputs[i] );  Cudd_Ref( bIntersect );
@@ -484,7 +486,7 @@ int Aig_ManVerifyUsingBdds_int( Aig_Man_t * p, Saig_ParBbr_t * pPars )
     Vec_PtrFree( vOnionRings );
     // explore reachable states
     if ( RetValue == -1 )
-        RetValue = Aig_ManComputeReachable( dd, p, pbParts, bInitial, pbOutputs, pPars ); 
+        RetValue = Aig_ManComputeReachable( dd, p, pbParts, bInitial, pbOutputs, pPars, fCheckOutputs ); 
 
     // cleanup
     Cudd_RecursiveDeref( dd, bInitial );
@@ -494,10 +496,10 @@ int Aig_ManVerifyUsingBdds_int( Aig_Man_t * p, Saig_ParBbr_t * pPars )
     for ( i = 0; i < Saig_ManPoNum(p); i++ )
         Cudd_RecursiveDeref( dd, pbOutputs[i] );
     ABC_FREE( pbOutputs );
-    if ( RetValue == -1 )
+//    if ( RetValue == -1 )
         Cudd_Quit( dd );
-    else
-        Bbr_StopManager( dd );
+//    else
+//        Bbr_StopManager( dd );
 
     // report the runtime
     if ( !pPars->fSilent )
@@ -526,6 +528,7 @@ int Aig_ManVerifyUsingBdds( Aig_Man_t * pInit, Saig_ParBbr_t * pPars )
     Aig_Obj_t * pObj;
     Vec_Int_t * vInputMap;
     int i, k, Entry, iBitOld, iBitNew, RetValue;
+//    pPars->fVerbose = 1;
     // check if there are PIs without fanout
     Saig_ManForEachPi( pInit, pObj, i )
         if ( Aig_ObjRefs(pObj) == 0 )

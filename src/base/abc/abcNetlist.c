@@ -332,13 +332,13 @@ Abc_Ntk_t * Abc_NtkAigToLogicSopBench( Abc_Ntk_t * pNtk )
     pNtkNew = Abc_NtkStartFrom( pNtk, ABC_NTK_LOGIC, ABC_FUNC_SOP );
     // collect the nodes to be used (marks all nodes with current TravId)
     vNodes = Abc_NtkDfs( pNtk, 0 );
-    // create inverters for the CI and remember them
+    // create inverters for the constant node
     pObj = Abc_AigConst1(pNtk);
-    if ( Abc_AigNodeHasComplFanoutEdgeTrav(pObj) )
-    {
+    if ( Abc_ObjFanoutNum(pObj) > 0 )
         pObj->pCopy = Abc_NtkCreateNodeConst1(pNtkNew);
+    if ( Abc_AigNodeHasComplFanoutEdgeTrav(pObj) )
         pObj->pCopy->pCopy = Abc_NtkCreateNodeInv( pNtkNew, pObj->pCopy );
-    }
+    // create inverters for the CIs
     Abc_NtkForEachCi( pNtk, pObj, i )
         if ( Abc_AigNodeHasComplFanoutEdgeTrav(pObj) )
             pObj->pCopy->pCopy = Abc_NtkCreateNodeInv( pNtkNew, pObj->pCopy );

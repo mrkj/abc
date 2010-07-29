@@ -285,6 +285,25 @@ void Extra_bddPrint( DdManager * dd, DdNode * F )
 
 /**Function********************************************************************
 
+  Synopsis    [Outputs the BDD in a readable format.]
+
+  Description []
+
+  SideEffects [None]
+
+  SeeAlso     []
+
+******************************************************************************/
+void Extra_bddPrintSupport( DdManager * dd, DdNode * F )
+{
+    DdNode * bSupp;
+    bSupp = Cudd_Support( dd, F );   Cudd_Ref( bSupp );
+    Extra_bddPrint( dd, bSupp );
+    Cudd_RecursiveDeref( dd, bSupp );
+}
+
+/**Function********************************************************************
+
   Synopsis    [Returns the size of the support.]
 
   Description []

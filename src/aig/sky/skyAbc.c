@@ -74,7 +74,7 @@ ATTR Sky_Mod_t *     Sky_ManReadRoot( Sky_Man_t * p )                           
 /*=== skyPrint.c =================================================================*/
 ATTR void            Sky_ManPrintStats( Sky_Man_t * p, Sky_PstPar_t * pPars )                           {}
 /*=== skyReadBlif.c ==============================================================*/
-ATTR Sky_Man_t *     Sky_ManReadBlif( Sky_Man_t * pOld, char * pFileName, int fReadPlace, int fReadDelay, int fCheck )   { return NULL; }
+ATTR Sky_Man_t *     Sky_ManReadBlif( Sky_Man_t * pOld, char * pFileName, int fReadPlace, int fReadDelay, int fReadSdc, int fCheck )   { return NULL; }
 ATTR Sky_Man_t *     Sky_ManPrepareOne( char * pFileName, int fSaveNodeNames )                          { return NULL; }
 /*=== skySeq.c ===================================================================*/
 ATTR Sky_Man_t *     Sky_ManSeqSynthesis( Sky_Man_t * p, void * pSynPars, int fIgnoreAsync )            { return NULL; }

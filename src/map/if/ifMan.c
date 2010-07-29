@@ -128,6 +128,7 @@ void If_ManStop( If_Man_t * p )
     Abc_Print( 1, "Useless cuts = %7d  (out of %7d)  (%6.2f %%)\n", p->nCutsUseless, p->nCutsTotal, 100.0*p->nCutsUseless/(p->nCutsTotal+1) );
 //    Abc_PrintTime( 1, "Truth", p->timeTruth );
 //    Abc_Print( 1, "Small support = %d.\n", p->nSmallSupp );
+    Vec_IntFreeP( &p->vCoAttrs );
     Vec_PtrFree( p->vCis );
     Vec_PtrFree( p->vCos );
     Vec_PtrFree( p->vObjs );

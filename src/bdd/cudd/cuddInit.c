@@ -171,6 +171,7 @@ Cudd_Init(
 
     unique->memused += sizeof(DdNode *) * unique->maxSize;
 
+    unique->bReached = NULL;
     return(unique);
 
 } /* end of Cudd_Init */

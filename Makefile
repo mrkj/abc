@@ -27,7 +27,7 @@ MODULES := \
 	src/aig/mfx src/aig/tim src/aig/saig src/aig/bbr \
 	src/aig/int src/aig/dch src/aig/ssw src/aig/cgt \
 	src/aig/cec src/aig/gia src/aig/bbl src/aig/live \
-	src/aig/sky src/python
+	src/python src/aig/sky src/aig/llb
 
 default: $(PROG)
 

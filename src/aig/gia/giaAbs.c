@@ -413,6 +413,7 @@ int Gia_ManReadInteger( char * pFileName, char * pToken )
 void Gia_ManCexAbstractionStartNew( Gia_Man_t * pGia, Gia_ParAbs_t * pPars )
 {
     char BufTimeOut[100];
+    char BufTimeOutVT[100];
     char Command[1000];
     char * pFileNameIn  = "cex_abstr_in_.aig";
     char * pFileNameOut = "cex_abstr_out_.txt";
@@ -426,6 +427,7 @@ void Gia_ManCexAbstractionStartNew( Gia_Man_t * pGia, Gia_ParAbs_t * pPars )
     }
     Gia_WriteAiger( pGia, pFileNameIn, 0, 0 );
     sprintf( BufTimeOut, "-timeout=%d", pPars->TimeOut );
+    sprintf( BufTimeOutVT, "-vt=%d", pPars->TimeOutVT );
 //ABC switch  =>  cex_abstr switch
 //-cba   =>  <input> <output>
 //-pba   =>  ,bmc -pba-soft <input> <output>
@@ -433,48 +435,53 @@ void Gia_ManCexAbstractionStartNew( Gia_Man_t * pGia, Gia_ParAbs_t * pPars )
 //-cba-with-pba  =>  -pba <input> <output>
     if ( pPars->Algo == 0 )
     {
-        sprintf( Command, "cex_abstr %s %s -depth=%d -stable=%d -confl=%d -bob=%d %s %s %s", 
+        sprintf( Command, "cex_abstr %s %s -depth=%d -stable=%d -confl=%d -bob=%d %s %s %s %s", 
             pPars->fVerbose? "":"-quiet", 
             pPars->fVeryVerbose? "-sat-verbosity=1":"", 
             pPars->nFramesBmc, pPars->nStableMax, pPars->nConfMaxBmc, pPars->nBobPar,
             pPars->TimeOut? BufTimeOut : "", 
+            pPars->TimeOutVT? BufTimeOutVT : "", 
             pFileNameIn, pFileNameOut );
     }
     else if ( pPars->Algo == 1 )
     {
-        sprintf( Command, "cex_abstr %s %s -depth=%d -confl=%d -bob=%d ,bmc -pba-soft %s %s %s", 
+        sprintf( Command, "cex_abstr %s %s -depth=%d -confl=%d -bob=%d ,bmc -pba-soft %s %s %s %s", 
             pPars->fVerbose? "":"-quiet", 
             pPars->fVeryVerbose? "-sat-verbosity=1":"", 
             pPars->nFramesBmc, pPars->nConfMaxBmc, pPars->nBobPar,
             pPars->TimeOut? BufTimeOut : "", 
+            pPars->TimeOutVT? BufTimeOutVT : "", 
             pFileNameIn, pFileNameOut );
     }
     else if ( pPars->Algo == 2 )
     {
-        sprintf( Command, "cex_abstr %s %s -depth=%d -stable=%d -confl=%d -bob=%d -pba-soft %s %s %s", 
+        sprintf( Command, "cex_abstr %s %s -depth=%d -stable=%d -confl=%d -bob=%d -pba-soft %s %s %s %s", 
             pPars->fVerbose? "":"-quiet", 
             pPars->fVeryVerbose? "-sat-verbosity=1":"", 
             pPars->nFramesBmc, pPars->nStableMax, pPars->nConfMaxBmc, pPars->nBobPar,
             pPars->TimeOut? BufTimeOut : "", 
+            pPars->TimeOutVT? BufTimeOutVT : "", 
             pFileNameIn, pFileNameOut );
     }
     else if ( pPars->Algo == 3 )
     {
-        sprintf( Command, "cex_abstr %s %s -depth=%d -stable=%d -confl=%d -bob=%d -pba %s %s %s", 
+        sprintf( Command, "cex_abstr %s %s -depth=%d -stable=%d -confl=%d -bob=%d -pba %s %s %s %s", 
             pPars->fVerbose? "":"-quiet", 
             pPars->fVeryVerbose? "-sat-verbosity=1":"", 
             pPars->nFramesBmc, pPars->nStableMax, pPars->nConfMaxBmc, pPars->nBobPar,
             pPars->TimeOut? BufTimeOut : "", 
+            pPars->TimeOutVT? BufTimeOutVT : "", 
             pFileNameIn, pFileNameOut );
     }
     else
     {
         printf( "Unnknown option (algo=%d). CBA (algo=0) is assumed.\n", pPars->Algo );
-        sprintf( Command, "cex_abstr %s %s -depth=%d -stable=%d -confl=%d -bob=%d %s %s %s", 
+        sprintf( Command, "cex_abstr %s %s -depth=%d -stable=%d -confl=%d -bob=%d %s %s %s %s", 
             pPars->fVerbose? "":"-quiet", 
             pPars->fVeryVerbose? "-sat-verbosity=1":"", 
             pPars->nFramesBmc, pPars->nStableMax, pPars->nConfMaxBmc, pPars->nBobPar,
             pPars->TimeOut? BufTimeOut : "", 
+            pPars->TimeOutVT? BufTimeOutVT : "", 
             pFileNameIn, pFileNameOut );
     }
     // run the command

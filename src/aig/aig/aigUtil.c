@@ -1457,6 +1457,90 @@ void Aig_ManSetPhase( Aig_Man_t * pAig )
 }
 
 
+/**Function*************************************************************
+
+  Synopsis    [Collects muxes.]
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+Vec_Ptr_t * Aig_ManMuxesCollect( Aig_Man_t * pAig )
+{
+    Vec_Ptr_t * vMuxes;
+    Aig_Obj_t * pObj;
+    int i;
+    vMuxes = Vec_PtrAlloc( 100 );
+    Aig_ManForEachNode( pAig, pObj, i )
+        if ( Aig_ObjIsMuxType(pObj) )
+            Vec_PtrPush( vMuxes, pObj );
+    return vMuxes;
+}
+
+/**Function*************************************************************
+
+  Synopsis    [Dereferences muxes.]
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+void Aig_ManMuxesDeref( Aig_Man_t * pAig, Vec_Ptr_t * vMuxes )
+{
+    Aig_Obj_t * pObj, * pNodeT, * pNodeE, * pNodeC;
+    int i;
+    Vec_PtrForEachEntry( vMuxes, pObj, i )
+    {
+        if ( Aig_ObjRecognizeExor( pObj, &pNodeT, &pNodeE ) )
+        {
+            pNodeT->nRefs--;
+            pNodeE->nRefs--;
+        }
+        else
+        {
+            pNodeC = Aig_ObjRecognizeMux( pObj, &pNodeT, &pNodeE );
+            pNodeC->nRefs--;
+        }
+    }
+}
+
+/**Function*************************************************************
+
+  Synopsis    [References muxes.]
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+void Aig_ManMuxesRef( Aig_Man_t * pAig, Vec_Ptr_t * vMuxes )
+{
+    Aig_Obj_t * pObj, * pNodeT, * pNodeE, * pNodeC;
+    int i;
+    Vec_PtrForEachEntry( vMuxes, pObj, i )
+    {
+        if ( Aig_ObjRecognizeExor( pObj, &pNodeT, &pNodeE ) )
+        {
+            pNodeT->nRefs++;
+            pNodeE->nRefs++;
+        }
+        else
+        {
+            pNodeC = Aig_ObjRecognizeMux( pObj, &pNodeT, &pNodeE );
+            pNodeC->nRefs++;
+        }
+    }
+}
+
+
 ////////////////////////////////////////////////////////////////////////
 ///                       END OF FILE                                ///
 ////////////////////////////////////////////////////////////////////////

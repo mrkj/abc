@@ -7,7 +7,7 @@
   PackageName [The main package.]
 
   Synopsis    [Miscellaneous utilities.]
-
+ 
   Author      [Alan Mishchenko]
   
   Affiliation [UC Berkeley]

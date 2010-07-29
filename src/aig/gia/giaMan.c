@@ -94,6 +94,7 @@ void Gia_ManStop( Gia_Man_t * p )
     ABC_FREE( p->pNexts );
     ABC_FREE( p->pName );
     ABC_FREE( p->pRefs );
+    ABC_FREE( p->pNodeRefs );
     ABC_FREE( p->pHTable );
     ABC_FREE( p->pObjs );
     ABC_FREE( p );

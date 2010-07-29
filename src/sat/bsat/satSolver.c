@@ -600,6 +600,92 @@ static bool sat_solver_lit_removable(sat_solver* s, lit l, int minl)
     return true;
 }
 
+
+/*_________________________________________________________________________________________________
+|
+|  analyzeFinal : (p : Lit)  ->  [void]
+|  
+|  Description:
+|    Specialized analysis procedure to express the final conflict in terms of assumptions.
+|    Calculates the (possibly empty) set of assumptions that led to the assignment of 'p', and
+|    stores the result in 'out_conflict'.
+|________________________________________________________________________________________________@*/
+/*
+void Solver::analyzeFinal(Lit p, vec<Lit>& out_conflict)
+{
+    out_conflict.clear();
+    out_conflict.push(p);
+
+    if (decisionLevel() == 0)
+        return;
+
+    seen[var(p)] = 1;
+
+    for (int i = trail.size()-1; i >= trail_lim[0]; i--){
+        Var x = var(trail[i]);
+        if (seen[x]){
+            if (reason(x) == GClause_NULL){
+                assert(level(x) > 0);
+                out_conflict.push(~trail[i]);
+            }else{
+                Clause& c = ca.deref(smartReason(x));
+                for (int j = 1; j < c.size(); j++)
+                    if (level(var(c[j])) > 0)
+                        seen[var(c[j])] = 1;
+            }
+            seen[x] = 0;
+        }
+    }
+
+    seen[var(p)] = 0;
+}
+*/
+
+static void sat_solver_analyze_final(sat_solver* s, lit p, veci* out_conflict)
+{
+    int i, j;
+    veci_resize(out_conflict,0);
+//    veci_push(out_conflict,p); // do not write conflict literal
+    if ( sat_solver_dlevel(s) == 0 )
+        return;
+    assert( veci_size(&s->tagged) == 0 );
+    assert( s->tags[lit_var(p)] == l_Undef );
+    s->tags[lit_var(p)] = l_True;
+    for (i = s->qtail-1; i >= (veci_begin(&s->trail_lim))[0]; i--){
+        int x = lit_var(s->trail[i]);
+        if (s->tags[x] == l_True){
+            if (s->reasons[x] == NULL){
+                assert(s->levels[x] > 0);
+                veci_push(out_conflict,lit_neg(s->trail[i]));
+            }else{
+                clause* c = s->reasons[x];
+                if (clause_is_lit(c)){
+                    lit q = clause_read_lit(c);
+                    assert(lit_var(q) >= 0 && lit_var(q) < s->size);
+                    if (s->levels[lit_var(q)] > 0)
+                    {
+                        s->tags[lit_var(q)] = l_True;
+                        veci_push(&s->tagged,lit_var(q));
+                    }
+                }
+                else{
+                    int* lits = clause_begin(c);
+                    for (j = 1; j < clause_size(c); j++)
+                        if (s->levels[lit_var(lits[j])] > 0)
+                        {
+                            s->tags[lit_var(lits[j])] = l_True;
+                            veci_push(&s->tagged,lit_var(lits[j]));
+                        }
+                }
+            }
+        }
+    }
+    for (i = 0; i < veci_size(&s->tagged); i++)
+        s->tags[veci_begin(&s->tagged)[i]] = l_Undef;
+    veci_resize(&s->tagged,0);
+}
+
+
 static void sat_solver_analyze(sat_solver* s, clause* c, veci* learnt)
 {
     lit*     trail   = s->trail;
@@ -877,6 +963,8 @@ static lbool sat_solver_search(sat_solver* s, ABC_INT64_T nof_conflicts, ABC_INT
 #endif
             s->stats.conflicts++; conflictC++;
             if (sat_solver_dlevel(s) == s->root_level){
+//                lit p = clause_is_lit(confl)? clause_read_lit(confl) : clause_begin(confl)[0];
+//                sat_solver_analyze_final(s, lit_neg(p), &s->conf_final);
                 veci_delete(&learnt_clause);
                 return l_False;
             }
@@ -973,6 +1061,7 @@ sat_solver* sat_solver_new(void)
     veci_new(&s->model);
     veci_new(&s->act_vars);
     veci_new(&s->temp_clause);
+    veci_new(&s->conf_final);
 
     // initialize arrays
     s->wlists    = 0;
@@ -1048,6 +1137,7 @@ void sat_solver_delete(sat_solver* s)
     veci_delete(&s->model);
     veci_delete(&s->act_vars);
     veci_delete(&s->temp_clause);
+    veci_delete(&s->conf_final);
     ABC_FREE(s->binary);
 
     // delete arrays

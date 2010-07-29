@@ -173,6 +173,7 @@ extern DdNode *     Extra_bddMove( DdManager * dd, DdNode * bF, int nVars );
 extern DdNode *     extraBddMove( DdManager * dd, DdNode * bF, DdNode * bFlag );
 extern void         Extra_StopManager( DdManager * dd );
 extern void         Extra_bddPrint( DdManager * dd, DdNode * F );
+extern void         Extra_bddPrintSupport( DdManager * dd, DdNode * F );
 extern void         extraDecomposeCover( DdManager* dd, DdNode*  zC, DdNode** zC0, DdNode** zC1, DdNode** zC2 );
 extern int          Extra_bddSuppSize( DdManager * dd, DdNode * bSupp );
 extern int          Extra_bddSuppContainVar( DdManager * dd, DdNode * bS, DdNode * bVar );

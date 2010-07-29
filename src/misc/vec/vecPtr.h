@@ -663,6 +663,27 @@ static inline void Vec_PtrRemove( Vec_Ptr_t * p, void * Entry )
 
 /**Function*************************************************************
 
+  Synopsis    [Interts entry at the index iHere. Shifts other entries.]
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+static inline void Vec_PtrInsert( Vec_Ptr_t * p, int iHere, void * Entry )
+{
+    int i;
+    assert( iHere >= 0 && iHere < p->nSize );
+    Vec_PtrPush( p, 0 );
+    for ( i = p->nSize - 1; i > iHere; i-- )
+        p->pArray[i] = p->pArray[i-1];
+    p->pArray[i] = Entry;
+}
+
+/**Function*************************************************************
+
   Synopsis    [Moves the first nItems to the end.]
 
   Description []

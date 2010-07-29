@@ -79,6 +79,7 @@ struct Sky_RsnPar_t_
     int        nPerNodeCrit;   // determines criticallity of the node
     int        fUnplaceTouch;  // unplace all touched objects
     int        fSelectByCost;  // alternative algo to select cones
+    int        fCutPartial;    // use resyn even if there is no complete cut
     int        fVerbose;       // verbose output
     int        fVeryVerbose;   // very verbose output
     // internal parameters
@@ -108,6 +109,7 @@ struct Sky_RmePar_t_
     int        fVerbose;       // verbose output
     int        fVeryVerbose;   // very verbose output
     int        fVeryVerbose2;  // very verbose output
+    char *     pOutName;       // clock signal name
     // internal parameters
     int        nPerturbMax;    // the max object to be perturbed
     int        nLevelMax;      // maximum level 
@@ -199,7 +201,7 @@ extern ABC_DLL Sky_Mod_t *     Sky_ManReadRoot( Sky_Man_t * p );
 /*=== skyPrint.c =================================================================*/
 extern ABC_DLL void            Sky_ManPrintStats( Sky_Man_t * p, Sky_PstPar_t * pPars );
 /*=== skyReadBlif.c ==============================================================*/
-extern ABC_DLL Sky_Man_t *     Sky_ManReadBlif( Sky_Man_t * pOld, char * pFileName, int fReadPlace, int fReadDelay, int fCheck );
+extern ABC_DLL Sky_Man_t *     Sky_ManReadBlif( Sky_Man_t * pOld, char * pFileName, int fReadPlace, int fReadDelay, int fReadSdc, int fCheck );
 extern ABC_DLL Sky_Man_t *     Sky_ManPrepareOne( char * pFileName, int fSaveNodeNames );
 /*=== skySeq.c ===================================================================*/
 extern ABC_DLL Sky_Man_t *     Sky_ManSeqSynthesis( Sky_Man_t * p, void * pSynPars, int fIgnoreAsync );

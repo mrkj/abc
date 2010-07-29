@@ -1256,6 +1256,10 @@ void Gia_ObjPrint( Gia_Man_t * p, Gia_Obj_t * pObj )
         printf( "PI" );
     else if ( Gia_ObjIsPo(p, pObj) )
         printf( "PO( %4d%s )", Gia_ObjFaninId0p(p, pObj), (Gia_ObjFaninC0(pObj)? "\'" : " ") );
+    else if ( Gia_ObjIsCi(pObj) )
+        printf( "RI" );
+    else if ( Gia_ObjIsCo(pObj) )
+        printf( "RO( %4d%s )", Gia_ObjFaninId0p(p, pObj), (Gia_ObjFaninC0(pObj)? "\'" : " ") );
 //    else if ( Gia_ObjIsBuf(pObj) )
 //        printf( "BUF( %d%s )", Gia_ObjFaninId0p(p, pObj), (Gia_ObjFaninC0(pObj)? "\'" : " ") );
     else

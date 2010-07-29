@@ -435,6 +435,7 @@ struct DdManager {	/* specialized DD symbol table */
     int nvars;			/* variables used so far */
     int threshold;		/* for pseudo var threshold value*/
 #endif
+    DdNode * bReached;
 };
 
 typedef struct Move {

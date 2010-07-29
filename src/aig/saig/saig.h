@@ -77,6 +77,7 @@ struct Saig_ParBbr_t_
     int         fReorderImage;
     int         fVerbose;
     int         fSilent;
+    int         fSkipOutCheck;// skip output checking
     int         iFrame;       // explored up to this frame
 };
 

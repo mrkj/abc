@@ -1,12 +1,12 @@
 /**CFile****************************************************************
 
-  FileName    [dummy.c]
+  FileName    [llbCex.c]
 
   SystemName  [ABC: Logic synthesis and verification system.]
 
-  PackageName [Additional package.]
+  PackageName [BDD based reachability.]
 
-  Synopsis    [Command file.]
+  Synopsis    [Deriving counter-example.]
 
   Author      [Alan Mishchenko]
   
@@ -14,11 +14,11 @@
 
   Date        [Ver. 1.0. Started - June 20, 2005.]
 
-  Revision    [$Id: dummy.c,v 1.00 2005/06/20 00:00:00 alanmi Exp $]
+  Revision    [$Id: llbCex.c,v 1.00 2005/06/20 00:00:00 alanmi Exp $]
 
 ***********************************************************************/
 
-#include "mainInt.h" 
+#include "llbInt.h"
 
 ////////////////////////////////////////////////////////////////////////
 ///                        DECLARATIONS                              ///
@@ -39,23 +39,9 @@
   SeeAlso     []
 
 ***********************************************************************/
-void Dummy_Init( Abc_Frame_t * pAbc )
+Abc_Cex_t * Llb_ManDeriveCex( Llb_Man_t * p, DdNode * bInter, int iOutFail, int iIter )
 {
-}
-
-/**Function*************************************************************
-
-  Synopsis    []
-
-  Description []
-               
-  SideEffects []
-
-  SeeAlso     []
-
-***********************************************************************/
-void Dummy_End( Abc_Frame_t * pAbc )
-{
+    return NULL;
 }
 
 ////////////////////////////////////////////////////////////////////////

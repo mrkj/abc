@@ -276,7 +276,10 @@ Vec_Ptr_t * Aig_ManDfsNodes( Aig_Man_t * p, Aig_Obj_t ** ppNodes, int nNodes )
     // go through the nodes
     vNodes = Vec_PtrAlloc( Aig_ManNodeNum(p) );
     for ( i = 0; i < nNodes; i++ )
-        Aig_ManDfs_rec( p, ppNodes[i], vNodes );
+        if ( Aig_ObjIsPo(ppNodes[i]) )
+            Aig_ManDfs_rec( p, Aig_ObjFanin0(ppNodes[i]), vNodes );
+        else
+            Aig_ManDfs_rec( p, ppNodes[i], vNodes );
     return vNodes;
 }
 

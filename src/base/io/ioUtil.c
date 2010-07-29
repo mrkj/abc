@@ -73,6 +73,8 @@ Io_FileType_t Io_ReadFileType( char * pFileName )
         return IO_FILE_BLIFMV;
     if ( !strcmp( pExt, "pla" ) )
         return IO_FILE_PLA;
+    if ( !strcmp( pExt, "smv" ) )
+        return IO_FILE_SMV;
     if ( !strcmp( pExt, "v" ) )
         return IO_FILE_VERILOG;
     return IO_FILE_UNKNOWN;
@@ -331,6 +333,15 @@ void Io_Write( Abc_Ntk_t * pNtk, char * pFileName, Io_FileType_t FileType )
         }
         pNtkTemp = Abc_NtkToNetlistBench( pNtk );
     }
+    else if ( FileType == IO_FILE_SMV )
+    {
+        if ( !Abc_NtkIsStrash(pNtk) )
+        {
+            fprintf( stdout, "Writing traditional SMV is available for AIGs only.\n" );
+            return;
+        }
+        pNtkTemp = Abc_NtkToNetlistBench( pNtk );
+    }
     else
         pNtkTemp = Abc_NtkToNetlist( pNtk );
 
@@ -364,6 +375,8 @@ void Io_Write( Abc_Ntk_t * pNtk, char * pFileName, Io_FileType_t FileType )
             Abc_NtkToAig( pNtkTemp );
         Io_WriteEqn( pNtkTemp, pFileName );
     }
+    else if ( FileType == IO_FILE_SMV )
+        Io_WriteSmv( pNtkTemp, pFileName );
     else if ( FileType == IO_FILE_VERILOG )
     {
         if ( !Abc_NtkHasAig(pNtkTemp) && !Abc_NtkHasMapping(pNtkTemp) )

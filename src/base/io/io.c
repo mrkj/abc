@@ -65,6 +65,7 @@ static int IoCommandWriteVerLib ( Abc_Frame_t * pAbc, int argc, char **argv );
 static int IoCommandWriteSortCnf( Abc_Frame_t * pAbc, int argc, char **argv );
 static int IoCommandWriteTruth  ( Abc_Frame_t * pAbc, int argc, char **argv );
 static int IoCommandWriteStatus ( Abc_Frame_t * pAbc, int argc, char **argv );
+static int IoCommandWriteSmv    ( Abc_Frame_t * pAbc, int argc, char **argv );
 
 extern int glo_fMapped;
 
@@ -125,6 +126,7 @@ void Io_Init( Abc_Frame_t * pAbc )
     Cmd_CommandAdd( pAbc, "I/O", "write_sorter_cnf", IoCommandWriteSortCnf,  0 );
     Cmd_CommandAdd( pAbc, "I/O", "write_truth",   IoCommandWriteTruth,   0 );
     Cmd_CommandAdd( pAbc, "I/O", "write_status",  IoCommandWriteStatus,  0 );
+    Cmd_CommandAdd( pAbc, "I/O", "write_smv",     IoCommandWriteSmv,     0 );
 }
 
 /**Function*************************************************************
@@ -2550,6 +2552,55 @@ usage:
     return 1;
 }
 
+/**Function*************************************************************
+
+  Synopsis    []
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+int IoCommandWriteSmv( Abc_Frame_t * pAbc, int argc, char **argv )
+{
+    char * pFileName;
+    int fUseLuts;
+    int c;
+
+    fUseLuts = 0;
+    Extra_UtilGetoptReset();
+    while ( ( c = Extra_UtilGetopt( argc, argv, "h" ) ) != EOF )
+    {
+        switch ( c )
+        {
+            case 'h':
+                goto usage;
+            default:
+                goto usage;
+        }
+    }
+    if ( pAbc->pNtkCur == NULL )
+    {
+        fprintf( pAbc->Out, "Empty network.\n" );
+        return 0;
+    }
+    if ( argc != globalUtilOptind + 1 )
+        goto usage;
+    // get the output file name
+    pFileName = argv[globalUtilOptind];
+    // call the corresponding file writer
+    Io_Write( pAbc->pNtkCur, pFileName, IO_FILE_SMV );
+    return 0;
+
+usage:
+    fprintf( pAbc->Err, "usage: write_smv [-h] <file>\n" );
+    fprintf( pAbc->Err, "\t         write the network in SMV format\n" );
+    fprintf( pAbc->Err, "\t-h     : print the help message\n" );
+    fprintf( pAbc->Err, "\tfile   : the name of the file to write (extension .smv)\n" );
+    return 1;
+}
 ////////////////////////////////////////////////////////////////////////
 ///                       END OF FILE                                ///
 ////////////////////////////////////////////////////////////////////////

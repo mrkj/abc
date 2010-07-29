@@ -770,6 +770,27 @@ static inline int Vec_IntRemove( Vec_Int_t * p, int Entry )
 
 /**Function*************************************************************
 
+  Synopsis    [Interts entry at the index iHere. Shifts other entries.]
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+static inline void Vec_IntInsert( Vec_Int_t * p, int iHere, int Entry )
+{
+    int i;
+    assert( iHere >= 0 && iHere < p->nSize );
+    Vec_IntPush( p, 0 );
+    for ( i = p->nSize - 1; i > iHere; i-- )
+        p->pArray[i] = p->pArray[i-1];
+    p->pArray[i] = Entry;
+}
+
+/**Function*************************************************************
+
   Synopsis    [Find entry.]
 
   Description []

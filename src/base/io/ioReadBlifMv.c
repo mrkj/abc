@@ -640,7 +640,10 @@ static void Io_MvReadPreparse( Io_MvMan_t * p )
         else if ( !strncmp(pCur, "exdc", 4) )
         {
             fprintf( stdout, "Line %d: Skipping EXDC network.\n", Io_MvGetLine(p, pCur) );
-            break;
+//            break;
+            if ( p->pLatest )
+                Vec_PtrPush( p->vModels, p->pLatest );
+            p->pLatest = NULL;
         }
         else if ( !strncmp(pCur, "attrib", 6) )
         {}

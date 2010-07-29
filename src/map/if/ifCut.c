@@ -511,7 +511,7 @@ static inline int If_ManSortCompare( If_Man_t * p, If_Cut_t * pC0, If_Cut_t * pC
             return 1;
         return 0;
     } 
-    else  // reglar
+    else  // regular
     {
         if ( p->SortMode == 1 ) // area
         {

@@ -175,6 +175,13 @@ void If_ManComputeRequired( If_Man_t * p )
         {
             // get the global required times
             p->RequiredGlo = If_ManDelayMax( p, 0 );
+
+            ////////////////////////////////////////
+            // redefine the delay target (positive number means percentage)    
+            if ( p->pPars->DelayTarget > 0 )
+                p->pPars->DelayTarget = p->RequiredGlo * (100.0 + p->pPars->DelayTarget) / 100.0; 
+            ////////////////////////////////////////
+
             // update the required times according to the target
             if ( p->pPars->DelayTarget != -1 )
             {
@@ -251,7 +258,23 @@ void If_ManComputeRequired( If_Man_t * p )
             return;
         // set the required times for the POs
         Tim_ManIncrementTravId( p->pManTim );
-        if ( p->pPars->fLatchPaths )
+        if ( p->vCoAttrs )
+        {
+            assert( If_ManCoNum(p) == Vec_IntSize(p->vCoAttrs) );
+            If_ManForEachCo( p, pObj, i )
+            { 
+                if ( Vec_IntEntry(p->vCoAttrs, i) == -1 )       // -1=internal
+                    continue;
+                if ( Vec_IntEntry(p->vCoAttrs, i) == 0 )        //  0=optimize
+                    Tim_ManSetCoRequired( p->pManTim, i, p->RequiredGlo );
+                else if ( Vec_IntEntry(p->vCoAttrs, i) == 1 )   //  1=keep
+                    Tim_ManSetCoRequired( p->pManTim, i, If_ObjArrTime(If_ObjFanin0(pObj)) );
+                else if ( Vec_IntEntry(p->vCoAttrs, i) == 2 )   //  2=relax
+                    Tim_ManSetCoRequired( p->pManTim, i, IF_FLOAT_LARGE );
+                else assert( 0 );
+            }
+        }
+        else if ( p->pPars->fLatchPaths )
         {
             assert( 0 );
             If_ManForEachPo( p, pObj, i )

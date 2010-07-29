@@ -51,6 +51,7 @@ struct Gia_ParAbs_t_
     int            nStableMax;   // the number of stable frames to quit
     int            nRatio;       // ratio of flops to quit
     int            TimeOut;      // approximate timeout in seconds
+    int            TimeOutVT;    // approximate timeout in seconds
     int            nBobPar;      // Bob's parameter
     int            fUseBdds;     // use BDDs to refine abstraction
     int            fUseDprove;   // use 'dprove' to refine abstraction

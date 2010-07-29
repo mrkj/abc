@@ -52,6 +52,7 @@ extern "C" {
 #define IF_COST_MAX          ((1<<14)-1)
 //#define IF_USE_BAT
 //#define IF_USE_NAL 
+//#define IF_USE_LXP 
 
 // object types
 typedef enum { 
@@ -176,6 +177,7 @@ struct If_Man_t_
     int                nCutsUseless;
     // timing manager
     Tim_Man_t *        pManTim;
+    Vec_Int_t *        vCoAttrs;      // CO attributes   0=optimize; 1=keep; 2=relax
     // statistics 
 //    int                timeTruth;
 };

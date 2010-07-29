@@ -1,12 +1,12 @@
 /**CFile****************************************************************
 
-  FileName    [dummy.c]
+  FileName    [llb.c]
 
   SystemName  [ABC: Logic synthesis and verification system.]
 
-  PackageName [Additional package.]
+  PackageName [BDD based reachability.]
 
-  Synopsis    [Command file.]
+  Synopsis    []
 
   Author      [Alan Mishchenko]
   
@@ -14,11 +14,11 @@
 
   Date        [Ver. 1.0. Started - June 20, 2005.]
 
-  Revision    [$Id: dummy.c,v 1.00 2005/06/20 00:00:00 alanmi Exp $]
+  Revision    [$Id: llb.c,v 1.00 2005/06/20 00:00:00 alanmi Exp $]
 
 ***********************************************************************/
 
-#include "mainInt.h" 
+#include "llbInt.h"
 
 ////////////////////////////////////////////////////////////////////////
 ///                        DECLARATIONS                              ///
@@ -39,24 +39,6 @@
   SeeAlso     []
 
 ***********************************************************************/
-void Dummy_Init( Abc_Frame_t * pAbc )
-{
-}
-
-/**Function*************************************************************
-
-  Synopsis    []
-
-  Description []
-               
-  SideEffects []
-
-  SeeAlso     []
-
-***********************************************************************/
-void Dummy_End( Abc_Frame_t * pAbc )
-{
-}
 
 ////////////////////////////////////////////////////////////////////////
 ///                       END OF FILE                                ///

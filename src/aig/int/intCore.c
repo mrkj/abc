@@ -57,6 +57,7 @@ void Inter_ManSetDefaultParams( Inter_ManParams_t * p )
     p->fUseSeparate = 0;     // solve each output separately
     p->fDropSatOuts = 0;     // replace by 1 the solved outputs
     p->fVerbose     = 0;     // print verbose statistics
+    p->iFrameMax    =-1;
 }
 
 /**Function*************************************************************
@@ -183,6 +184,8 @@ p->timeCnf += clock() - clk;
                     i+1, i + 1 + p->nFrames, Aig_ManNodeNum(p->pInter), Aig_ManLevelNum(p->pInter), p->nConfCur );
                 ABC_PRT( "Time", clock() - clk );
             }
+            // remember the number of timeframes completed
+            pPars->iFrameMax = i + 1 + p->nFrames;
             if ( RetValue == 0 ) // found a (spurious?) counter-example
             {
                 if ( i == 0 ) // real counterexample

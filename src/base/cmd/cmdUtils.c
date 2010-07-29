@@ -562,7 +562,7 @@ void CmdCommandPrint( Abc_Frame_t * pAbc, bool fPrintAll )
     nColumns = 79 / (LenghtMax + 2);
 
     // print the starting message 
-    fprintf( pAbc->Out, "                        Welcome to ABC!" );
+    fprintf( pAbc->Out, "      Welcome to ABC compiled on %s %s!", __DATE__, __TIME__ );
 
     // print the command by group
     sGroupCur = NULL;

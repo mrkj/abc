@@ -149,6 +149,8 @@ struct sat_solver_t
     veci     order;         // Variable order. (heap) (contains: var)
     veci     trail_lim;     // Separator indices for different decision levels in 'trail'. (contains: int)
     veci     model;         // If problem is solved, this vector contains the model (contains: lbool).
+    veci     conf_final;    // If problem is unsatisfiable (possibly under assumptions),
+                            // this vector represent the final conflict clause expressed in the assumptions.
 
     int      root_level;    // Level of first proper decision.
     int      simpdb_assigns;// Number of top-level assignments at last 'simplifyDB()'.

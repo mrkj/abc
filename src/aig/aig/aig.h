@@ -484,10 +484,13 @@ extern Aig_Obj_t *     Aig_Compose( Aig_Man_t * p, Aig_Obj_t * pRoot, Aig_Obj_t 
 extern void            Aig_ObjCollectCut( Aig_Obj_t * pRoot, Vec_Ptr_t * vLeaves, Vec_Ptr_t * vNodes );
 extern int             Aig_ObjCollectSuper( Aig_Obj_t * pObj, Vec_Ptr_t * vSuper );
 /*=== aigDup.c ==========================================================*/
+extern Aig_Obj_t *     Aig_ManDupSimpleDfs_rec( Aig_Man_t * pNew, Aig_Man_t * p, Aig_Obj_t * pObj );
 extern Aig_Man_t *     Aig_ManDupSimple( Aig_Man_t * p );
+extern Aig_Man_t *     Aig_ManDupSimpleWithHints( Aig_Man_t * p, Vec_Int_t * vHints );
 extern Aig_Man_t *     Aig_ManDupSimpleDfs( Aig_Man_t * p );
 extern Aig_Man_t *     Aig_ManDupSimpleDfsPart( Aig_Man_t * p, Vec_Ptr_t * vPis, Vec_Ptr_t * vPos );
 extern Aig_Man_t *     Aig_ManDupOrdered( Aig_Man_t * p );
+extern Aig_Man_t *     Aig_ManDupCof( Aig_Man_t * p, int iInput, int Value );
 extern Aig_Man_t *     Aig_ManDupTrim( Aig_Man_t * p );
 extern Aig_Man_t *     Aig_ManDupExor( Aig_Man_t * p );
 extern Aig_Man_t *     Aig_ManDupDfs( Aig_Man_t * p );
@@ -662,6 +665,9 @@ extern void            Aig_ManRandomInfo( Vec_Ptr_t * vInfo, int iInputStart, in
 extern void            Aig_NodeUnionLists( Vec_Ptr_t * vArr1, Vec_Ptr_t * vArr2, Vec_Ptr_t * vArr );
 extern void            Aig_NodeIntersectLists( Vec_Ptr_t * vArr1, Vec_Ptr_t * vArr2, Vec_Ptr_t * vArr );
 extern void            Aig_ManSetPhase( Aig_Man_t * pAig );
+extern Vec_Ptr_t *     Aig_ManMuxesCollect( Aig_Man_t * pAig );
+extern void            Aig_ManMuxesDeref( Aig_Man_t * pAig, Vec_Ptr_t * vMuxes );
+extern void            Aig_ManMuxesRef( Aig_Man_t * pAig, Vec_Ptr_t * vMuxes );
 
 /*=== aigWin.c =========================================================*/
 extern void            Aig_ManFindCut( Aig_Obj_t * pRoot, Vec_Ptr_t * vFront, Vec_Ptr_t * vVisited, int nSizeLimit, int nFanoutLimit );

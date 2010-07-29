@@ -185,6 +185,15 @@ Tim_Man_t * Tim_ManDup( Tim_Man_t * p, int fDiscrete )
         {
             for ( k = 0; k < pBox->nInputs * pBox->nOutputs; k++ )
                 pDelayTableNew[k] = 1.0; // modify here
+
+///// begin part of improved CIN/COUT propagation
+            for ( k = 0; k < pBox->nInputs; k++ )  // fill in the first row
+               pDelayTableNew[k] = 0.5;
+            for ( k = 0; k < pBox->nOutputs; k++ ) // fill in the first column
+               pDelayTableNew[k*pBox->nInputs] = 0.5;
+            pDelayTableNew[0] = 0.0; // fill in the first entry 
+///// end part of improved CIN/COUT propagation
+
             /// change
 //            pDelayTableNew[0] = 0.0;
             /// change
@@ -750,7 +759,10 @@ void Tim_ManSetCoRequiredAll( Tim_Man_t * p, float Delay )
     Tim_Obj_t * pObj;
     int i;
     Tim_ManForEachCo( p, pObj, i )
+    {
         Tim_ManSetCoRequired( p, i, Delay );
+//printf( "%d ", i );
+    }
 }
 
 

@@ -22,4 +22,10 @@
   (optimize fastest clock domain first)
 
 
+Interpolation:
+- incremental containment check
+- using analyze to remove dependency on some variables
+- interpolant decomposition
+  - ordering the proofs by top-level OR decomposition
+  - discussion of logic -> conjunction of interpolants
 
