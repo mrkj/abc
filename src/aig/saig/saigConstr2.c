@@ -569,6 +569,7 @@ Vec_Vec_t * Ssw_ManFindDirectImplications( Aig_Man_t * p, int nFrames, int nConf
     Aig_Man_t * pFrames;
     Aig_Obj_t * pObj, * pRepr, * pReprR;
     int i, f, k, value;
+    vCands = Vec_VecAlloc( nFrames );
 
     // perform unrolling
     pFrames = Saig_ManUnrollCOI( p, nFrames );
@@ -576,39 +577,39 @@ Vec_Vec_t * Ssw_ManFindDirectImplications( Aig_Man_t * p, int nFrames, int nConf
     // start the SAT solver
     pCnf = Cnf_DeriveSimple( pFrames, 0 );
     pSat = Cnf_DataWriteIntoSolver( pCnf, 1, 0 );
-
-    vCands = Vec_VecAlloc( nFrames );
-    Aig_ManIncrementTravId( p );
-    for ( f = 0; f < nFrames; f++ )
+    if ( pSat != NULL )
     {
-        Aig_ManForEachObj( p, pObj, i )
+        Aig_ManIncrementTravId( p );
+        for ( f = 0; f < nFrames; f++ )
         {
-            if ( !Aig_ObjIsCand(pObj) )
-                continue;
-            if ( Aig_ObjIsTravIdCurrent(p, pObj) )
-                continue;
-            // get the node from timeframes
-            pRepr  = p->pObjCopies[nFrames*i + nFrames-1-f];
-            pReprR = Aig_Regular(pRepr);
-            if ( pCnf->pVarNums[Aig_ObjId(pReprR)] < 0 )
-                continue;
-            value = pSat->assigns[ pCnf->pVarNums[Aig_ObjId(pReprR)] ];
-            if ( value == l_Undef )
-                continue;
-            // label this node as taken
-            Aig_ObjSetTravIdCurrent(p, pObj);
-            if ( Saig_ObjIsLo(p, pObj) )
-                Aig_ObjSetTravIdCurrent( p, Aig_ObjFanin0(Saig_ObjLoToLi(p, pObj)) );
-            // remember the node
-            Vec_VecPush( vCands, f, Aig_NotCond( pObj, (value == l_True) ^ Aig_IsComplement(pRepr) ) );
-    //        printf( "%s%d ", (value == l_False)? "":"!", i );
+            Aig_ManForEachObj( p, pObj, i )
+            {
+                if ( !Aig_ObjIsCand(pObj) )
+                    continue;
+                if ( Aig_ObjIsTravIdCurrent(p, pObj) )
+                    continue;
+                // get the node from timeframes
+                pRepr  = p->pObjCopies[nFrames*i + nFrames-1-f];
+                pReprR = Aig_Regular(pRepr);
+                if ( pCnf->pVarNums[Aig_ObjId(pReprR)] < 0 )
+                    continue;
+                value = pSat->assigns[ pCnf->pVarNums[Aig_ObjId(pReprR)] ];
+                if ( value == l_Undef )
+                    continue;
+                // label this node as taken
+                Aig_ObjSetTravIdCurrent(p, pObj);
+                if ( Saig_ObjIsLo(p, pObj) )
+                    Aig_ObjSetTravIdCurrent( p, Aig_ObjFanin0(Saig_ObjLoToLi(p, pObj)) );
+                // remember the node
+                Vec_VecPush( vCands, f, Aig_NotCond( pObj, (value == l_True) ^ Aig_IsComplement(pRepr) ) );
+        //        printf( "%s%d ", (value == l_False)? "":"!", i );
+            }
         }
+    //    printf( "\n" );
+        sat_solver_delete( pSat );
     }
-//    printf( "\n" );
     Aig_ManStop( pFrames );
     Cnf_DataFree( pCnf );
-    sat_solver_delete( pSat );
-
 
     if ( fVerbose )
     {

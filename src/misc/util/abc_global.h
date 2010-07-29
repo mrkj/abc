@@ -155,6 +155,8 @@ typedef unsigned __int64 ABC_UINT64_T;
    #error unknown platform
 #endif /* defined(PLATFORM) */
 
+typedef ABC_UINT64_T word;
+
 ////////////////////////////////////////////////////////////////////////
 ///                      MACRO DEFINITIONS                           ///
 ////////////////////////////////////////////////////////////////////////

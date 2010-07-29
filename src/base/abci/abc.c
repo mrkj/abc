@@ -463,6 +463,10 @@ void Abc_FrameClearDesign()
 ***********************************************************************/
 void Abc_Init( Abc_Frame_t * pAbc )
 {
+    {
+//        void Nal_PinsPrintClassTable();
+//        Nal_PinsPrintClassTable();
+    }
     Cmd_CommandAdd( pAbc, "Printing",     "print_stats",   Abc_CommandPrintStats,       0 ); 
     Cmd_CommandAdd( pAbc, "Printing",     "print_exdc",    Abc_CommandPrintExdc,        0 );
     Cmd_CommandAdd( pAbc, "Printing",     "print_io",      Abc_CommandPrintIo,          0 );
@@ -12583,7 +12587,7 @@ int Abc_CommandIf( Abc_Frame_t * pAbc, int argc, char ** argv )
 
     fLutMux = 0;
     Extra_UtilGetoptReset();
-    while ( ( c = Extra_UtilGetopt( argc, argv, "KCFADEqaflepmrsdbuvh" ) ) != EOF )
+    while ( ( c = Extra_UtilGetopt( argc, argv, "KCFADEqaflepmrsdbugvh" ) ) != EOF )
     {
         switch ( c )
         {
@@ -12691,6 +12695,9 @@ int Abc_CommandIf( Abc_Frame_t * pAbc, int argc, char ** argv )
         case 'u':
             fLutMux ^= 1;
             break;
+        case 'g':
+            pPars->fDelayOpt ^= 1;
+            break;
         case 'v':
             pPars->fVerbose ^= 1;
             break;
@@ -12777,6 +12784,15 @@ int Abc_CommandIf( Abc_Frame_t * pAbc, int argc, char ** argv )
         pPars->fExpRed = 0;
     }
 
+    // modify for global delay optimization
+    if ( pPars->fDelayOpt )
+    {
+        pPars->fTruth      =  1;
+        pPars->fExpRed     =  0;
+        pPars->fUsePerm    =  1;
+        pPars->pLutLib     =  NULL;
+    }
+
     // complain if truth tables are requested but the cut size is too large
     if ( pPars->fTruth && pPars->nLutSize > IF_MAX_FUNC_LUTSIZE )
     {
@@ -12838,7 +12854,7 @@ usage:
         sprintf( LutSize, "library" );
     else
         sprintf( LutSize, "%d", pPars->nLutSize );
-    Abc_Print( -2, "usage: if [-KCFA num] [-DE float] [-qarlepmsdbuvh]\n" );
+    Abc_Print( -2, "usage: if [-KCFA num] [-DE float] [-qarlepmsdbugvh]\n" );
     Abc_Print( -2, "\t           performs FPGA technology mapping of the network\n" );
     Abc_Print( -2, "\t-K num   : the number of LUT inputs (2 < num < %d) [default = %s]\n", IF_MAX_LUTSIZE+1, LutSize );
     Abc_Print( -2, "\t-C num   : the max number of priority cuts (0 < num < 2^12) [default = %d]\n", pPars->nCutsMax );
@@ -12858,6 +12874,7 @@ usage:
     Abc_Print( -2, "\t-d       : toggles deriving local AIGs using bi-decomposition [default = %s]\n", pPars->fBidec? "yes": "no" );
     Abc_Print( -2, "\t-b       : toggles the use of one special feature [default = %s]\n", pPars->fUseBat? "yes": "no" );
     Abc_Print( -2, "\t-u       : toggles the use of MUXes along with LUTs [default = %s]\n", fLutMux? "yes": "no" );
+    Abc_Print( -2, "\t-g       : toggles global delay optimization [default = %s]\n", pPars->fDelayOpt? "yes": "no" );
     Abc_Print( -2, "\t-v       : toggles verbose output [default = %s]\n", pPars->fVerbose? "yes": "no" );
     Abc_Print( -2, "\t-h       : prints the command usage\n");
     return 1;
@@ -23946,7 +23963,7 @@ int Abc_CommandAbc85If( Abc_Frame_t * pAbc, int argc, char ** argv )
     Sky_ManSetIfParsDefault( pPars );
     pPars->pLutLib = pAbc->pAbc85Lib;
     Extra_UtilGetoptReset();
-    while ( ( c = Extra_UtilGetopt( argc, argv, "KCFADEqaflepmrscdbwvh" ) ) != EOF )
+    while ( ( c = Extra_UtilGetopt( argc, argv, "KCFADEqaflepmrscdbugwvh" ) ) != EOF )
     {
         switch ( c )
         {
@@ -24054,6 +24071,12 @@ int Abc_CommandAbc85If( Abc_Frame_t * pAbc, int argc, char ** argv )
         case 'b':
             pPars->fUseBat ^= 1;
             break;
+        case 'u':
+            pPars->fUseCoAttrs ^= 1;
+            break;
+        case 'g':
+            pPars->fDelayOpt ^= 1;
+            break;
         case 'w':
             fWriteBat ^= 1;
             break;
@@ -24113,6 +24136,15 @@ int Abc_CommandAbc85If( Abc_Frame_t * pAbc, int argc, char ** argv )
         pPars->fExpRed = 0;
     }
 
+    // modify for global delay optimization
+    if ( pPars->fDelayOpt )
+    {
+        pPars->fTruth      =  1;
+        pPars->fExpRed     =  0;
+        pPars->fUsePerm    =  1;
+        pPars->pLutLib     =  NULL;
+    }
+
     // complain if truth tables are requested but the cut size is too large
     if ( pPars->fTruth && pPars->nLutSize > IF_MAX_FUNC_LUTSIZE )
     {
@@ -24136,7 +24168,7 @@ usage:
         sprintf( LutSize, "library" );
     else
         sprintf( LutSize, "%d", pPars->nLutSize );
-    Abc_Print( -2, "usage: %%if [-KCFA num] [-DE float] [-qarlepmcdbwvh]\n" );
+    Abc_Print( -2, "usage: %%if [-KCFA num] [-DE float] [-qarlepmcdbugwvh]\n" );
     Abc_Print( -2, "\t           performs FPGA technology mapping of the network\n" );
     Abc_Print( -2, "\t-K num   : the number of LUT inputs (2 < num < %d) [default = %s]\n", IF_MAX_LUTSIZE+1, LutSize );
     Abc_Print( -2, "\t-C num   : the max number of priority cuts (0 < num < 2^12) [default = %d]\n", pPars->nCutsMax );
@@ -24156,6 +24188,8 @@ usage:
     Abc_Print( -2, "\t-c       : toggles using carry-int/carry-out delay model [default = %s]\n", pPars->fUseAdders? "yes": "no" );
     Abc_Print( -2, "\t-d       : toggles deriving local AIGs using bi-decomposition [default = %s]\n", pPars->fBidec? "yes": "no" );
     Abc_Print( -2, "\t-b       : toggles the use of one special feature [default = %s]\n", pPars->fUseBat? "yes": "no" );
+    Abc_Print( -2, "\t-u       : toggles using CO attributes [default = %s]\n", pPars->fUseCoAttrs? "yes": "no" );
+    Abc_Print( -2, "\t-g       : toggles global delay optimization [default = %s]\n", pPars->fDelayOpt? "yes": "no" );
     Abc_Print( -2, "\t-w       : toggles creating logic network with special features [default = %s]\n", fWriteBat? "yes": "no" );
     Abc_Print( -2, "\t-v       : toggles verbose output [default = %s]\n", pPars->fVerbose? "yes": "no" );
     Abc_Print( -2, "\t-h       : prints the command usage\n");
@@ -24174,15 +24208,13 @@ usage:
 
 ***********************************************************************/
 int Abc_CommandAbc85Trace( Abc_Frame_t * pAbc, int argc, char ** argv )
-{
+{ 
     Abc_Ntk_t * pNtk = Abc_FrameReadNtk(pAbc);
     int c;
     int fUseLutLib;
     int fVerbose;
 
     pNtk = Abc_FrameReadNtk(pAbc);
-
-
 
     // set defaults
     fUseLutLib = 0;

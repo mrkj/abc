@@ -87,7 +87,10 @@ void If_ObjPerformMappingAnd( If_Man_t * p, If_Obj_t * pObj, int Mode, int fPrep
     if ( pCut->nLeaves > 0 )
     {
         // recompute the parameters of the best cut
-        pCut->Delay = If_CutDelay( p, pCut );
+        if ( p->pPars->fDelayOpt )
+            pCut->Delay = If_CutDelaySopCost( p, pCut );
+        else
+            pCut->Delay = If_CutDelay( p, pCut );
 //        assert( pCut->Delay <= pObj->Required + p->fEpsilon );
         if ( pCut->Delay > pObj->Required + 2*p->fEpsilon )
             Abc_Print( 1, "If_ObjPerformMappingAnd(): Warning! Delay of node %d (%f) exceeds the required times (%f).\n", 
@@ -147,7 +150,10 @@ void If_ObjPerformMappingAnd( If_Man_t * p, If_Obj_t * pObj, int Mode, int fPrep
         if ( pCut->Cost == IF_COST_MAX )
             continue;
         // check if the cut satisfies the required times
-        pCut->Delay = If_CutDelay( p, pCut );
+        if ( p->pPars->fDelayOpt )
+            pCut->Delay = If_CutDelaySopCost( p, pCut );
+        else
+            pCut->Delay = If_CutDelay( p, pCut );
 //        Abc_Print( 1, "%.2f ", pCut->Delay );
         if ( Mode && pCut->Delay > pObj->Required + p->fEpsilon )
             continue;

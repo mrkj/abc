@@ -2313,6 +2313,10 @@ SOURCE=.\src\misc\vec\vecStr.h
 
 SOURCE=.\src\misc\vec\vecVec.h
 # End Source File
+# Begin Source File
+
+SOURCE=.\src\misc\vec\vecWrd.h
+# End Source File
 # End Group
 # Begin Group "util"
 

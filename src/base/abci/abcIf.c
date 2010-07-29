@@ -285,6 +285,71 @@ Abc_Ntk_t * Abc_NtkFromIf( If_Man_t * pIfMan, Abc_Ntk_t * pNtk )
     return pNtkNew;
 }
 
+
+/**Function*************************************************************
+
+  Synopsis    [Inserts the entry while sorting them by delay.]
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+Hop_Obj_t * Abc_NodeTruthToHopInt( Hop_Man_t * pMan, Vec_Wrd_t * vAnds, int nVars )
+{
+    Vec_Ptr_t * vResults;
+    Hop_Obj_t * pRes0, * pRes1, * pRes;
+    If_And_t This;
+    word Entry;
+    int i;
+    if ( Vec_WrdSize(vAnds) == 0 )
+        return Hop_ManConst0(pMan);
+    if ( Vec_WrdSize(vAnds) == 1 && Vec_WrdEntry(vAnds,0) == 0 )
+        return Hop_ManConst1(pMan);
+    vResults = Vec_PtrAlloc( Vec_WrdSize(vAnds) );
+    for ( i = 0; i < nVars; i++ )
+        Vec_PtrPush( vResults, Hop_IthVar(pMan, i) );
+    Vec_WrdForEachEntryStart( vAnds, Entry, i, nVars )
+    {
+        This  = If_WrdToAnd( Entry );
+        pRes0 = Hop_NotCond( Vec_PtrEntry(vResults, This.iFan0), This.fCompl0 ); 
+        pRes1 = Hop_NotCond( Vec_PtrEntry(vResults, This.iFan1), This.fCompl1 ); 
+        pRes  = Hop_And( pMan, pRes0, pRes1 );
+        Vec_PtrPush( vResults, pRes );
+/*
+        printf( "fan0 = %c%d  fan1 = %c%d  Del = %d\n", 
+            This.fCompl0? '-':'+', This.iFan0, 
+            This.fCompl1? '-':'+', This.iFan1, 
+            This.Delay );
+*/
+    }
+    Vec_PtrFree( vResults );
+    return Hop_NotCond( pRes, This.fCompl );
+}
+
+/**Function*************************************************************
+
+  Synopsis    [Creates the mapped network.]
+
+  Description [Assuming the copy field of the mapped nodes are NULL.]
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+Hop_Obj_t * Abc_NodeTruthToHop( Hop_Man_t * pMan, If_Man_t * p, If_Cut_t * pCut )
+{
+    Hop_Obj_t * pResult;
+    Vec_Wrd_t * vArray;
+    vArray  = If_CutDelaySopArray( p, pCut );
+    pResult = Abc_NodeTruthToHopInt( pMan, vArray, If_CutLeaveNum(pCut) );
+    Vec_WrdFree( vArray );
+    return pResult;
+}
+
 /**Function*************************************************************
 
   Synopsis    [Derive one node after FPGA mapping.]
@@ -313,7 +378,8 @@ Abc_Obj_t * Abc_NodeFromIf_rec( Abc_Ntk_t * pNtkNew, If_Man_t * pIfMan, If_Obj_t
     pCutBest = If_ObjCutBest( pIfObj );
 //    printf( "%d 0x%02X %d\n", pCutBest->nLeaves, 0xff & *If_CutTruth(pCutBest), pIfMan->pPars->pFuncCost(pCutBest) );
 //    if ( pIfMan->pPars->pLutLib && pIfMan->pPars->pLutLib->fVarPinDelays )
-    If_CutRotatePins( pIfMan, pCutBest );
+    if ( !pIfMan->pPars->fDelayOpt )
+        If_CutRotatePins( pIfMan, pCutBest );
     if ( pIfMan->pPars->fUseCnfs || pIfMan->pPars->fUseMv )
     {
         If_CutForEachLeafReverse( pIfMan, pCutBest, pIfLeaf, i )
@@ -359,7 +425,12 @@ Abc_Obj_t * Abc_NodeFromIf_rec( Abc_Ntk_t * pNtkNew, If_Man_t * pIfMan, If_Obj_t
                     Abc_SopComplement( pNodeNew->pData );
             }
         }
-        else 
+        else if ( pIfMan->pPars->fDelayOpt )
+        {
+            extern Hop_Obj_t * Abc_NodeTruthToHop( Hop_Man_t * pMan, If_Man_t * pIfMan, If_Cut_t * pCut );
+            pNodeNew->pData = Abc_NodeTruthToHop( pNtkNew->pManFunc, pIfMan, pCutBest );
+        }
+        else
         {
             extern Hop_Obj_t * Kit_TruthToHop( Hop_Man_t * pMan, unsigned * pTruth, int nVars, Vec_Int_t * vMemory );
             pNodeNew->pData = Kit_TruthToHop( pNtkNew->pManFunc, If_CutTruth(pCutBest), If_CutLeaveNum(pCutBest), vCover );
@@ -373,6 +444,15 @@ Abc_Obj_t * Abc_NodeFromIf_rec( Abc_Ntk_t * pNtkNew, If_Man_t * pIfMan, If_Obj_t
         pNodeNew->pData = Abc_NodeIfToHop( pNtkNew->pManFunc, pIfMan, pIfObj );
     }
     If_ObjSetCopy( pIfObj, pNodeNew );
+/*
+printf( "%3d : Delay = %d  Cutsize = %d\n", pNodeNew->Id, (int)pCutBest->Delay, pCutBest->nLeaves );
+{
+    Abc_Obj_t * pFanin;
+    int i;
+Abc_ObjForEachFanin( pNodeNew, pFanin, i )
+printf( "fanin%d = %2d\n", i, pFanin->Id );
+}
+*/
     return pNodeNew;
 }
 

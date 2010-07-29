@@ -51,8 +51,8 @@ extern "C" {
 // the largest possible user cut cost
 #define IF_COST_MAX          ((1<<14)-1)
 //#define IF_USE_BAT
-//#define IF_USE_NAL 
-//#define IF_USE_LXP 
+#define IF_USE_NAL 
+#define IF_USE_LXP 
 
 // object types
 typedef enum { 
@@ -98,6 +98,7 @@ struct If_Par_t_
     int                fUseBat;       // use one specialized feature
     int                fVerbose;      // the verbosity flag
     // internal parameters
+    int                fDelayOpt;     // special delay optimization
     int                fAreaOnly;     // area only mode
     int                fTruth;        // truth table computation enabled
     int                fUsePerm;      // use permutation (delay info)
@@ -108,6 +109,7 @@ struct If_Par_t_
     int                fUseAdders;    // timing model for adders
     int                nLatches;      // the number of latches in seq mapping
     int                fLiftLeaves;   // shift the leaves for seq mapping
+    int                fUseCoAttrs;   // use CO attributes
     If_Lib_t *         pLutLib;       // the LUT library
     float *            pTimesArr;     // arrival times
     float *            pTimesReq;     // required times
@@ -239,6 +241,18 @@ struct If_Obj_t_
     If_Cut_t           CutBest;       // the best cut selected 
 };
 
+typedef struct If_And_t_ If_And_t;
+struct If_And_t_
+{
+    unsigned           iFan0   : 15;  // fanin0
+    unsigned           fCompl0 :  1;  // compl fanin0
+    unsigned           iFan1   : 15;  // fanin1
+    unsigned           fCompl1 :  1;  // compl fanin1
+    unsigned           Id      : 15;  // Id
+    unsigned           fCompl  :  1;  // compl output
+    unsigned           Delay   : 16;  // delay 
+};
+
 static inline If_Obj_t * If_Regular( If_Obj_t * p )                          { return (If_Obj_t *)((ABC_PTRUINT_T)(p) & ~01);  }
 static inline If_Obj_t * If_Not( If_Obj_t * p )                              { return (If_Obj_t *)((ABC_PTRUINT_T)(p) ^  01);  }
 static inline If_Obj_t * If_NotCond( If_Obj_t * p, int c )                   { return (If_Obj_t *)((ABC_PTRUINT_T)(p) ^ (c));  }
@@ -297,6 +311,11 @@ static inline int        If_CutTruthWords( int nVarsMax )                    { r
 static inline int        If_CutPermWords( int nVarsMax )                     { return nVarsMax / sizeof(int) + ((nVarsMax % sizeof(int)) > 0); }
 
 static inline float      If_CutLutArea( If_Man_t * p, If_Cut_t * pCut )      { return pCut->fUser? (float)pCut->Cost : (p->pPars->pLutLib? p->pPars->pLutLib->pLutAreas[pCut->nLeaves] : (float)1.0); }
+
+static inline word       If_AndToWrd( If_And_t m )                           { union { If_And_t x; word y; } v; v.x = m; return v.y;  }
+static inline If_And_t   If_WrdToAnd( word m )                               { union { If_And_t x; word y; } v; v.y = m; return v.x;  }
+static inline void       If_AndClear( If_And_t * pNode )                     { *pNode = If_WrdToAnd(0);                               }
+
 
 ////////////////////////////////////////////////////////////////////////
 ///                      MACRO DEFINITIONS                           ///
@@ -418,6 +437,8 @@ extern void            If_ManImproveMapping( If_Man_t * p );
 /*=== ifSeq.c =============================================================*/
 extern int             If_ManPerformMappingSeq( If_Man_t * p );
 /*=== ifTime.c ============================================================*/
+extern int             If_CutDelaySopCost( If_Man_t * p, If_Cut_t * pCut );
+extern Vec_Wrd_t *     If_CutDelaySopArray( If_Man_t * p, If_Cut_t * pCut );
 extern float           If_CutDelay( If_Man_t * p, If_Cut_t * pCut );
 extern void            If_CutPropagateRequired( If_Man_t * p, If_Cut_t * pCut, float Required );
 extern void            If_CutRotatePins( If_Man_t * p, If_Cut_t * pCut );

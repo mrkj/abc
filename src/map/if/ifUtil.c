@@ -175,13 +175,13 @@ void If_ManComputeRequired( If_Man_t * p )
         {
             // get the global required times
             p->RequiredGlo = If_ManDelayMax( p, 0 );
-
+/*
             ////////////////////////////////////////
             // redefine the delay target (positive number means percentage)    
             if ( p->pPars->DelayTarget > 0 )
                 p->pPars->DelayTarget = p->RequiredGlo * (100.0 + p->pPars->DelayTarget) / 100.0; 
             ////////////////////////////////////////
-
+*/
             // update the required times according to the target
             if ( p->pPars->DelayTarget != -1 )
             {

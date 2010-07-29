@@ -82,7 +82,7 @@ p->timeSave = clock() - clk;
 //ABC_PRT( "Saving ", p->timeSave );
     return vResult;
 }
-
+ 
 /**Function*************************************************************
 
   Synopsis    [Converts AIG into the SAT solver.]
