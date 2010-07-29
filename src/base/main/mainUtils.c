@@ -181,6 +181,22 @@ void Abc_UtilsSource( Abc_Frame_t * pAbc )
     }
 #endif
 
+#ifdef ABC_PYTHON_EMBED
+    if ( getenv("ABC_PYTHON_ABC_RC") )
+    {
+        /* read script file from $ABC_PYTHON_ABC_RC */
+
+        char * sPath = getenv("ABC_PYTHON_ABC_RC");
+        
+        if (sPath){
+            char * sCmd = ABC_ALLOC(char, strlen(sPath) + 50);
+            (void) sprintf(sCmd, "source -s %s", sPath);
+            (void) Cmd_CommandExecute(pAbc, sCmd);
+            ABC_FREE(sCmd);
+        }
+    }
+    else
+#endif /* #ifdef ABC_PYTHON_EMBED */
     {
         char * sPath1, * sPath2;
         char * home;
@@ -228,7 +244,7 @@ void Abc_UtilsSource( Abc_Frame_t * pAbc )
         /* execute the abc script which can be open with the "open_path" */
         Cmd_CommandExecute( pAbc, "source -s abc.rc" );
     }
-
+    
 #endif //WIN32
     {
         // reset command history

@@ -47,7 +47,7 @@ def add_file(tf, fname, arcname, mode, mtime):
     add_fileobj(tf, f, arcname, mode, mtime)
     f.close()
 
-def package(abc_exe, abc_sh, pyabc, ofname):
+def package(abc_exe, abc_sh, pyabc, ofname, scripts_dir, use_sys):
     mtime = time.time()
     
     tf = tarfile.open(ofname, "w:gz")
@@ -58,26 +58,39 @@ def package(abc_exe, abc_sh, pyabc, ofname):
     
     add_file(tf, abc_exe, "pyabc/bin/abc_exe", 0777, mtime)
     add_file(tf, abc_sh, "pyabc/bin/abc", 0777, mtime)
+
+    if scripts_dir:
+        for fn in os.listdir(scripts_dir):
+            fullname = os.path.join(scripts_dir, fn)
+            if os.path.isfile(fullname):
+                fnroot, fnext = os.path.splitext(fn)
+                if fnext==".sh":
+                    add_file( tf, fullname, os.path.join("pyabc/bin", fnroot), 0777, mtime)
+                else:
+                    add_file( tf, fullname, os.path.join("pyabc/scripts", fn), 0666, mtime)
     
     add_dir(tf, "pyabc/lib", mtime)
+    add_file( tf, pyabc, "pyabc/lib/pyabc.py", 0666, mtime)
     
-    # ZIP standard library    
-    zf = tempfile.NamedTemporaryFile("w+b")
-    zip_library(zf, [(pyabc, "pyabc.py")])
-    zf.flush()
+    if not use_sys:
+        # ZIP standard library    
+        zf = tempfile.NamedTemporaryFile("w+b")
+        #zip_library(zf, [(pyabc, "pyabc.py")])
+        zip_library(zf, [])
+        zf.flush()
+        
+        add_fileobj(tf, zf, "pyabc/lib/python_library.zip", 0666, mtime)
+        
+        zf.close()
     
-    add_fileobj(tf, zf, "pyabc/lib/python_library.zip", 0666, mtime)
-    
-    zf.close()
-    
-    # add all extensions
-    
-    lib_dynload = os.path.join(sys.exec_prefix,"lib", "python%s"%sys.version[:3], "lib-dynload")
-    
-    for fn in os.listdir(lib_dynload):
-        fullname = os.path.join(lib_dynload, fn)
-        if os.path.isfile(fullname):
-            add_file( tf, fullname, os.path.join("pyabc/lib", fn), 0666, mtime)
+        # add all extensions
+        
+        lib_dynload = os.path.join(sys.exec_prefix,"lib", "python%s"%sys.version[:3], "lib-dynload")
+        
+        for fn in os.listdir(lib_dynload):
+            fullname = os.path.join(lib_dynload, fn)
+            if os.path.isfile(fullname):
+                add_file( tf, fullname, os.path.join("pyabc/lib", fn), 0666, mtime)
     
     tf.close()
 
@@ -92,6 +105,8 @@ def main(args):
     parser.add_option("-s", "--abc_sh", dest="abc_sh", help="location of the ABC setup script")
     parser.add_option("-p", "--pyabc", dest="pyabc", help="location of pyabc.py")
     parser.add_option("-o", "--out", dest="out", help="location of output tar gzipped file")
+    parser.add_option("-x", "--scripts", dest="scripts", default="scripts", help="location of scripts")
+    parser.add_option("-S", "--system", action="store_false", dest="sys", default=True, help="use default python installation")
 
     options, args = parser.parse_args(args)
 
@@ -103,7 +118,7 @@ def main(args):
         parser.print_help()
         return 1
 
-    return package(options.abc, options.abc_sh, options.pyabc, options.out)
+    return package(options.abc, options.abc_sh, options.pyabc, options.out, options.scripts, options.sys)
 
 if __name__=="__main__":
     main(sys.argv)

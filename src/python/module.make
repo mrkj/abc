@@ -37,18 +37,28 @@ ifdef ABC_PYTHON
 %_wrap.c %.py : %.i
 	$(ABC_SWIG) -python -outdir $(<D) $<
 
-.PHONY: pyabc
+.PHONY: pyabc_extension_build
 
-pyabc : lib$(PROG).a $(ABC_PYTHON_SRC) $(ABC_PYTHON_SRC:_wrap.c=.py)
+pyabc_extension_build : lib$(PROG).a $(ABC_PYTHON_SRC) $(ABC_PYTHON_SRC:_wrap.c=.py)
 	( cd $(ABC_PYTHON_FILES_PREFIX) && rm -rf build/ )	
-	( cd $(ABC_PYTHON_FILES_PREFIX) && python setup.py build )	
-	( cd $(ABC_PYTHON_FILES_PREFIX) && python setup.py install --home=~/usr )
+	( cd $(ABC_PYTHON_FILES_PREFIX) && python setup.py build )
+	
+.PHONY: pyabc_extension_install
+
+pyabc_extension_install : pyabc_extension_build	
+	( cd $(ABC_PYTHON_FILES_PREFIX) && python setup.py install --user )
+	
+.PHONY: pyabc_extension_bdist
+
+pyabc_extension_bdist : pyabc_extension_build	
+	( cd $(ABC_PYTHON_FILES_PREFIX) && python setup.py bdist )
 	
 pyabc.tgz : $(PROG) $(ABC_PYTHON_SRC:_wrap.c=.py) $(ABC_PYTHON_FILES_PREFIX)/abc.sh $(ABC_PYTHON_FILES_PREFIX)/package.py
 	$(ABC_PYTHON) $(ABC_PYTHON_FILES_PREFIX)/package.py \
 		--abc=$(PROG) \
 		--abc_sh=$(ABC_PYTHON_FILES_PREFIX)/abc.sh \
 		--pyabc=$(ABC_PYTHON_SRC:_wrap.c=.py) \
-		--out=$@
+		--out=$@ \
+		$(ABC_PYTHON_OPTIONS)
 
 endif
