@@ -919,6 +919,49 @@ Gia_Man_t * Gia_ManDupTrimmed( Gia_Man_t * p, int fTrimCis, int fTrimCos )
 
 /**Function*************************************************************
 
+  Synopsis    [Duplicates AIG in the DFS order while putting CIs first.]
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+Gia_Man_t * Gia_ManDupOntop( Gia_Man_t * p, Gia_Man_t * p2 )
+{
+    Gia_Man_t * pTemp, * pNew;
+    Gia_Obj_t * pObj;
+    int i;
+    assert( Gia_ManPoNum(p) == Gia_ManPiNum(p2) );
+    assert( Gia_ManRegNum(p) == 0 );
+    assert( Gia_ManRegNum(p2) == 0 );
+    pNew = Gia_ManStart( Gia_ManObjNum(p)+Gia_ManObjNum(p2) );
+    pNew->pName = Gia_UtilStrsav( p->pName );
+    Gia_ManHashAlloc( pNew );
+    // dup first AIG
+    Gia_ManConst0(p)->Value = 0;
+    Gia_ManForEachCi( p, pObj, i )
+        pObj->Value = Gia_ManAppendCi(pNew);
+    Gia_ManForEachAnd( p, pObj, i )
+        pObj->Value = Gia_ManAppendAnd( pNew, Gia_ObjFanin0Copy(pObj), Gia_ObjFanin1Copy(pObj) );
+    // dup second AIG
+    Gia_ManConst0(p2)->Value = 0;
+    Gia_ManForEachCo( p, pObj, i )
+        Gia_ManPi(p2, i)->Value = Gia_ObjFanin0Copy(pObj);
+    Gia_ManForEachAnd( p2, pObj, i )
+        pObj->Value = Gia_ManAppendAnd( pNew, Gia_ObjFanin0Copy(pObj), Gia_ObjFanin1Copy(pObj) );
+    Gia_ManForEachCo( p2, pObj, i )
+        pObj->Value = Gia_ManAppendCo( pNew, Gia_ObjFanin0Copy(pObj) );
+    Gia_ManHashStop( pNew );
+//    Gia_ManPrintStats( pGiaNew, 0 );
+    pNew = Gia_ManCleanup( pTemp = pNew );
+    Gia_ManStop( pTemp );
+    return pNew;
+}
+
+/**Function*************************************************************
+
   Synopsis    [Print representatives.]
 
   Description []

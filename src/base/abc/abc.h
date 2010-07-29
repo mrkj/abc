@@ -564,6 +564,8 @@ extern ABC_DLL void *             Abc_NodeGetCuts( void * p, Abc_Obj_t * pObj, i
 extern ABC_DLL void               Abc_NodeGetCutsSeq( void * p, Abc_Obj_t * pObj, int fFirst );
 extern ABC_DLL void *             Abc_NodeReadCuts( void * p, Abc_Obj_t * pObj );
 extern ABC_DLL void               Abc_NodeFreeCuts( void * p, Abc_Obj_t * pObj );
+/*=== abcDar.c ============================================================*/
+extern ABC_DLL int                Abc_NtkPhaseFrameNum( Abc_Ntk_t * pNtk );
 /*=== abcDelay.c ==========================================================*/
 extern ABC_DLL float              Abc_NtkDelayTraceLut( Abc_Ntk_t * pNtk, int fUseLutLib );
 /*=== abcDfs.c ==========================================================*/

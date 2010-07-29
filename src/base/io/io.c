@@ -1949,16 +1949,16 @@ int IoCommandWriteCounter( Abc_Frame_t * pAbc, int argc, char **argv )
     // get the input file name
     pFileName = argv[globalUtilOptind];
 
-    if ( pNtk->pModel == NULL && pNtk->pSeqModel == NULL )
+    if ( pNtk->pModel == NULL && pAbc->pCex == NULL )
     {
         fprintf( pAbc->Out, "Counter-example is not available.\n" );
         return 0;
     }
 
     // write the counter-example into the file
-    if ( pNtk->pSeqModel )
+    if ( pAbc->pCex )
     { 
-        Abc_Cex_t * pCex = pNtk->pSeqModel;
+        Abc_Cex_t * pCex = pAbc->pCex;
         Abc_Obj_t * pObj;
         FILE * pFile;
         int i, f;

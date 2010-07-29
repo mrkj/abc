@@ -151,7 +151,7 @@ Aig_Man_t * Saig_ManTrimPis( Aig_Man_t * p )
 ***********************************************************************/
 Aig_Man_t * Saig_ManDeriveAbstraction( Aig_Man_t * p, Vec_Int_t * vFlops )
 { 
-    Aig_Man_t * pNew, * pTemp;
+    Aig_Man_t * pNew;//, * pTemp;
     Aig_Obj_t * pObj, * pObjLi, * pObjLo;
     int i, Entry;
     Aig_ManCleanData( p );
@@ -207,8 +207,8 @@ Aig_Man_t * Saig_ManDeriveAbstraction( Aig_Man_t * p, Vec_Int_t * vFlops )
     Aig_ManSetRegNum( pNew, Vec_IntSize(vFlops) );
     Aig_ManSeqCleanup( pNew );
     // remove PIs without fanout
-    pNew = Saig_ManTrimPis( pTemp = pNew );
-    Aig_ManStop( pTemp );
+//    pNew = Saig_ManTrimPis( pTemp = pNew );
+//    Aig_ManStop( pTemp );
     return pNew;
 }
 

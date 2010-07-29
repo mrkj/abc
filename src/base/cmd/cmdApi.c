@@ -61,7 +61,7 @@ void Cmd_CommandAdd( Abc_Frame_t * pAbc, char * sGroup, char * sName, void * pFu
     pCommand->sGroup  = Extra_UtilStrsav( sGroup );
     pCommand->pFunc   = pFunc;
     pCommand->fChange = fChanges;
-    fStatus = st_insert( pAbc->tCommands, sName, (char *)pCommand );
+    fStatus = st_insert( pAbc->tCommands, pCommand->sName, (char *)pCommand );
     assert( !fStatus );  // the command should not be in the table
 }
 

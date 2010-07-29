@@ -406,11 +406,10 @@ static inline void Vec_PtrFillExtra( Vec_Ptr_t * p, int nSize, void * Fill )
     int i;
     if ( nSize <= p->nSize )
         return;
-    assert( nSize > p->nSize );
-    if ( nSize < 2 * p->nSize )
-        Vec_PtrGrow( p, 2 * nSize );
-    else
+    if ( nSize > 2 * p->nCap )
         Vec_PtrGrow( p, nSize );
+    else if ( nSize > p->nCap )
+        Vec_PtrGrow( p, 2 * p->nCap );
     for ( i = p->nSize; i < nSize; i++ )
         p->pArray[i] = Fill;
     p->nSize = nSize;

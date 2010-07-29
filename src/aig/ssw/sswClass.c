@@ -144,8 +144,8 @@ Ssw_Cla_t * Ssw_ClassesStart( Aig_Man_t * pAig )
     p->vClassOld    = Vec_PtrAlloc( 100 );
     p->vClassNew    = Vec_PtrAlloc( 100 );
     p->vRefined     = Vec_PtrAlloc( 1000 );
-    assert( pAig->pReprs == NULL );
-    Aig_ManReprStart( pAig, Aig_ManObjNumMax(pAig) );
+    if ( pAig->pReprs == NULL )
+        Aig_ManReprStart( pAig, Aig_ManObjNumMax(pAig) );
     return p;
 }
 
@@ -412,7 +412,7 @@ void Ssw_ClassesPrint( Ssw_Cla_t * p, int fVeryVerbose )
     Aig_Obj_t ** ppClass;
     Aig_Obj_t * pObj;
     int i;
-    printf( "Equivalence classes: Const1 = %5d. Class = %5d. Lit = %5d.\n", 
+    printf( "Equiv classes: Const1 = %5d. Class = %5d. Lit = %5d.\n", 
         p->nCands1, p->nClasses, p->nCands1+p->nLits );
     if ( !fVeryVerbose )
         return;
@@ -587,7 +587,7 @@ int Ssw_ClassesPrepareRehash( Ssw_Cla_t * p, Vec_Ptr_t * vCands )
   SeeAlso     []
 
 ***********************************************************************/
-Ssw_Cla_t * Ssw_ClassesPrepare( Aig_Man_t * pAig, int nFramesK, int fLatchCorr, int nMaxLevs, int fVerbose )
+Ssw_Cla_t * Ssw_ClassesPrepare( Aig_Man_t * pAig, int nFramesK, int fLatchCorr, int fOutputCorr, int nMaxLevs, int fVerbose )
 {
 //    int nFrames =  4;
 //    int nWords  =  1;
@@ -642,6 +642,22 @@ clk = clock();
                 continue;
         }
         Vec_PtrPush( vCands, pObj );
+    }
+ 
+    // this change will consider all PO drivers
+    if ( fOutputCorr )
+    {
+        Vec_PtrClear( vCands );
+        Aig_ManForEachObj( p->pAig, pObj, i )
+            pObj->fMarkB = 0;
+        Saig_ManForEachPo( p->pAig, pObj, i )
+            if ( Aig_ObjIsCand(Aig_ObjFanin0(pObj)) )
+                Aig_ObjFanin0(pObj)->fMarkB = 1;
+        Aig_ManForEachObj( p->pAig, pObj, i )
+            if ( pObj->fMarkB )
+                Vec_PtrPush( vCands, pObj );
+        Aig_ManForEachObj( p->pAig, pObj, i )
+            pObj->fMarkB = 0;
     }
 
     // allocate room for classes
@@ -726,6 +742,69 @@ Ssw_Cla_t * Ssw_ClassesPrepareSimple( Aig_Man_t * pAig, int fLatchCorr, int nMax
     }
     // allocate room for classes
     p->pMemClassesFree = p->pMemClasses = ABC_ALLOC( Aig_Obj_t *, p->nCands1 );
+//    Ssw_ClassesPrint( p, 0 );
+    return p;
+}
+
+/**Function*************************************************************
+
+  Synopsis    [Creates initial simulation classes.]
+
+  Description [Assumes that simulation info is assigned.]
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+Ssw_Cla_t * Ssw_ClassesPrepareFromReprs( Aig_Man_t * pAig )
+{
+    Ssw_Cla_t * p;
+    Aig_Obj_t * pObj, * pRepr;
+    int * pClassSizes, nEntries, i;
+    // start the classes
+    p = Ssw_ClassesStart( pAig );
+    // allocate memory for classes
+    p->pMemClasses = ABC_CALLOC( Aig_Obj_t *, Aig_ManObjNumMax(pAig) );
+    // count classes
+    p->nCands1 = 0;
+    Aig_ManForEachObj( pAig, pObj, i )
+    {
+        if ( Ssw_ObjIsConst1Cand(pAig, pObj) )
+        {
+            p->nCands1++;
+            continue;
+        }
+        if ( (pRepr = Aig_ObjRepr(pAig, pObj)) )
+        {
+            if ( p->pClassSizes[pRepr->Id]++ == 0 )
+                p->pClassSizes[pRepr->Id]++;
+        }
+    }
+    // add nodes
+    nEntries = 0;
+    p->nClasses = 0;
+    pClassSizes = ABC_CALLOC( int, Aig_ManObjNumMax(pAig) );
+    Aig_ManForEachObj( pAig, pObj, i )
+    {
+        if ( p->pClassSizes[i] )
+        {
+            p->pId2Class[i] = p->pMemClasses + nEntries;
+            nEntries += p->pClassSizes[i];
+            p->pId2Class[i][pClassSizes[i]++] = pObj;
+            p->nClasses++;
+            continue;
+        }
+        if ( Ssw_ObjIsConst1Cand(pAig, pObj) )
+            continue;
+        if ( (pRepr = Aig_ObjRepr(pAig, pObj)) )
+            p->pId2Class[pRepr->Id][pClassSizes[pRepr->Id]++] = pObj;
+    }
+    p->pMemClassesFree = p->pMemClasses + nEntries;
+    p->nLits = nEntries - p->nClasses;
+    assert( memcmp(pClassSizes, p->pClassSizes, sizeof(int)*Aig_ManObjNumMax(pAig)) == 0 );
+    ABC_FREE( pClassSizes );
+//    printf( "After converting:\n" );
 //    Ssw_ClassesPrint( p, 0 );
     return p;
 }

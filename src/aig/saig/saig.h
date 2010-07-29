@@ -65,6 +65,21 @@ struct Saig_ParBmc_t_
     int         iFrame;       // explored up to this frame
     int         nFailOuts;    // the number of failed outputs
 };
+ 
+typedef struct Saig_ParBbr_t_ Saig_ParBbr_t;
+struct Saig_ParBbr_t_
+{
+    int         TimeLimit;
+    int         nBddMax;
+    int         nIterMax;
+    int         fPartition;
+    int         fReorder;
+    int         fReorderImage;
+    int         fVerbose;
+    int         fSilent;
+    int         iFrame;       // explored up to this frame
+};
+
 
 ////////////////////////////////////////////////////////////////////////
 ///                      MACRO DEFINITIONS                           ///

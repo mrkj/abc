@@ -1279,33 +1279,36 @@ void Abc_NtkMakeSeq( Abc_Ntk_t * pNtk, int nLatchesToAdd )
   SeeAlso     []
 
 ***********************************************************************/
-void Abc_NtkMakeOnePo( Abc_Ntk_t * pNtk, Abc_Obj_t * pNodePo )
+Abc_Ntk_t * Abc_NtkMakeOnePo( Abc_Ntk_t * pNtkInit, int Output, int nRange )
 {
+    Abc_Ntk_t * pNtk;
     Vec_Ptr_t * vPosToRemove;
-    Abc_Obj_t * pObj;
+    Abc_Obj_t * pNodePo;
     int i;
+    assert( !Abc_NtkIsNetlist(pNtkInit) );
+    assert( Abc_NtkHasOnlyLatchBoxes(pNtkInit) );
+    if ( Output < 0 || Output >= Abc_NtkPoNum(pNtkInit) )
+    {
+        printf( "PO index is incorrect.\n" );
+        return NULL;
+    }
 
-    assert( !Abc_NtkIsNetlist(pNtk) );
-    assert( Abc_NtkHasOnlyLatchBoxes(pNtk) );
-
+    pNtk = Abc_NtkDup( pNtkInit );
     if ( Abc_NtkPoNum(pNtk) == 1 )
-        return;
+        return pNtk;
 
-    // make sure the node exists
-    Abc_NtkForEachPo( pNtk, pObj, i )
-        if ( pObj == pNodePo )
-            break;
-    assert( i < Abc_NtkPoNum(pNtk) );
+    if ( nRange < 1 )
+        nRange = 1;
 
     // collect POs to remove
     vPosToRemove = Vec_PtrAlloc( 100 );
-    Abc_NtkForEachPo( pNtk, pObj, i )
-        if ( pObj != pNodePo )
-            Vec_PtrPush( vPosToRemove, pObj );
+    Abc_NtkForEachPo( pNtk, pNodePo, i )
+        if ( i < Output || i >= Output + nRange )
+            Vec_PtrPush( vPosToRemove, pNodePo );
 
     // remove the POs
-    Vec_PtrForEachEntry( vPosToRemove, pObj, i )
-        Abc_NtkDeleteObj( pObj );
+    Vec_PtrForEachEntry( vPosToRemove, pNodePo, i )
+        Abc_NtkDeleteObj( pNodePo );
     Vec_PtrFree( vPosToRemove );
 
     if ( Abc_NtkIsStrash(pNtk) )
@@ -1320,6 +1323,7 @@ void Abc_NtkMakeOnePo( Abc_Ntk_t * pNtk, Abc_Obj_t * pNodePo )
 
     if ( !Abc_NtkCheck( pNtk ) )
         fprintf( stdout, "Abc_NtkMakeComb(): Network check has failed.\n" );
+    return pNtk;
 }
 
 /**Function*************************************************************
@@ -1438,6 +1442,28 @@ void Abc_NtkDropSatOutputs( Abc_Ntk_t * pNtk, Vec_Ptr_t * vCexes, int fVerbose )
         printf( "Logic cones of %d POs have been replaced by constant 0.\n", Counter );
     Counter = Abc_AigCleanup( pNtk->pManFunc );
 //    printf( "Cleanup removed %d nodes.\n", Counter );
+}
+
+/**Function*************************************************************
+
+  Synopsis    []
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+void Abc_NtkDropOneOutput( Abc_Ntk_t * pNtk, int iOutput )
+{
+    Abc_Obj_t * pObj, * pConst0, * pFaninNew;
+    pObj = Abc_NtkPo( pNtk, iOutput );
+    pConst0 = Abc_ObjNot( Abc_AigConst1(pNtk) );
+    pFaninNew = Abc_ObjNotCond( pConst0, Abc_ObjFaninC0(pObj) );
+    Abc_ObjPatchFanin( pObj, Abc_ObjFanin0(pObj), pFaninNew );
+    assert( Abc_ObjChild0(pObj) == pConst0 );
+    Abc_AigCleanup( pNtk->pManFunc );
 }
 
 

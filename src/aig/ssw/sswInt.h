@@ -216,8 +216,9 @@ extern void          Ssw_ClassesCollectClass( Ssw_Cla_t * p, Aig_Obj_t * pRepr, 
 extern void          Ssw_ClassesCheck( Ssw_Cla_t * p );
 extern void          Ssw_ClassesPrint( Ssw_Cla_t * p, int fVeryVerbose );
 extern void          Ssw_ClassesRemoveNode( Ssw_Cla_t * p, Aig_Obj_t * pObj );
-extern Ssw_Cla_t *   Ssw_ClassesPrepare( Aig_Man_t * pAig, int nFramesK, int fLatchCorr, int nMaxLevs, int fVerbose );
+extern Ssw_Cla_t *   Ssw_ClassesPrepare( Aig_Man_t * pAig, int nFramesK, int fLatchCorr, int fOutputCorr, int nMaxLevs, int fVerbose );
 extern Ssw_Cla_t *   Ssw_ClassesPrepareSimple( Aig_Man_t * pAig, int fLatchCorr, int nMaxLevs );
+extern Ssw_Cla_t *   Ssw_ClassesPrepareFromReprs( Aig_Man_t * pAig );
 extern Ssw_Cla_t *   Ssw_ClassesPrepareTargets( Aig_Man_t * pAig );
 extern Ssw_Cla_t *   Ssw_ClassesPreparePairs( Aig_Man_t * pAig, Vec_Int_t ** pvClasses );
 extern Ssw_Cla_t *   Ssw_ClassesPreparePairsSimple( Aig_Man_t * pMiter, Vec_Int_t * vPairs );

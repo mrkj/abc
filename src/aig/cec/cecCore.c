@@ -133,6 +133,7 @@ void Cec_ManFraSetDefaultParams( Cec_ParFra_t * p )
 //    p->fFirstStop     =       0;  // stop on the first sat output
     p->fDualOut       =       0;  // miter with separate outputs
     p->fColorDiff     =       0;  // miter with separate outputs
+    p->fSatSweeping   =       0;  // enable SAT sweeping
     p->fVeryVerbose   =       0;  // verbose stats
     p->fVerbose       =       0;  // verbose stats
     p->iOutFail       =      -1;  // the failed output
@@ -458,6 +459,12 @@ p->timeSat += clock() - clk;
         {
             if ( pParsSat->nBTLimit >= 10001 )
                 break;
+            if ( pPars->fSatSweeping )
+            {
+                if ( p->pPars->fVerbose )
+                    Abc_Print( 1, "Exceeded the limit on the number of conflicts (%d).\n", pParsSat->nBTLimit );
+                break;
+            }
             pParsSat->nBTLimit *= 10;
             if ( p->pPars->fVerbose )
             {

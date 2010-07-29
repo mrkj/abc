@@ -74,7 +74,7 @@ ATTR Sky_Mod_t *     Sky_ManReadRoot( Sky_Man_t * p )                           
 /*=== skyPrint.c =================================================================*/
 ATTR void            Sky_ManPrintStats( Sky_Man_t * p, Sky_PstPar_t * pPars )                           {}
 /*=== skyReadBlif.c ==============================================================*/
-ATTR Sky_Man_t *     Sky_ManReadBlif( Sky_Man_t * pOld, char * pFileName, int fCheck )                  { return NULL; }
+ATTR Sky_Man_t *     Sky_ManReadBlif( Sky_Man_t * pOld, char * pFileName, int fReadPlace, int fReadDelay, int fCheck )   { return NULL; }
 ATTR Sky_Man_t *     Sky_ManPrepareOne( char * pFileName, int fSaveNodeNames )                          { return NULL; }
 /*=== skySeq.c ===================================================================*/
 ATTR Sky_Man_t *     Sky_ManSeqSynthesis( Sky_Man_t * p, void * pSynPars, int fIgnoreAsync )            { return NULL; }
@@ -111,6 +111,8 @@ ATTR float           Sky_ManDelay( Sky_Man_t * p, void * pLutLib )              
 ATTR Sky_Man_t *     Sky_ManStrash( Sky_Man_t * p )                                                     { return NULL; }
 /*=== skySweep.c =================================================================*/
 ATTR Sky_Man_t *     Sky_ManLogicSweep( Sky_Man_t * p, int fVerbose )                                   { return NULL; }
+/*=== skySym.c ===================================================================*/
+ATTR Sky_Man_t *     Sky_ManWireSwap( Sky_Man_t * p, int fVerbose )                                     { return NULL; }
 /*=== skyUtil.c ==================================================================*/
 /*=== skyVerify.c ================================================================*/
 ATTR int             Sky_ManPrepareVerification( Sky_Man_t * pMan, char ** argv, int argc, 
@@ -119,15 +121,28 @@ ATTR int             Sky_ManVerifyCec( Sky_Man_t * p1, Sky_Man_t * p2, int fClp,
 ATTR int             Sky_ManVerifySec( Sky_Man_t * p1, Sky_Man_t * p2, void * pSecPars, int fDumpM, int fIgnoreAsync )    { return 1;    }
 ATTR int             Sky_ManVerifySim( Sky_Man_t * p1, Sky_Man_t * p2, Gia_ParSim_t * pSimPars, int fD, int fIgnoreAsync ){ return 1;    }
 /*=== skyWriteBlif.c =============================================================*/
-ATTR void            Sky_ManWriteBlif( Sky_Man_t * p, char * pFileName )                                {}
+ATTR void            Sky_ManWriteBlif( Sky_Man_t * p, char * pFileName, int fReverse )                  {}
 
 /*=== rtmCore.c ===================================================================*/
 ATTR int             Rti_ManPeriod( Sky_Man_t * p, int fUnitDelay, int nItersMax, int fReverse, int fOneDir, int fVerbose ) { return 0;    } 
-ATTR Sky_Man_t *     Rti_ManMapSeqMinDelay( Sky_Man_t * p, int nItersMax, int fReverse, int fOneDir, int fVerbose )         { return NULL; } 
 ATTR Sky_Man_t *     Rti_ManRetime( Sky_Man_t * p, Sky_RetPar_t * pPars )                                                   { return NULL; } 
 ATTR Sky_Man_t *     Rti_ManElaborate( Sky_Man_t * p, int fReset, int fEnable, int fVerbose )                               { return NULL; } 
 /*=== rtiCrit.c ==================================================================*/
 ATTR Sky_Man_t *     Rti_ManResynthesize( Sky_Man_t * p, int nPerTouched, int nPerIncrease, int fVerbose )                  { return NULL; } 
+
+/*=== rtiMap.c ==================================================================*/
+ATTR void            Rti_ManSetDefaultParams( Sky_PerPar_t * p )                                        {}
+ATTR Sky_Man_t *     Rti_ManSeqMapping( Sky_Man_t * p, Sky_PerPar_t * pPars )                           { return NULL; } 
+/*=== rtiFlow.c ==================================================================*/
+ATTR void            Rsf_ManSetDefaultParams( Sky_RsfPar_t * p )                                        {}
+ATTR Sky_Man_t *     Rsf_ManResynthesize( Sky_Man_t * p, Sky_RsfPar_t * pPars )                         { return NULL; }
+/*=== rtiFront.c ==================================================================*/
+ATTR void            Rsn_ManSetDefaultParams( Sky_RsnPar_t * p )                                        {}
+ATTR Sky_Man_t *     Rsn_ManResynthesize( Sky_Man_t * p, Sky_RsnPar_t * pPars )                         { return NULL; }
+/*=== rtiWave.c ==================================================================*/
+ATTR void            Rme_ManSetDefaultParams( Sky_Man_t * pSky, Sky_RmePar_t * p )                      {}
+ATTR Sky_Man_t *     Rme_ManRetime( Sky_Man_t * p, Sky_RmePar_t * pPars )                               { return NULL; }
+
 
 ////////////////////////////////////////////////////////////////////////
 ///                       END OF FILE                                ///

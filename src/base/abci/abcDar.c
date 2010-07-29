@@ -3260,6 +3260,33 @@ Abc_Ntk_t * Abc_NtkPhaseAbstract( Abc_Ntk_t * pNtk, int nFrames, int nPref, int 
   SeeAlso     []
 
 ***********************************************************************/
+int Abc_NtkPhaseFrameNum( Abc_Ntk_t * pNtk )
+{
+    extern int Saig_ManPhaseFrameNum( Aig_Man_t * p, Vec_Int_t * vInits );
+    Vec_Int_t * vInits;
+    Aig_Man_t * pMan;
+    int nFrames;
+    pMan = Abc_NtkToDar( pNtk, 0, 1 );
+    if ( pMan == NULL )
+        return 1;
+    vInits = Abc_NtkGetLatchValues(pNtk);
+    nFrames = Saig_ManPhaseFrameNum( pMan, vInits );
+    Vec_IntFree( vInits );
+    Aig_ManStop( pMan );
+    return nFrames;
+}
+
+/**Function*************************************************************
+
+  Synopsis    [Performs phase abstraction.]
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
 Abc_Ntk_t * Abc_NtkDarSynchOne( Abc_Ntk_t * pNtk, int nWords, int fVerbose )
 {
     extern Aig_Man_t * Saig_SynchSequenceApply( Aig_Man_t * pAig, int nWords, int fVerbose );
@@ -3552,15 +3579,15 @@ Abc_Ntk_t * Abc_NtkDarCleanupAig( Abc_Ntk_t * pNtk, int fCleanupPis, int fCleanu
   SeeAlso     []
 
 ***********************************************************************/
-int Abc_NtkDarReach( Abc_Ntk_t * pNtk, int nBddMax, int nIterMax, int fPartition, int fReorder, int fReorderImage, int fVerbose )
+int Abc_NtkDarReach( Abc_Ntk_t * pNtk, Saig_ParBbr_t * pPars )
 {
-    extern int Aig_ManVerifyUsingBdds( Aig_Man_t * p, int nBddMax, int nIterMax, int fPartition, int fReorder, int fReorderImage, int fVerbose, int fSilent );
+    extern int Aig_ManVerifyUsingBdds( Aig_Man_t * p, Saig_ParBbr_t * pPars );
     Aig_Man_t * pMan;
     int RetValue;
     pMan = Abc_NtkToDar( pNtk, 0, 1 );
     if ( pMan == NULL )
         return -1;
-    RetValue = Aig_ManVerifyUsingBdds( pMan, nBddMax, nIterMax, fPartition, fReorder, fReorderImage, fVerbose, 0 );
+    RetValue = Aig_ManVerifyUsingBdds( pMan, pPars );
     ABC_FREE( pNtk->pModel );
     ABC_FREE( pNtk->pSeqModel );
     pNtk->pSeqModel = pMan->pSeqModel; pMan->pSeqModel = NULL;
@@ -3625,7 +3652,7 @@ Abc_Ntk_t * Amap_ManProduceNetwork( Abc_Ntk_t * pNtk, Vec_Ptr_t * vMapping )
     assert( iPis == Abc_NtkCiNum(pNtkNew) );
     assert( iPos == Abc_NtkCoNum(pNtkNew) );
     // decouple the PO driver nodes to reduce the number of levels
-    nDupGates = Abc_NtkLogicMakeSimpleCos( pNtkNew, 1 );
+    nDupGates = Abc_NtkLogicMakeSimpleCos( pNtkNew, 0 );
 //    if ( nDupGates && Map_ManReadVerbose(pMan) )
 //        printf( "Duplicated %d gates to decouple the CO drivers.\n", nDupGates );
     return pNtkNew;

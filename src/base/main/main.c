@@ -20,6 +20,10 @@
  
 #include "mainInt.h"
 
+#ifdef ABC_PYTHON_EMBED
+#include <Python.h>
+#endif /* ABC_PYTHON_EMBED */
+
 // this line should be included in the library project
 //#define ABC_LIB
 
@@ -71,6 +75,23 @@ int main( int argc, char * argv[] )
 	// get global frame (singleton pattern)
 	// will be initialized on first call
 	pAbc = Abc_FrameGetGlobalFrame();
+
+#ifdef ABC_PYTHON_EMBED
+	{
+		PyObject* pName;
+		PyObject* pModule;
+		void init_pyabc(void);
+
+		Py_SetProgramName(argv[0]);
+		Py_NoSiteFlag = 1;
+		Py_Initialize();
+
+		init_pyabc();
+
+		pModule = PyImport_ImportModule("pyabc");
+		Py_DECREF(pModule);
+	}
+#endif /* ABC_PYTHON_EMBED */
 
     // default options
     fBatch      = 0;
@@ -223,7 +244,13 @@ int main( int argc, char * argv[] )
                 break;
         }
     } 
-     
+
+#ifdef ABC_PYTHON_EMBED
+	{
+		Py_Finalize();
+	}
+#endif /* ABC_PYTHON_EMBED */
+
     // if the memory should be freed, quit packages
 //    if ( fStatus < 0 ) 
     {

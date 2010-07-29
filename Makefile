@@ -27,18 +27,19 @@ MODULES := \
 	src/aig/mfx src/aig/tim src/aig/saig src/aig/bbr \
 	src/aig/int src/aig/dch src/aig/ssw src/aig/cgt \
 	src/aig/cec src/aig/gia src/aig/bbl src/aig/live \
-	src/aig/sky
+	src/aig/sky src/python
 
 default: $(PROG)
 
 #OPTFLAGS  := -DNDEBUG -O3 -DLIN
 #OPTFLAGS  := -DNDEBUG -O3 -DLIN64
 #OPTFLAGS  := -g -O -DLIN
-OPTFLAGS  := -g -O -DLIN64 -fPIC
+OPTFLAGS  := -g -O -DLIN64
 
 CFLAGS   += -Wall -Wno-unused-function $(OPTFLAGS) $(patsubst %, -I%, $(MODULES)) 
 CXXFLAGS += $(CFLAGS) 
 
+#LIBS := -ldl /usr/lib64/libreadline.a /usr/lib64/libncurses.a -rdynamic
 LIBS := -ldl -rdynamic -lreadline -ltermcap
 SRC  := 
 GARBAGE := core core.* *.stackdump ./tags $(PROG)

@@ -53,6 +53,7 @@ extern Aig_Man_t *         Gia_ManToAig( Gia_Man_t * p, int fChoices );
 extern Aig_Man_t *         Gia_ManToAigSkip( Gia_Man_t * p, int nOutDelta );
 extern Aig_Man_t *         Gia_ManToAigSimple( Gia_Man_t * p );
 extern void                Gia_ManReprToAigRepr( Aig_Man_t * pAig, Gia_Man_t * pGia );
+extern void                Gia_ManReprToAigRepr2( Aig_Man_t * pAig, Gia_Man_t * pGia );
 extern void                Gia_ManReprFromAigRepr( Aig_Man_t * pAig, Gia_Man_t * pGia );
 extern Gia_Man_t *         Gia_ManCompress2( Gia_Man_t * p, int fUpdateLevel, int fVerbose );
 extern Gia_Man_t *         Gia_ManPerformDch( Gia_Man_t * p, void * pPars );

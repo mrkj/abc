@@ -766,6 +766,37 @@ Aig_Man_t * Saig_ManPerformAbstraction( Saig_Tsim_t * pTsi, int nFrames, int fVe
     return pFrames;
 }
 
+
+/**Function*************************************************************
+
+  Synopsis    [Performs automated phase abstraction.]
+
+  Description [Takes the AIG manager and the array of initial states.]
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+int Saig_ManPhaseFrameNum( Aig_Man_t * p, Vec_Int_t * vInits )
+{
+    Saig_Tsim_t * pTsi;
+    int nFrames, nPrefix;
+    assert( Saig_ManRegNum(p) );
+    assert( Saig_ManPiNum(p) );
+    assert( Saig_ManPoNum(p) );
+    // perform terminary simulation
+    pTsi = Saig_ManReachableTernary( p, vInits, 0 );
+    if ( pTsi == NULL )
+        return 1;
+    // derive information
+    nPrefix = Saig_TsiComputePrefix( pTsi, Vec_PtrEntryLast(pTsi->vStates), pTsi->nWords );
+    nFrames = Vec_PtrSize(pTsi->vStates) - 1 - nPrefix;
+    Saig_TsiStop( pTsi );
+    // potentially, may need to reduce nFrames if nPrefix is less than nFrames
+    return nFrames;
+}
+
 /**Function*************************************************************
 
   Synopsis    [Performs automated phase abstraction.]

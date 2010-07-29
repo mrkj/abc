@@ -16,5 +16,10 @@
 - power-aware mapping 
 - full support of required times
 
+- correct squential timing paths
+  (path from flop to seq box counts)
+- handle clock-domains in comb synthesis
+  (optimize fastest clock domain first)
+
 
 

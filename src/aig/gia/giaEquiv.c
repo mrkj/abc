@@ -450,14 +450,14 @@ Gia_Man_t * Gia_ManEquivReduce( Gia_Man_t * p, int fUseAll, int fDualOut, int fV
     {
         printf( "Gia_ManEquivReduce(): Dual-output miter should have even number of POs.\n" );
         return NULL;
-    }
+    } 
     // check if there are any equivalences defined
     Gia_ManForEachObj( p, pObj, i )
         if ( Gia_ObjReprObj(p, i) != NULL )
             break;
     if ( i == Gia_ManObjNum(p) )
     {
-        printf( "Gia_ManEquivReduce(): There are no equivalences to reduce.\n" );
+//        printf( "Gia_ManEquivReduce(): There are no equivalences to reduce.\n" );
         return NULL;
     }
 /*
@@ -817,7 +817,7 @@ void Gia_ManSpecReduce_rec( Gia_Man_t * pNew, Gia_Man_t * p, Gia_Obj_t * pObj, V
   SeeAlso     []
 
 ***********************************************************************/
-Gia_Man_t * Gia_ManSpecReduce( Gia_Man_t * p, int fDualOut, int fVerbose )
+Gia_Man_t * Gia_ManSpecReduce( Gia_Man_t * p, int fDualOut, int fSynthesis, int fVerbose )
 {
     Gia_Man_t * pNew, * pTemp;
     Gia_Obj_t * pObj;
@@ -860,6 +860,11 @@ Gia_Man_t * Gia_ManSpecReduce( Gia_Man_t * p, int fDualOut, int fVerbose )
         Gia_ManSpecBuild( pNew, p, pObj, vXorLits, fDualOut );
     Gia_ManForEachCo( p, pObj, i )
         Gia_ManSpecReduce_rec( pNew, p, Gia_ObjFanin0(pObj), vXorLits, fDualOut );
+    if ( !fSynthesis )
+    {
+        Gia_ManForEachPo( p, pObj, i )
+            Gia_ManAppendCo( pNew, Gia_ObjFanin0Copy(pObj) );
+    }
     Vec_IntForEachEntry( vXorLits, iLitNew, i )
         Gia_ManAppendCo( pNew, iLitNew );
     if ( Vec_IntSize(vXorLits) == 0 )
@@ -1516,7 +1521,7 @@ int Gia_CommandSpecI( Gia_Man_t * pGia, int nFramesInit, int nBTLimitInit, int f
             printf( "Gia_CommandSpecI: There are only trivial equiv candidates left (PO drivers). Quitting.\n" );
             break;
         }
-        pSrm = Gia_ManSpecReduce( pGia, 0, 0 ); 
+        pSrm = Gia_ManSpecReduce( pGia, 0, 0, 0 ); 
         // bmc2 -F 100 -C 25000
         {
             Abc_Cex_t * pCex;
@@ -1553,7 +1558,7 @@ int Gia_CommandSpecI( Gia_Man_t * pGia, int nFramesInit, int nBTLimitInit, int f
         // write equivalence classes
         Gia_WriteAiger( pGia, "gore.aig", 0, 0 );
         // reduce the model
-        pReduce = Gia_ManSpecReduce( pGia, 0, 0 );
+        pReduce = Gia_ManSpecReduce( pGia, 0, 0, 0 );
         if ( pReduce )
         {
             pReduce = Gia_ManSeqStructSweep( pAux = pReduce, 1, 1, 0 );

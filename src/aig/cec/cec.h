@@ -103,6 +103,7 @@ struct Cec_ParFra_t_
 //    int              fFirstStop;    // stop on the first sat output
     int              fDualOut;      // miter with separate outputs
     int              fColorDiff;    // miter with separate outputs
+    int              fSatSweeping;  // enable SAT sweeping
     int              fVeryVerbose;  // verbose stats
     int              fVerbose;      // verbose stats
     int              iOutFail;      // the failed output

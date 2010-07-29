@@ -56,6 +56,7 @@ void Ssw_ManSetDefaultParams( Ssw_Pars_t * p )
     p->nStepsMax      =      -1;  // (scorr only) the max number of induction steps
     p->fPolarFlip     =       0;  // uses polarity adjustment
     p->fLatchCorr     =       0;  // performs register correspondence
+    p->fOutputCorr    =       0;  // perform 'PO correspondence'
     p->fSemiFormal    =       0;  // enable semiformal filtering
     p->fDynamic       =       0;  // dynamic partitioning
     p->fLocalSim      =       0;  // local simulation
@@ -459,7 +460,7 @@ Aig_Man_t * Ssw_SignalCorrespondence( Aig_Man_t * pAig, Ssw_Pars_t * pPars )
     else
     {
         // perform one round of seq simulation and generate candidate equivalence classes
-        p->ppClasses = Ssw_ClassesPrepare( pAig, pPars->nFramesK, pPars->fLatchCorr, pPars->nMaxLevs, pPars->fVerbose );
+        p->ppClasses = Ssw_ClassesPrepare( pAig, pPars->nFramesK, pPars->fLatchCorr, pPars->fOutputCorr, pPars->nMaxLevs, pPars->fVerbose );
 //        p->ppClasses = Ssw_ClassesPrepareTargets( pAig );
         if ( pPars->fLatchCorrOpt )
             p->pSml = Ssw_SmlStart( pAig, 0, 2, 1 );

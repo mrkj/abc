@@ -321,7 +321,7 @@ static inline Aig_Obj_t *  Aig_ObjChild0Next( Aig_Obj_t * pObj )  { assert( !Aig
 static inline Aig_Obj_t *  Aig_ObjChild1Next( Aig_Obj_t * pObj )  { assert( !Aig_IsComplement(pObj) ); return Aig_ObjFanin1(pObj)? Aig_NotCond((Aig_Obj_t *)Aig_ObjFanin1(pObj)->pNext, Aig_ObjFaninC1(pObj)) : NULL;  }
 static inline void         Aig_ObjChild0Flip( Aig_Obj_t * pObj )  { assert( !Aig_IsComplement(pObj) ); pObj->pFanin0 = Aig_Not(pObj->pFanin0);        }
 static inline void         Aig_ObjChild1Flip( Aig_Obj_t * pObj )  { assert( !Aig_IsComplement(pObj) ); pObj->pFanin1 = Aig_Not(pObj->pFanin1);        }
-static inline Aig_Obj_t *  Aig_ObjCopy( Aig_Obj_t * pObj )        { assert( !Aig_IsComplement(pObj) ); return pObj->pData;                            } 
+static inline Aig_Obj_t *  Aig_ObjCopy( Aig_Obj_t * pObj )        { assert( !Aig_IsComplement(pObj) ); return (Aig_Obj_t *)pObj->pData;               } 
 static inline void         Aig_ObjSetCopy( Aig_Obj_t * pObj, Aig_Obj_t * pCopy )     {  assert( !Aig_IsComplement(pObj) ); pObj->pData = pCopy;       } 
 static inline Aig_Obj_t *  Aig_ObjRealCopy( Aig_Obj_t * pObj )    { return Aig_NotCond((Aig_Obj_t *)Aig_Regular(pObj)->pData, Aig_IsComplement(pObj));}
 static inline int          Aig_ObjLevel( Aig_Obj_t * pObj )       { assert( !Aig_IsComplement(pObj) ); return pObj->Level;                            }

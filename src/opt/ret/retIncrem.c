@@ -41,7 +41,7 @@ static int Abc_NtkRetimeOneWay( Abc_Ntk_t * pNtk, int fForward, int fVerbose );
   SeeAlso     []
 
 ***********************************************************************/
-int Abc_NtkRetimeIncremental( Abc_Ntk_t * pNtk, int fForward, int fMinDelay, int fOneStep, int fVerbose )
+int Abc_NtkRetimeIncremental( Abc_Ntk_t * pNtk, int nDelayLim, int fForward, int fMinDelay, int fOneStep, int fVerbose )
 {
     Abc_Ntk_t * pNtkCopy = NULL;
     Vec_Ptr_t * vBoxes;
@@ -69,7 +69,7 @@ int Abc_NtkRetimeIncremental( Abc_Ntk_t * pNtk, int fForward, int fMinDelay, int
     vBoxes = pNtk->vBoxes;  pNtk->vBoxes = NULL;
     // perform the retiming
     if ( fMinDelay )
-        Abc_NtkRetimeMinDelay( pNtk, pNtkCopy, nIterLimit, fForward, fVerbose );
+        Abc_NtkRetimeMinDelay( pNtk, pNtkCopy, nDelayLim, nIterLimit, fForward, fVerbose );
     else
         Abc_NtkRetimeOneWay( pNtk, fForward, fVerbose );
     if ( fMinDelay ) 

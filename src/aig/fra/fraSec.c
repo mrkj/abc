@@ -563,10 +563,21 @@ ABC_PRT( "Time", clock() - clk );
     // try reachability analysis
     if ( pParSec->fReachability && RetValue == -1 && Aig_ManRegNum(pNew) > 0 && Aig_ManRegNum(pNew) < pParSec->nBddVarsMax )
     {
-        extern int Aig_ManVerifyUsingBdds( Aig_Man_t * p, int nBddMax, int nIterMax, int fPartition, int fReorder, int fReorderImage, int fVerbose, int fSilent );
+        extern void Bbr_ManSetDefaultParams( Saig_ParBbr_t * pPars );
+        extern int Aig_ManVerifyUsingBdds( Aig_Man_t * p, Saig_ParBbr_t * pPars );
+        Saig_ParBbr_t Pars, * pPars = &Pars;
+        Bbr_ManSetDefaultParams( pPars );
+        pPars->TimeLimit     = 0;
+        pPars->nBddMax       = pParSec->nBddMax;
+        pPars->nIterMax      = pParSec->nBddIterMax;
+        pPars->fPartition    = 1;
+        pPars->fReorder      = 1;
+        pPars->fReorderImage = 1;
+        pPars->fVerbose      = 0;
+        pPars->fSilent       = pParSec->fSilent;
         pNew->nTruePis = Aig_ManPiNum(pNew) - Aig_ManRegNum(pNew); 
         pNew->nTruePos = Aig_ManPoNum(pNew) - Aig_ManRegNum(pNew); 
-        RetValue = Aig_ManVerifyUsingBdds( pNew, pParSec->nBddMax, pParSec->nBddIterMax, 1, 1, pParSec->fReorderImage, 0, pParSec->fSilent );
+        RetValue = Aig_ManVerifyUsingBdds( pNew, pPars );
     }
 
 finish:

@@ -33,6 +33,31 @@ extern void * Aig_ManVerifyUsingBddsCountExample( Aig_Man_t * p, DdManager * dd,
 ///                     FUNCTION DEFINITIONS                         ///
 ////////////////////////////////////////////////////////////////////////
 
+/**Function*************************************************************
+
+  Synopsis    [This procedure sets default resynthesis parameters.]
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+void Bbr_ManSetDefaultParams( Saig_ParBbr_t * p )
+{
+    memset( p, 0, sizeof(Saig_ParBbr_t) );
+    p->TimeLimit     =     0;
+    p->nBddMax       = 50000;
+    p->nIterMax      =  1000;
+    p->fPartition    =     1;
+    p->fReorder      =     1;
+    p->fReorderImage =     1;
+    p->fVerbose      =     0;
+    p->fSilent       =     0;
+    p->iFrame        =    -1;
+}
+
 /**Function********************************************************************
 
   Synopsis    [Performs the reordering-sensitive step of Extra_bddMove().]
@@ -208,7 +233,7 @@ DdNode ** Aig_ManCreatePartitions( DdManager * dd, Aig_Man_t * p, int fReorder, 
   SeeAlso     []
 
 ***********************************************************************/
-int Aig_ManComputeReachable( DdManager * dd, Aig_Man_t * p, DdNode ** pbParts, DdNode * bInitial, DdNode ** pbOutputs, int nBddMax, int nIterMax, int fPartition, int fReorder, int fVerbose, int fSilent )
+int Aig_ManComputeReachable( DdManager * dd, Aig_Man_t * p, DdNode ** pbParts, DdNode * bInitial, DdNode ** pbOutputs, Saig_ParBbr_t * pPars )
 {
     int fInternalReorder = 0;
     Bbr_ImageTree_t * pTree = NULL; // Suppress "might be used uninitialized"
@@ -218,7 +243,7 @@ int Aig_ManComputeReachable( DdManager * dd, Aig_Man_t * p, DdNode ** pbParts, D
     DdNode * bNext = NULL; // Suppress "might be used uninitialized"
     DdNode * bTemp;
     int i, nIters, nBddSize;
-    int nThreshold = 10000;
+    int nThreshold = 10000, clk = clock();
     Vec_Ptr_t * vOnionRings;
     int status, method;
 
@@ -228,14 +253,14 @@ int Aig_ManComputeReachable( DdManager * dd, Aig_Man_t * p, DdNode ** pbParts, D
 
     // start the image computation
     bCubeCs  = Bbr_bddComputeRangeCube( dd, Saig_ManPiNum(p), Saig_ManCiNum(p) );    Cudd_Ref( bCubeCs );
-    if ( fPartition )
-        pTree = Bbr_bddImageStart( dd, bCubeCs, Saig_ManRegNum(p), pbParts, Saig_ManRegNum(p), dd->vars+Saig_ManCiNum(p), nBddMax, fVerbose );
+    if ( pPars->fPartition )
+        pTree = Bbr_bddImageStart( dd, bCubeCs, Saig_ManRegNum(p), pbParts, Saig_ManRegNum(p), dd->vars+Saig_ManCiNum(p), pPars->nBddMax, pPars->fVerbose );
     else
-        pTree2 = Bbr_bddImageStart2( dd, bCubeCs, Saig_ManRegNum(p), pbParts, Saig_ManRegNum(p), dd->vars+Saig_ManCiNum(p), fVerbose );
+        pTree2 = Bbr_bddImageStart2( dd, bCubeCs, Saig_ManRegNum(p), pbParts, Saig_ManRegNum(p), dd->vars+Saig_ManCiNum(p), pPars->fVerbose );
     Cudd_RecursiveDeref( dd, bCubeCs );
     if ( pTree == NULL )
     {
-        if ( !fSilent )
+        if ( !pPars->fSilent )
             printf( "BDDs blew up during qualitification scheduling.  " );
         return -1;
     }
@@ -246,30 +271,46 @@ int Aig_ManComputeReachable( DdManager * dd, Aig_Man_t * p, DdNode ** pbParts, D
     // start the onion rings
     vOnionRings = Vec_PtrAlloc( 1000 );
 
-    // perform reachability analisys
+    // perform reachability analysis
     bCurrent = bInitial;   Cudd_Ref( bCurrent );
     bReached = bInitial;   Cudd_Ref( bReached );
     Vec_PtrPush( vOnionRings, bCurrent );  Cudd_Ref( bCurrent );
-    for ( nIters = 1; nIters <= nIterMax; nIters++ )
+    for ( nIters = 1; nIters <= pPars->nIterMax; nIters++ )
     { 
+        // check the runtime limit
+        if ( pPars->TimeLimit && ((float)pPars->TimeLimit <= (float)(clock()-clk)/(float)(CLOCKS_PER_SEC)) )
+        {
+            printf( "Reached timeout after image computation (%d seconds).\n",  pPars->TimeLimit );
+            Vec_PtrFree( vOnionRings );
+            // undo the image tree
+            if ( pPars->fPartition )
+                Bbr_bddImageTreeDelete( pTree );
+            else
+                Bbr_bddImageTreeDelete2( pTree2 );
+            pPars->iFrame = nIters - 2;
+            return -1;
+        }
+
         // compute the next states
-        if ( fPartition )
+        if ( pPars->fPartition )
             bNext = Bbr_bddImageCompute( pTree, bCurrent );           
         else
             bNext = Bbr_bddImageCompute2( pTree2, bCurrent );  
         if ( bNext == NULL )
         {
-            if ( !fSilent )
+            if ( !pPars->fSilent )
                 printf( "BDDs blew up during image computation.  " );
-            if ( fPartition )
+            if ( pPars->fPartition )
                 Bbr_bddImageTreeDelete( pTree );
             else
                 Bbr_bddImageTreeDelete2( pTree2 );
             Vec_PtrFree( vOnionRings );
+            pPars->iFrame = nIters - 2;
             return -1;
         }
         Cudd_Ref( bNext );
         Cudd_RecursiveDeref( dd, bCurrent );
+
         // remap these states into the current state vars
         bNext = Cudd_bddVarMap( dd, bTemp = bNext );                    Cudd_Ref( bNext );
         Cudd_RecursiveDeref( dd, bTemp );
@@ -278,7 +319,7 @@ int Aig_ManComputeReachable( DdManager * dd, Aig_Man_t * p, DdNode ** pbParts, D
             break;
         // check the BDD size
         nBddSize = Cudd_DagSize(bNext);
-        if ( nBddSize > nBddMax )
+        if ( nBddSize > pPars->nBddMax )
             break;
         // check the result
         for ( i = 0; i < Saig_ManPoNum(p); i++ )
@@ -289,12 +330,13 @@ int Aig_ManComputeReachable( DdManager * dd, Aig_Man_t * p, DdNode ** pbParts, D
                 bIntersect = Cudd_bddIntersect( dd, bNext, pbOutputs[i] );  Cudd_Ref( bIntersect );
                 assert( p->pSeqModel == NULL );
                 p->pSeqModel = Aig_ManVerifyUsingBddsCountExample( p, dd, pbParts, 
-                    vOnionRings, bIntersect, i, fVerbose, fSilent ); 
+                    vOnionRings, bIntersect, i, pPars->fVerbose, pPars->fSilent ); 
                 Cudd_RecursiveDeref( dd, bIntersect );
-                if ( !fSilent )
+                if ( !pPars->fSilent )
                     printf( "Output %d was asserted in frame %d (use \"write_counter\" to dump a witness). ", i, Vec_PtrSize(vOnionRings) );
                 Cudd_RecursiveDeref( dd, bReached );
                 bReached = NULL;
+                pPars->iFrame = nIters - 1;
                 break;
             }
         }
@@ -310,19 +352,19 @@ int Aig_ManComputeReachable( DdManager * dd, Aig_Man_t * p, DdNode ** pbParts, D
         bReached = Cudd_bddOr( dd, bTemp = bReached, bNext );           Cudd_Ref( bReached );
         Cudd_RecursiveDeref( dd, bTemp );
         Cudd_RecursiveDeref( dd, bNext );
-        if ( fVerbose )
+        if ( pPars->fVerbose )
             fprintf( stdout, "Frame = %3d. BDD = %5d. ", nIters, nBddSize );
-        if ( fInternalReorder && fReorder && nBddSize > nThreshold )
+        if ( fInternalReorder && pPars->fReorder && nBddSize > nThreshold )
         {
-            if ( fVerbose )
+            if ( pPars->fVerbose )
                 fprintf( stdout, "Reordering... Before = %5d. ", Cudd_DagSize(bReached) );
             Cudd_ReduceHeap( dd, CUDD_REORDER_SYMM_SIFT, 100 );
             Cudd_AutodynDisable( dd );
-            if ( fVerbose )
+            if ( pPars->fVerbose )
                 fprintf( stdout, "After = %5d.\r", Cudd_DagSize(bReached) );
             nThreshold *= 2;
         }
-        if ( fVerbose )
+        if ( pPars->fVerbose )
             fprintf( stdout, "\r" );
     }
     Cudd_RecursiveDeref( dd, bNext );
@@ -331,17 +373,17 @@ int Aig_ManComputeReachable( DdManager * dd, Aig_Man_t * p, DdNode ** pbParts, D
         Cudd_RecursiveDeref( dd, bTemp );
     Vec_PtrFree( vOnionRings );
     // undo the image tree
-    if ( fPartition )
+    if ( pPars->fPartition )
         Bbr_bddImageTreeDelete( pTree );
     else
         Bbr_bddImageTreeDelete2( pTree2 );
     if ( bReached == NULL )
         return 0; // proved reachable
     // report the stats
-    if ( fVerbose )
+    if ( pPars->fVerbose )
     {
         double nMints = Cudd_CountMinterm(dd, bReached, Saig_ManRegNum(p) );
-        if ( nIters > nIterMax || Cudd_DagSize(bReached) > nBddMax )
+        if ( nIters > pPars->nIterMax || Cudd_DagSize(bReached) > pPars->nBddMax )
             fprintf( stdout, "Reachability analysis is stopped after %d frames.\n", nIters );
         else
             fprintf( stdout, "Reachability analysis completed after %d frames.\n", nIters );
@@ -350,14 +392,15 @@ int Aig_ManComputeReachable( DdManager * dd, Aig_Man_t * p, DdNode ** pbParts, D
     }
 //ABC_PRB( dd, bReached );
     Cudd_RecursiveDeref( dd, bReached );
-    if ( nIters > nIterMax || Cudd_DagSize(bReached) > nBddMax )
+    if ( nIters > pPars->nIterMax || Cudd_DagSize(bReached) > pPars->nBddMax )
     {
-        if ( !fSilent )
+        if ( !pPars->fSilent )
             printf( "Verified only for states reachable in %d frames.  ", nIters );
         return -1; // undecided
     }
-    if ( !fSilent )
+    if ( !pPars->fSilent )
         printf( "The miter is proved unreachable after %d iterations.  ", nIters );
+    pPars->iFrame = nIters - 1;
     return 1; // unreachable
 }
 
@@ -372,7 +415,7 @@ int Aig_ManComputeReachable( DdManager * dd, Aig_Man_t * p, DdNode ** pbParts, D
   SeeAlso     []
 
 ***********************************************************************/
-int Aig_ManVerifyUsingBdds_int( Aig_Man_t * p, int nBddMax, int nIterMax, int fPartition, int fReorder, int fReorderImage, int fVerbose, int fSilent )
+int Aig_ManVerifyUsingBdds_int( Aig_Man_t * p, Saig_ParBbr_t * pPars )
 {
     DdManager * dd;
     DdNode ** pbParts, ** pbOutputs;
@@ -383,15 +426,23 @@ int Aig_ManVerifyUsingBdds_int( Aig_Man_t * p, int nBddMax, int nIterMax, int fP
     assert( Saig_ManRegNum(p) > 0 );
 
     // compute the global BDDs of the latches
-    dd = Aig_ManComputeGlobalBdds( p, nBddMax, 1, fReorder, fVerbose );    
+    dd = Aig_ManComputeGlobalBdds( p, pPars->nBddMax, 1, pPars->fReorder, pPars->fVerbose );    
     if ( dd == NULL )
     {
-        if ( !fSilent )
-            printf( "The number of intermediate BDD nodes exceeded the limit (%d).\n", nBddMax );
+        if ( !pPars->fSilent )
+            printf( "The number of intermediate BDD nodes exceeded the limit (%d).\n", pPars->nBddMax );
         return -1;
     }
-    if ( fVerbose )
+    if ( pPars->fVerbose )
         printf( "Shared BDD size is %6d nodes.\n", Cudd_ReadKeys(dd) - Cudd_ReadDead(dd) );
+
+    // check the runtime limit
+    if ( pPars->TimeLimit && ((float)pPars->TimeLimit <= (float)(clock()-clk)/(float)(CLOCKS_PER_SEC)) )
+    {
+        printf( "Reached timeout after constructing global BDDs (%d seconds).\n",  pPars->TimeLimit );
+        Cudd_Quit( dd );
+        return -1;
+    }
 
     // start the onion rings
     vOnionRings = Vec_PtrAlloc( 1000 );
@@ -400,13 +451,13 @@ int Aig_ManVerifyUsingBdds_int( Aig_Man_t * p, int nBddMax, int nIterMax, int fP
     pbOutputs = Aig_ManCreateOutputs( dd, p );
 
     // create partitions
-    pbParts = Aig_ManCreatePartitions( dd, p, fReorder, fVerbose );
+    pbParts = Aig_ManCreatePartitions( dd, p, pPars->fReorder, pPars->fVerbose );
 
     // create the initial state and the variable map
-    bInitial  = Aig_ManInitStateVarMap( dd, p, fVerbose );  Cudd_Ref( bInitial );
+    bInitial  = Aig_ManInitStateVarMap( dd, p, pPars->fVerbose );  Cudd_Ref( bInitial );
 
     // set reordering
-    if ( fReorderImage )
+    if ( pPars->fReorderImage )
         Cudd_AutodynEnable( dd, CUDD_REORDER_SYMM_SIFT );
 
     // check the result
@@ -419,9 +470,9 @@ int Aig_ManVerifyUsingBdds_int( Aig_Man_t * p, int nBddMax, int nIterMax, int fP
             bIntersect = Cudd_bddIntersect( dd, bInitial, pbOutputs[i] );  Cudd_Ref( bIntersect );
             assert( p->pSeqModel == NULL );
             p->pSeqModel = Aig_ManVerifyUsingBddsCountExample( p, dd, pbParts, 
-                vOnionRings, bIntersect, i, fVerbose, fSilent ); 
+                vOnionRings, bIntersect, i, pPars->fVerbose, pPars->fSilent ); 
             Cudd_RecursiveDeref( dd, bIntersect );
-            if ( !fSilent )
+            if ( !pPars->fSilent )
                 printf( "The miter output %d is proved REACHABLE in the initial state (use \"write_counter\" to dump a witness). ", i );
             RetValue = 0;
             break;
@@ -433,7 +484,7 @@ int Aig_ManVerifyUsingBdds_int( Aig_Man_t * p, int nBddMax, int nIterMax, int fP
     Vec_PtrFree( vOnionRings );
     // explore reachable states
     if ( RetValue == -1 )
-        RetValue = Aig_ManComputeReachable( dd, p, pbParts, bInitial, pbOutputs, nBddMax, nIterMax, fPartition, fReorder, fVerbose, fSilent ); 
+        RetValue = Aig_ManComputeReachable( dd, p, pbParts, bInitial, pbOutputs, pPars ); 
 
     // cleanup
     Cudd_RecursiveDeref( dd, bInitial );
@@ -449,7 +500,7 @@ int Aig_ManVerifyUsingBdds_int( Aig_Man_t * p, int nBddMax, int nIterMax, int fP
         Bbr_StopManager( dd );
 
     // report the runtime
-    if ( !fSilent )
+    if ( !pPars->fSilent )
     {
     ABC_PRT( "Time", clock() - clk );
     fflush( stdout );
@@ -468,7 +519,7 @@ int Aig_ManVerifyUsingBdds_int( Aig_Man_t * p, int nBddMax, int nIterMax, int fP
   SeeAlso     []
 
 ***********************************************************************/
-int Aig_ManVerifyUsingBdds( Aig_Man_t * pInit, int nBddMax, int nIterMax, int fPartition, int fReorder, int fReorderImage, int fVerbose, int fSilent )
+int Aig_ManVerifyUsingBdds( Aig_Man_t * pInit, Saig_ParBbr_t * pPars )
 {
     Abc_Cex_t * pCexOld, * pCexNew;
     Aig_Man_t * p;
@@ -480,12 +531,12 @@ int Aig_ManVerifyUsingBdds( Aig_Man_t * pInit, int nBddMax, int nIterMax, int fP
         if ( Aig_ObjRefs(pObj) == 0 )
             break;
     if ( i == Saig_ManPiNum(pInit) )
-        return Aig_ManVerifyUsingBdds_int( pInit, nBddMax, nIterMax, fPartition, fReorder, fReorderImage, fVerbose, fSilent );
+        return Aig_ManVerifyUsingBdds_int( pInit, pPars );
     // create new AIG
     p = Aig_ManDupTrim( pInit );
     assert( Aig_ManPiNum(p) < Aig_ManPiNum(pInit) );
     assert( Aig_ManRegNum(p) == Aig_ManRegNum(pInit) );
-    RetValue = Aig_ManVerifyUsingBdds_int( p, nBddMax, nIterMax, fPartition, fReorder, fReorderImage, fVerbose, fSilent );
+    RetValue = Aig_ManVerifyUsingBdds_int( p, pPars );
     if ( RetValue != 0 )
     {
         Aig_ManStop( p );

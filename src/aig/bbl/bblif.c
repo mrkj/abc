@@ -375,9 +375,10 @@ static inline void Vec_IntFillExtra( Vec_Int_t * p, int nSize, int Fill )
     int i;
     if ( p->nSize >= nSize )
         return;
-    if ( nSize < 2 * p->nSize )
-        nSize = 2 * p->nSize;
-    Vec_IntGrow( p, nSize );
+    if ( nSize > 2 * p->nCap )
+        Vec_IntGrow( p, nSize );
+    else if ( nSize > p->nCap )
+        Vec_IntGrow( p, 2 * p->nCap );
     for ( i = p->nSize; i < nSize; i++ )
         p->pArray[i] = Fill;
     p->nSize = nSize;

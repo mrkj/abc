@@ -392,6 +392,28 @@ void Gia_ManSetPhase( Gia_Man_t * p )
   SeeAlso     []
 
 ***********************************************************************/
+void Gia_ManSetPhase1( Gia_Man_t * p )  
+{
+    Gia_Obj_t * pObj;
+    int i;
+    Gia_ManForEachCi( p, pObj, i )
+        pObj->fPhase = 1;
+    Gia_ManForEachObj( p, pObj, i )
+        if ( !Gia_ObjIsCi(pObj) )
+            Gia_ObjSetPhase( pObj );
+}
+
+/**Function*************************************************************
+
+  Synopsis    [Sets phases of the internal nodes.]
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
 void Gia_ManCleanPhase( Gia_Man_t * p )  
 {
     Gia_Obj_t * pObj;

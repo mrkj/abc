@@ -24,7 +24,7 @@
 ////////////////////////////////////////////////////////////////////////
 ///                          INCLUDES                                ///
 ////////////////////////////////////////////////////////////////////////
-
+ 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -51,6 +51,7 @@ extern "C" {
 // the largest possible user cut cost
 #define IF_COST_MAX          ((1<<14)-1)
 //#define IF_USE_BAT
+//#define IF_USE_NAL 
 
 // object types
 typedef enum { 

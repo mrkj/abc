@@ -96,6 +96,10 @@ Abc_Cex_t * Saig_ManCexRemap( Aig_Man_t * p, Aig_Man_t * pAbs, Abc_Cex_t * pCexA
     Abc_Cex_t * pCex;
     Aig_Obj_t * pObj;
     int i, f;
+    if ( !Ssw_SmlRunCounterExample( pAbs, pCexAbs ) )
+        printf( "Saig_ManCexRemap(): The intial counter-example is invalid.\n" );
+    else
+        printf( "Saig_ManCexRemap(): The intial counter-example is correct.\n" );
     // start the counter-example
     pCex = Ssw_SmlAllocCounterExample( Aig_ManRegNum(p), Saig_ManPiNum(p), pCexAbs->iFrame+1 );
     pCex->iFrame = pCexAbs->iFrame;
@@ -165,7 +169,6 @@ Aig_Man_t * Saig_ManCexRefine( Aig_Man_t * p, Aig_Man_t * pAbs, Vec_Int_t * vFlo
 { 
     extern int Saig_BmcPerform( Aig_Man_t * pAig, int nStart, int nFramesMax, int nNodesMax, int nTimeOut, int nConfMaxOne, int nConfMaxAll, int fVerbose, int fVerbOverwrite, int * piFrames );
     extern Vec_Int_t * Saig_ManExtendCounterExampleTest( Aig_Man_t * p, int iFirstPi, void * pCex, int fVerbose );
-    extern int Aig_ManVerifyUsingBdds( Aig_Man_t * p, int nBddMax, int nIterMax, int fPartition, int fReorder, int fReorderImage, int fVerbose, int fSilent );
     Vec_Int_t * vFlopsNew;
     int i, Entry;
     *piRetValue = -1;
@@ -179,12 +182,19 @@ Aig_Man_t * Saig_ManCexRefine( Aig_Man_t * p, Aig_Man_t * pAbs, Vec_Int_t * vFlo
     }
     else if ( fUseBdds && (Aig_ManRegNum(pAbs) > 0 && Aig_ManRegNum(pAbs) <= 80) )
     {
-        int nBddMax       = 1000000;
-        int nIterMax      = nFrames;
-        int fPartition    = 1;
-        int fReorder      = 1;
-        int fReorderImage = 1;
-        Aig_ManVerifyUsingBdds( pAbs, nBddMax, nIterMax, fPartition, fReorder, fReorderImage, fVerbose, 0 );
+        extern void Bbr_ManSetDefaultParams( Saig_ParBbr_t * pPars );
+        extern int Aig_ManVerifyUsingBdds( Aig_Man_t * p, Saig_ParBbr_t * pPars );
+        Saig_ParBbr_t Pars, * pPars = &Pars;
+        Bbr_ManSetDefaultParams( pPars );
+        pPars->TimeLimit     = 0;
+        pPars->nBddMax       = 1000000;
+        pPars->nIterMax      = nFrames;
+        pPars->fPartition    = 1;
+        pPars->fReorder      = 1;
+        pPars->fReorderImage = 1;
+        pPars->fVerbose      = fVerbose;
+        pPars->fSilent       = 0;
+        Aig_ManVerifyUsingBdds( pAbs, pPars );
     }
     else 
     {
@@ -253,7 +263,7 @@ int Saig_ManCexRefineStep( Aig_Man_t * p, Vec_Int_t * vFlops, Abc_Cex_t * pCex, 
     {
         printf( "Refinement did not happen. Discovered a true counter-example.\n" );
         printf( "Remapping counter-example from %d to %d primary inputs.\n", Aig_ManPiNum(pAbs), Aig_ManPiNum(p) );
-        p->pSeqModel = Saig_ManCexRemap( p, pAbs, pAbs->pSeqModel );
+        p->pSeqModel = Saig_ManCexRemap( p, pAbs, pCex );
         Vec_IntFree( vFlopsNew );
         Aig_ManStop( pAbs );
         return 0;

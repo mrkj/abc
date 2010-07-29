@@ -228,7 +228,7 @@ speculation:
     while ( 1 )
     {
         // perform speculative reduction
-        pSrm = Gia_ManSpecReduce( pGia, 0, fVeryVerbose ); // save3
+        pSrm = Gia_ManSpecReduce( pGia, 0, 0, fVeryVerbose ); // save3
 //        Gia_ManPrintStats( pGia, 0 );
 //        Gia_ManPrintStats( pSrm, 0 );
         // bmc2 -F 100 -C 25000

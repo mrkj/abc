@@ -55,8 +55,10 @@ struct Ssw_Pars_t_
     int              fDumpSRInit;   // dumps speculative reduction
     int              nResimDelta;   // the number of nodes to resimulate
     int              nStepsMax;     // (scorr only) the max number of induction steps
+    int              TimeLimit;     // time out in seconds
     int              fPolarFlip;    // uses polarity adjustment
     int              fLatchCorr;    // perform register correspondence
+    int              fOutputCorr;   // perform 'PO correspondence'
     int              fSemiFormal;   // enable semiformal filtering
 //    int              fUniqueness;   // enable uniqueness constraints
     int              fDynamic;      // enable dynamic addition of constraints

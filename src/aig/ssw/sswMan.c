@@ -57,13 +57,12 @@ Ssw_Man_t * Ssw_ManCreate( Aig_Man_t * pAig, Ssw_Pars_t * pPars )
     p->iOutputLit    = -1;
     // allocate storage for sim pattern
     p->nPatWords     = Aig_BitWordNum( Saig_ManPiNum(pAig) * p->nFrames + Saig_ManRegNum(pAig) );
-    p->pPatWords     = ABC_ALLOC( unsigned, p->nPatWords ); 
+    p->pPatWords     = ABC_CALLOC( unsigned, p->nPatWords ); 
     // other
     p->vNewLos       = Vec_PtrAlloc( 100 );
     p->vNewPos       = Vec_IntAlloc( 100 );
     p->vResimConsts  = Vec_PtrAlloc( 100 );
     p->vResimClasses = Vec_PtrAlloc( 100 );
-
 //    p->pPars->fVerbose = 1;
     return p;
 }
@@ -107,7 +106,7 @@ void Ssw_ManPrintStats( Ssw_Man_t * p )
         p->pPars->nFramesK, p->pPars->nFramesAddSim, p->pPars->nBTLimit, Saig_ManConstrNum(p->pAig), p->pPars->nMaxLevs, nMemory );
     printf( "AIG       : PI = %d. PO = %d. Latch = %d. Node = %d.  Ave SAT vars = %d.\n", 
         Saig_ManPiNum(p->pAig), Saig_ManPoNum(p->pAig), Saig_ManRegNum(p->pAig), Aig_ManNodeNum(p->pAig), 
-        0/p->pPars->nIters );
+        0/(p->pPars->nIters+1) );
     printf( "SAT calls : Proof = %d. Cex = %d. Fail = %d. Lits proved = %d.\n", 
         p->nSatProof, p->nSatCallsSat, p->nSatFailsReal, Ssw_ManCountEquivs(p) );
     printf( "SAT solver: Vars max = %d. Calls max = %d. Recycles = %d. Sim rounds = %d.\n", 

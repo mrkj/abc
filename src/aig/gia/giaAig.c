@@ -378,7 +378,7 @@ Aig_Man_t * Gia_ManCofactorAig( Aig_Man_t * p, int nFrames, int nCofFanLit )
 
   Synopsis    [Transfers representatives from pGia to pAig.]
 
-  Description []
+  Description [Assumes that pGia was created from pAig.]
                
   SideEffects []
 
@@ -407,6 +407,34 @@ void Gia_ManReprToAigRepr( Aig_Man_t * pAig, Gia_Man_t * pGia )
         if ( pGiaRepr == NULL )
             continue;
         Aig_ObjCreateRepr( pAig, Aig_ManObj(pAig, pGiaRepr->Value), Aig_ManObj(pAig, pGiaObj->Value) );
+    }
+}
+
+/**Function*************************************************************
+
+  Synopsis    [Transfers representatives from pGia to pAig.]
+
+  Description [Assumes that pAig was created from pGia.]
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+void Gia_ManReprToAigRepr2( Aig_Man_t * pAig, Gia_Man_t * pGia )
+{
+    Gia_Obj_t * pGiaObj, * pGiaRepr;
+    int i;
+    assert( pAig->pReprs == NULL );
+    assert( pGia->pReprs != NULL );
+    // set the pointers to the nodes in AIG
+    Aig_ManReprStart( pAig, Aig_ManObjNumMax(pAig) );
+    Gia_ManForEachObj( pGia, pGiaObj, i )
+    {
+        pGiaRepr = Gia_ObjReprObj( pGia, i );
+        if ( pGiaRepr == NULL )
+            continue;
+        Aig_ObjCreateRepr( pAig, Aig_ManObj(pAig, Gia_Lit2Var(pGiaRepr->Value)), Aig_ManObj(pAig, Gia_Lit2Var(pGiaObj->Value)) );
     }
 }
 

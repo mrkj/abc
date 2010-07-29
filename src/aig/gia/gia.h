@@ -138,7 +138,6 @@ struct Gia_Man_t_
     Vec_Int_t *    vCoNumsOrig;   // original names of the COs
     Vec_Vec_t *    vClockDoms;    // clock domains
     Vec_Flt_t *    vTiming;       // arrival/required/slack
-    Abc_Cex_t *    pSeqModel;     // sequential model
     void *         pManTime;      // the timing manager
     void *         pLutLib;       // LUT library
 };
@@ -622,6 +621,7 @@ extern Gia_Man_t *         Gia_ManDupDfsCone( Gia_Man_t * p, Gia_Obj_t * pObj );
 extern Gia_Man_t *         Gia_ManDupDfsLitArray( Gia_Man_t * p, Vec_Int_t * vLits );
 extern Gia_Man_t *         Gia_ManDupNormalized( Gia_Man_t * p );
 extern Gia_Man_t *         Gia_ManDupTrimmed( Gia_Man_t * p, int fTrimCis, int fTrimCos );
+extern Gia_Man_t *         Gia_ManDupOntop( Gia_Man_t * p, Gia_Man_t * p2 );
 extern Gia_Man_t *         Gia_ManDupDfsCiMap( Gia_Man_t * p, int * pCi2Lit, Vec_Int_t * vLits );
 extern Gia_Man_t *         Gia_ManDupDfsClasses( Gia_Man_t * p );
 extern Gia_Man_t *         Gia_ManDupTopAnd( Gia_Man_t * p, int fVerbose );
@@ -645,7 +645,7 @@ extern void                Gia_ManEquivPrintClasses( Gia_Man_t * p, int fVerbose
 extern Gia_Man_t *         Gia_ManEquivReduce( Gia_Man_t * p, int fUseAll, int fDualOut, int fVerbose );
 extern Gia_Man_t *         Gia_ManEquivReduceAndRemap( Gia_Man_t * p, int fSeq, int fMiterPairs );
 extern int                 Gia_ManEquivSetColors( Gia_Man_t * p, int fVerbose );
-extern Gia_Man_t *         Gia_ManSpecReduce( Gia_Man_t * p, int fDualOut, int fVerbose );
+extern Gia_Man_t *         Gia_ManSpecReduce( Gia_Man_t * p, int fDualOut, int fSynthesis, int fVerbose );
 extern Gia_Man_t *         Gia_ManSpecReduceInit( Gia_Man_t * p, Abc_Cex_t * pInit, int nFrames, int fDualOut );
 extern Gia_Man_t *         Gia_ManSpecReduceInitFrames( Gia_Man_t * p, Abc_Cex_t * pInit, int nFramesMax, int * pnFrames, int fDualOut, int nMinOutputs );
 extern void                Gia_ManEquivTransform( Gia_Man_t * p, int fVerbose );
@@ -763,6 +763,7 @@ extern void                Gia_ManCleanTruth( Gia_Man_t * p );
 extern void                Gia_ManFillValue( Gia_Man_t * p );
 extern void                Gia_ObjSetPhase( Gia_Obj_t * pObj );
 extern void                Gia_ManSetPhase( Gia_Man_t * p );
+extern void                Gia_ManSetPhase1( Gia_Man_t * p );
 extern void                Gia_ManCleanPhase( Gia_Man_t * p );
 extern int                 Gia_ManLevelNum( Gia_Man_t * p );
 extern void                Gia_ManSetRefs( Gia_Man_t * p );

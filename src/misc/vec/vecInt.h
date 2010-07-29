@@ -465,11 +465,10 @@ static inline void Vec_IntFillExtra( Vec_Int_t * p, int nSize, int Fill )
     int i;
     if ( nSize <= p->nSize )
         return;
-    assert( nSize > p->nSize );
-    if ( nSize < 2 * p->nSize )
-        Vec_IntGrow( p, 2 * nSize );
-    else
+    if ( nSize > 2 * p->nCap )
         Vec_IntGrow( p, nSize );
+    else if ( nSize > p->nCap )
+        Vec_IntGrow( p, 2 * p->nCap );
     for ( i = p->nSize; i < nSize; i++ )
         p->pArray[i] = Fill;
     p->nSize = nSize;
@@ -490,6 +489,23 @@ static inline int Vec_IntGetEntry( Vec_Int_t * p, int i )
 {
     Vec_IntFillExtra( p, i + 1, 0 );
     return Vec_IntEntry( p, i );
+}
+
+/**Function*************************************************************
+
+  Synopsis    [Returns the entry even if the place not exist.]
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+static inline int * Vec_IntGetEntryP( Vec_Int_t * p, int i )
+{
+    Vec_IntFillExtra( p, i + 1, 0 );
+    return Vec_IntEntryP( p, i );
 }
 
 /**Function*************************************************************
@@ -952,6 +968,28 @@ static inline void Vec_IntSort( Vec_Int_t * p, int fReverse )
                 (int (*)(const void *, const void *)) Vec_IntSortCompare1 );
 }
 
+/**Function*************************************************************
+
+  Synopsis    [Leaves only unique entries.]
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+static void Vec_IntUniqify( Vec_Int_t * p )
+{
+    int i, k;
+    if ( p->nSize < 2 )
+        return;
+    Vec_IntSort( p, 0 );
+    for ( i = k = 1; i < p->nSize; i++ )
+        if ( p->pArray[i] != p->pArray[i-1] )
+            p->pArray[k++] = p->pArray[i];
+    p->nSize = k;
+}
 
 /**Function*************************************************************
 

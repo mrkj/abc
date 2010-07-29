@@ -5,6 +5,7 @@ SRC +=	src/aig/ssw/sswAig.c \
 	src/aig/ssw/sswConstr.c \
 	src/aig/ssw/sswCore.c \
 	src/aig/ssw/sswDyn.c \
+	src/aig/ssw/sswFilter.c \
 	src/aig/ssw/sswIslands.c \
 	src/aig/ssw/sswLcorr.c \
 	src/aig/ssw/sswMan.c \

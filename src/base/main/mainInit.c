@@ -38,12 +38,14 @@ extern void Mio_Init( Abc_Frame_t * pAbc );
 extern void Mio_End ( Abc_Frame_t * pAbc );
 extern void Super_Init( Abc_Frame_t * pAbc );
 extern void Super_End ( Abc_Frame_t * pAbc );
-extern void Libs_Init(Abc_Frame_t * pAbc);
-extern void Libs_End(Abc_Frame_t * pAbc);
-extern void Dummy_Init(Abc_Frame_t * pAbc);
-extern void Dummy_End(Abc_Frame_t * pAbc);
-extern void Dummy2_Init(Abc_Frame_t * pAbc);
-extern void Dummy2_End(Abc_Frame_t * pAbc);
+extern void Libs_Init( Abc_Frame_t * pAbc );
+extern void Libs_End( Abc_Frame_t * pAbc );
+extern void Load_Init( Abc_Frame_t * pAbc );
+extern void Load_End( Abc_Frame_t * pAbc );
+extern void Dummy_Init( Abc_Frame_t * pAbc );
+extern void Dummy_End( Abc_Frame_t * pAbc );
+extern void Dummy2_Init( Abc_Frame_t * pAbc );
+extern void Dummy2_End( Abc_Frame_t * pAbc );
 
 ////////////////////////////////////////////////////////////////////////
 ///                     FUNCTION DEFINITIONS                         ///
@@ -70,8 +72,10 @@ void Abc_FrameInit( Abc_Frame_t * pAbc )
     Mio_Init( pAbc );
     Super_Init( pAbc );
     Libs_Init( pAbc );
+    Load_Init( pAbc );
     Dummy_Init( pAbc );
     Dummy2_Init( pAbc );
+    Cmd_CommandExecute( pAbc, "set checkread" ); 
 }
 
 
@@ -96,6 +100,7 @@ void Abc_FrameEnd( Abc_Frame_t * pAbc )
     Mio_End( pAbc );
     Super_End( pAbc );
     Libs_End( pAbc );
+    Load_End( pAbc );
     Dummy_End( pAbc );
     Dummy2_End( pAbc );
 }

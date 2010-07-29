@@ -426,7 +426,7 @@ Aig_Obj_t * Saig_BmcIntervalConstruct_rec( Saig_Bmc_t * p, Aig_Obj_t * pObj, int
     assert( pRes != NULL );
     Saig_BmcObjSetFrame( p, pObj, i, pRes );
     Vec_PtrPush( vVisited, pObj );
-    Vec_PtrPush( vVisited, (void *)i );
+    Vec_PtrPush( vVisited, (void *)(ABC_PTRINT_T)i );
     return pRes;
 }
 
@@ -687,7 +687,7 @@ int Saig_BmcSolveTargets( Saig_Bmc_t * p, int nStart, int * pnOutsSolved )
     {
         if ( ((*pnOutsSolved)++ / Saig_ManPoNum(p->pAig)) < nStart )
             continue;
-        if ( p->pSat->stats.conflicts > p->nConfMaxAll )
+        if ( p->nConfMaxAll && p->pSat->stats.conflicts > p->nConfMaxAll )
             return l_Undef;
         VarNum = Saig_BmcSatNum( p, Aig_Regular(pObj) );
         Lit = toLitCond( VarNum, Aig_IsComplement(pObj) );

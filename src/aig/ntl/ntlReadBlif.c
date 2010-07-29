@@ -124,9 +124,9 @@ Ntl_Man_t * Ntl_ManReadBlif( char * pFileName, int fCheck )
     Ntl_ReadMan_t * p;
     Ntl_Man_t * pDesign;
     if ( !Ntl_FileIsType(pFileName, ".blif", ".blif.gz", ".blif.bz2") )
-    {       
-//        extern void * Nal_ManRead( char * pFileName );
-//        return Nal_ManRead( pFileName );
+    {     
+        printf( "Wrong file format\n" );
+        return NULL;
     }
     // check that the file is available
     pFile = fopen( pFileName, "rb" );

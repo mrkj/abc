@@ -131,4 +131,74 @@ def n_phases():
   return _pyabc.n_phases()
 n_phases = _pyabc.n_phases
 
+def pyabc_internal_set_command_callback(*args):
+  return _pyabc.pyabc_internal_set_command_callback(*args)
+pyabc_internal_set_command_callback = _pyabc.pyabc_internal_set_command_callback
+
+def pyabc_internal_register_command(*args):
+  return _pyabc.pyabc_internal_register_command(*args)
+pyabc_internal_register_command = _pyabc.pyabc_internal_register_command
+_registered_commands = {}
+
+def _cmd_callback(args):
+	try:
+	    assert len(args) > 0
+	    
+	    cmd = args[0]
+	    assert cmd in _registered_commands
+	
+	    res = _registered_commands[cmd](args)
+	    
+	    assert type(res) == int, "User-defined Python command must return an integer."
+	    
+	    return res
+	
+	except Exception, e:
+		print "Python error: ", e
+
+	except SystemExit, se:
+		pass
+		
+	return 0
+    
+pyabc_internal_set_command_callback( _cmd_callback )
+    
+def add_abc_command(fcmd, group, cmd, change):
+    _registered_commands[ cmd ] = fcmd
+    pyabc_internal_register_command( group, cmd, change)
+
+import sys
+import optparse
+
+import __main__
+
+def cmd_python(cmd_args):
+    global __main__
+    
+    usage = "usage: %prog [options] <Python files>"
+    
+    parser = optparse.OptionParser(usage)
+    
+    parser.add_option("-c", "--cmd", dest="cmd", help="Execute Python command directly")
+    parser.add_option("-v", "--version", action="store_true", dest="version", help="Display Python Version")
+
+    options, args = parser.parse_args(cmd_args)
+    
+    if options.version:
+        print sys.version
+        return 0
+    
+    if options.cmd:
+        exec options.cmd in __main__.__dict__
+        return 0
+    
+    for fname in args[1:]:
+        execfile(fname, __main__.__dict__)
+    
+    return 0
+    
+add_abc_command(cmd_python, "Python", "python", 0) 
+
+
+
 
