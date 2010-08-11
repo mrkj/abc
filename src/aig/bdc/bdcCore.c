@@ -20,6 +20,9 @@
 
 #include "bdcInt.h"
 
+ABC_NAMESPACE_IMPL_START
+
+
 ////////////////////////////////////////////////////////////////////////
 ///                        DECLARATIONS                              ///
 ////////////////////////////////////////////////////////////////////////
@@ -162,13 +165,13 @@ void Bdc_ManPrepare( Bdc_Man_t * p, Vec_Ptr_t * vDivs )
     {
         pNode = Bdc_FunNew( p );
         pNode->Type = BDC_TYPE_PI;
-        pNode->puFunc = Vec_PtrEntry( p->vTruths, i );
+        pNode->puFunc = (unsigned *)Vec_PtrEntry( p->vTruths, i );
         pNode->uSupp = (1 << i);
         Bdc_TableAdd( p, pNode );
     }
     // add the divisors
     if ( vDivs )
-    Vec_PtrForEachEntry( vDivs, puTruth, i )
+    Vec_PtrForEachEntry( unsigned *, vDivs, puTruth, i )
     {
         pNode = Bdc_FunNew( p );
         pNode->Type = BDC_TYPE_PI;
@@ -306,4 +309,6 @@ void Bdc_ManDecomposeTest( unsigned uTruth, int nVars )
 ///                       END OF FILE                                ///
 ////////////////////////////////////////////////////////////////////////
 
+
+ABC_NAMESPACE_IMPL_END
 

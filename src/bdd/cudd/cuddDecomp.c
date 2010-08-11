@@ -37,6 +37,9 @@
 #include "util_hack.h"
 #include "cuddInt.h"
 
+ABC_NAMESPACE_IMPL_START
+
+
 /*---------------------------------------------------------------------------*/
 /* Constant declarations                                                     */
 /*---------------------------------------------------------------------------*/
@@ -1996,7 +1999,7 @@ cuddConjunctsAux(
     *c2 = NULL;
 
     /* initialize distances table */
-    distanceTable = st_init_table(st_ptrcmp,st_ptrhash);
+    distanceTable = st_init_table(st_ptrcmp, st_ptrhash);;
     if (distanceTable == NULL) goto outOfMem;
     
     /* make the entry for the constant */
@@ -2023,7 +2026,7 @@ cuddConjunctsAux(
 	cuddRef(*c1); cuddRef(*c2);
 	stGen = st_init_gen(distanceTable);
 	if (stGen == NULL) goto outOfMem;
-	while(st_gen(stGen, (char **)&key, (char **)&value)) {
+	while(st_gen(stGen, (const char **)&key, (char **)&value)) {
 	    ABC_FREE(value);
 	}
 	st_free_gen(stGen); stGen = NULL;
@@ -2035,7 +2038,7 @@ cuddConjunctsAux(
     maxLocalRef = 0;
     stGen = st_init_gen(distanceTable);
     if (stGen == NULL) goto outOfMem;
-    while(st_gen(stGen, (char **)&key, (char **)&value)) {
+    while(st_gen(stGen, (const char **)&key, (char **)&value)) {
 	nodeStat = (NodeStat *)value;
 	maxLocalRef = (nodeStat->localRef > maxLocalRef) ?
 	    nodeStat->localRef : maxLocalRef;
@@ -2045,7 +2048,7 @@ cuddConjunctsAux(
 	    
     /* Count minterms for each node. */
     max = pow(2.0, (double)Cudd_SupportSize(dd,f)); /* potential overflow */
-    mintermTable = st_init_table(st_ptrcmp,st_ptrhash);
+    mintermTable = st_init_table(st_ptrcmp, st_ptrhash);;
     if (mintermTable == NULL) goto outOfMem;
     minterms = CountMinterms(f, max, mintermTable, dd->err);
     if (minterms == -1.0) goto outOfMem;
@@ -2064,7 +2067,7 @@ cuddConjunctsAux(
     /* Free up tables */
     stGen = st_init_gen(distanceTable);
     if (stGen == NULL) goto outOfMem;
-    while(st_gen(stGen, (char **)&key, (char **)&value)) {
+    while(st_gen(stGen, (const char **)&key, (char **)&value)) {
 	ABC_FREE(value);
     }
     st_free_gen(stGen); stGen = NULL;
@@ -2073,7 +2076,7 @@ cuddConjunctsAux(
     
     stGen = st_init_gen(mintermTable);
     if (stGen == NULL) goto outOfMem;
-    while(st_gen(stGen, (char **)&key, (char **)&value)) {
+    while(st_gen(stGen, (const char **)&key, (char **)&value)) {
 	ABC_FREE(value);
     }
     st_free_gen(stGen); stGen = NULL;
@@ -2107,7 +2110,7 @@ cuddConjunctsAux(
 
     stGen = st_init_gen(cacheTable);
     if (stGen == NULL) goto outOfMem;
-    while(st_gen(stGen, (char **)&key, (char **)&value)) {
+    while(st_gen(stGen, (const char **)&key, (char **)&value)) {
 	ConjunctsFree(dd, (Conjuncts *)value);
     }
     st_free_gen(stGen); stGen = NULL;
@@ -2120,7 +2123,7 @@ outOfMem:
     if (distanceTable != NULL) {
 	stGen = st_init_gen(distanceTable);
 	if (stGen == NULL) goto outOfMem;
-	while(st_gen(stGen, (char **)&key, (char **)&value)) {
+	while(st_gen(stGen, (const char **)&key, (char **)&value)) {
 	    ABC_FREE(value);
 	}
 	st_free_gen(stGen); stGen = NULL;
@@ -2129,7 +2132,7 @@ outOfMem:
     if (mintermTable != NULL) {
 	stGen = st_init_gen(mintermTable);
 	if (stGen == NULL) goto outOfMem;
-	while(st_gen(stGen, (char **)&key, (char **)&value)) {
+	while(st_gen(stGen, (const char **)&key, (char **)&value)) {
 	    ABC_FREE(value);
 	}
 	st_free_gen(stGen); stGen = NULL;
@@ -2139,7 +2142,7 @@ outOfMem:
     if (cacheTable != NULL) {
 	stGen = st_init_gen(cacheTable);
 	if (stGen == NULL) goto outOfMem;
-	while(st_gen(stGen, (char **)&key, (char **)&value)) {
+	while(st_gen(stGen, (const char **)&key, (char **)&value)) {
 	    ConjunctsFree(dd, (Conjuncts *)value);
 	}
 	st_free_gen(stGen); stGen = NULL;
@@ -2149,3 +2152,5 @@ outOfMem:
     return(0);
 
 } /* end of cuddConjunctsAux */
+ABC_NAMESPACE_IMPL_END
+

@@ -20,6 +20,10 @@
 
 #include "ntl.h"
 #include "dch.h"
+#include "dar.h"
+
+ABC_NAMESPACE_IMPL_START
+
 
 ////////////////////////////////////////////////////////////////////////
 ///                        DECLARATIONS                              ///
@@ -42,9 +46,9 @@
 ***********************************************************************/
 Aig_Man_t * Ntl_ManPerformChoicing( Aig_Man_t * pAig, int fBalance, int fUpdateLevel, int fConstruct, int nConfMax, int nLevelMax, int fVerbose )
 {
-    extern Aig_Man_t * Dar_ManBalance( Aig_Man_t * pAig, int fUpdateLevel );
-    extern Aig_Man_t * Dar_ManCompress( Aig_Man_t * pAig, int fBalance, int fUpdateLevel, int fPower, int fVerbose );
-    extern Aig_Man_t * Dar_ManChoice( Aig_Man_t * pAig, int fBalance, int fUpdateLevel, int fConstruct, int nConfMax, int nLevelMax, int fVerbose );
+//    extern Aig_Man_t * Dar_ManBalance( Aig_Man_t * pAig, int fUpdateLevel );
+//    extern Aig_Man_t * Dar_ManCompress( Aig_Man_t * pAig, int fBalance, int fUpdateLevel, int fPower, int fVerbose );
+//    extern Aig_Man_t * Dar_ManChoice( Aig_Man_t * pAig, int fBalance, int fUpdateLevel, int fConstruct, int nConfMax, int nLevelMax, int fVerbose );
     Aig_Man_t * pTemp;
 
     // perform synthesis
@@ -72,7 +76,7 @@ Aig_Man_t * Ntl_ManPerformChoicing( Aig_Man_t * pAig, int fBalance, int fUpdateL
 ***********************************************************************/
 Aig_Man_t * Ntl_ManPerformChoicingNew( Aig_Man_t * pAig, Dch_Pars_t * pPars )
 {
-    extern Aig_Man_t * Dar_ManChoiceNew( Aig_Man_t * pAig, Dch_Pars_t * pPars );
+//    extern Aig_Man_t * Dar_ManChoiceNew( Aig_Man_t * pAig, Dch_Pars_t * pPars );
     Aig_Man_t * pTemp;
 /*
     Aig_Obj_t * pObj;
@@ -143,4 +147,6 @@ int Ntl_ManInsertTestIf( Ntl_Man_t * p, Aig_Man_t * pAig )
 ///                       END OF FILE                                ///
 ////////////////////////////////////////////////////////////////////////
 
+
+ABC_NAMESPACE_IMPL_END
 

@@ -21,6 +21,7 @@
 #ifndef __NTLNWK_H__
 #define __NTLNWK_H__
 
+
 ////////////////////////////////////////////////////////////////////////
 ///                          INCLUDES                                ///
 ////////////////////////////////////////////////////////////////////////
@@ -29,9 +30,8 @@
 ///                         PARAMETERS                               ///
 ////////////////////////////////////////////////////////////////////////
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+ABC_NAMESPACE_HEADER_START
+
 
 ////////////////////////////////////////////////////////////////////////
 ///                         BASIC TYPES                              ///
@@ -72,7 +72,7 @@ extern ABC_DLL Aig_Man_t * Ntl_ManCollapse( Ntl_Man_t * p, int fSeq );
 extern ABC_DLL Aig_Man_t * Ntl_ManCollapseSeq( Ntl_Man_t * p, int nMinDomSize, int fVerbose );
 extern ABC_DLL Ntl_Man_t * Ntl_ManDupCollapseLuts( Ntl_Man_t * p );
 extern ABC_DLL Ntl_Man_t * Ntl_ManFraig( Ntl_Man_t * p, int nPartSize, int nConfLimit, int nLevelMax, int fUseCSat, int fVerbose );
-extern ABC_DLL void        Ntl_ManPrepareCecMans( Ntl_Man_t * pMan1, void * pMan2, Aig_Man_t ** ppAig1, Aig_Man_t ** ppAig2 );
+extern ABC_DLL void        Ntl_ManPrepareCecMans( Ntl_Man_t * pMan1, Ntl_Man_t * pMan2, Aig_Man_t ** ppAig1, Aig_Man_t ** ppAig2 );
 extern ABC_DLL Vec_Ptr_t * Ntl_ManCollectCiNames( Ntl_Man_t * p );
 extern ABC_DLL Vec_Ptr_t * Ntl_ManCollectCoNames( Ntl_Man_t * p );
 extern ABC_DLL Ntl_Man_t * Ntl_ManScl( Ntl_Man_t * p, int fLatchConst, int fLatchEqual, int fVerbose );
@@ -86,22 +86,24 @@ extern ABC_DLL Aig_Man_t * Ntl_ManPrepareSec( char * pFileName1, char * pFileNam
 
 extern ABC_DLL Nwk_Man_t * Ntl_ManExtractNwk( Ntl_Man_t * p, Aig_Man_t * pAig, Tim_Man_t * pManTime );
 extern ABC_DLL Nwk_Man_t * Ntl_ManReadNwk( char * pFileName, Aig_Man_t * pAig, Tim_Man_t * pManTime );
-extern ABC_DLL void        Nwk_ManPrintStats( Nwk_Man_t * p, void * pLutLib, int fSaveBest, int fDumpResult, int fPower, void * pNtl );
-extern ABC_DLL void        Nwk_ManPrintStatsShort( Nwk_Man_t * p, void * pAig, void * pNtk );
+extern ABC_DLL void        Nwk_ManPrintStats( Nwk_Man_t * p, If_Lib_t * pLutLib, int fSaveBest, int fDumpResult, int fPower, Ntl_Man_t * pNtl );
+extern ABC_DLL void        Nwk_ManPrintStatsShort( Ntl_Man_t * p, Aig_Man_t * pAig, Nwk_Man_t * pNtk );
 extern ABC_DLL void        Nwk_ManPrintFanioNew( Nwk_Man_t * p );
 extern ABC_DLL Nwk_Man_t * Nwk_MappingIf( Aig_Man_t * p, Tim_Man_t * pManTime, If_Par_t * pPars );
 extern ABC_DLL void        Nwk_ManSetIfParsDefault( If_Par_t * pPars );
 extern ABC_DLL void        Nwk_ManBidecResyn( Nwk_Man_t * p, int fVerbose );
 extern ABC_DLL Aig_Man_t * Nwk_ManSpeedup( Nwk_Man_t * p, int fUseLutLib, int Percentage, int Degree, int fVerbose, int fVeryVerbose );
 extern ABC_DLL Aig_Man_t * Nwk_ManStrash( Nwk_Man_t * p );
-extern ABC_DLL Vec_Int_t * Nwk_ManLutMerge( Nwk_Man_t * p, Nwk_LMPars_t * pPars );
+extern ABC_DLL Vec_Int_t * Nwk_ManLutMerge( Nwk_Man_t * p, void * pPars );
 extern ABC_DLL int         Nwk_ManCheck( Nwk_Man_t * p );
 extern ABC_DLL void        Nwk_ManDumpBlif( Nwk_Man_t * p, char * pFileName, Vec_Ptr_t * vCiNames, Vec_Ptr_t * vCoNames );
 extern ABC_DLL void        Nwk_ManFree( Nwk_Man_t * p );
 
-#ifdef __cplusplus
-}
-#endif
+
+
+ABC_NAMESPACE_HEADER_END
+
+
 
 #endif
 

@@ -20,6 +20,9 @@
 
 #include "sswInt.h"
 
+ABC_NAMESPACE_IMPL_START
+
+
 ////////////////////////////////////////////////////////////////////////
 ///                        DECLARATIONS                              ///
 ////////////////////////////////////////////////////////////////////////
@@ -349,7 +352,7 @@ int Ssw_SmlNodeCountOnesRealVec( Ssw_Sml_t * p, Vec_Ptr_t * vObjs )
     for ( i = 0; i < p->nWordsTotal; i++ )
     {
         uWord = 0;
-        Vec_PtrForEachEntry( vObjs, pObj, k )
+        Vec_PtrForEachEntry( Aig_Obj_t *, vObjs, pObj, k )
         {
             pSims = Ssw_ObjSim(p, Aig_Regular(pObj)->Id);
             if ( Aig_Regular(pObj)->fPhase ^ Aig_IsComplement(pObj) )
@@ -858,7 +861,7 @@ void Ssw_SmlInitialize( Ssw_Sml_t * p, int fInit )
     if ( fInit )
     {
         assert( Aig_ManRegNum(p->pAig) > 0 );
-        assert( Aig_ManRegNum(p->pAig) < Aig_ManPiNum(p->pAig) );
+        assert( Aig_ManRegNum(p->pAig) <= Aig_ManPiNum(p->pAig) );
         // assign random info for primary inputs
         Saig_ManForEachPi( p->pAig, pObj, i )
             Ssw_SmlAssignRandom( p, pObj );
@@ -1618,4 +1621,6 @@ int Ssw_SmlWriteCounterExample( FILE * pFile, Aig_Man_t * pAig, Abc_Cex_t * p )
 ///                       END OF FILE                                ///
 ////////////////////////////////////////////////////////////////////////
 
+
+ABC_NAMESPACE_IMPL_END
 

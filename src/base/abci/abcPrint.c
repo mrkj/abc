@@ -18,11 +18,15 @@
 
 ***********************************************************************/
 
+#include <math.h>
 #include "abc.h"
 #include "dec.h"
 #include "main.h"
 #include "mio.h"
 #include "aig.h"
+
+ABC_NAMESPACE_IMPL_START
+
 
 ////////////////////////////////////////////////////////////////////////
 ///                        DECLARATIONS                              ///
@@ -126,7 +130,7 @@ float Abc_NtkMfsTotalSwitching( Abc_Ntk_t * pNtk )
     // strash the network
     pNtkStr = Abc_NtkStrash( pNtk, 0, 1, 0 );
     Abc_NtkForEachObj( pNtk, pObjAbc, i )
-        if ( Abc_ObjRegular(pObjAbc->pTemp)->Type == ABC_FUNC_NONE )
+        if ( Abc_ObjRegular((Abc_Obj_t *)pObjAbc->pTemp)->Type == ABC_FUNC_NONE )
             pObjAbc->pTemp = NULL;
     // map network into an AIG
     pAig = Abc_NtkToDar( pNtkStr, 0, (int)(Abc_NtkLatchNum(pNtk) > 0) );
@@ -134,7 +138,7 @@ float Abc_NtkMfsTotalSwitching( Abc_Ntk_t * pNtk )
     pSwitching = (float *)vSwitching->pArray;
     Abc_NtkForEachObj( pNtk, pObjAbc, i )
     {
-        if ( (pObjAbc2 = Abc_ObjRegular(pObjAbc->pTemp)) && (pObjAig = Aig_Regular(pObjAbc2->pTemp)) )
+        if ( (pObjAbc2 = Abc_ObjRegular((Abc_Obj_t *)pObjAbc->pTemp)) && (pObjAig = Aig_Regular((Aig_Obj_t *)pObjAbc2->pTemp)) )
         {
             Result += Abc_ObjFanoutNum(pObjAbc) * pSwitching[pObjAig->Id];
 //            printf( "%d = %.2f\n", i, Abc_ObjFanoutNum(pObjAbc) * pSwitching[pObjAig->Id] );
@@ -166,7 +170,7 @@ void Abc_NtkPrintStats( Abc_Ntk_t * pNtk, int fFactored, int fSaveBest, int fDum
     if ( fDumpResult )
     {
         char Buffer[1000] = {0};
-        char * pNameGen = pNtk->pSpec? Extra_FileNameGeneric( pNtk->pSpec ) : "nameless_";
+        const char * pNameGen = pNtk->pSpec? Extra_FileNameGeneric( pNtk->pSpec ) : "nameless_";
         sprintf( Buffer, "%s_dump.blif", pNameGen );
         Io_Write( pNtk, Buffer, IO_FILE_BLIF );
         if ( pNtk->pSpec ) ABC_FREE( pNameGen );
@@ -611,7 +615,7 @@ void Abc_NtkPrintFanioNew( FILE * pFile, Abc_Ntk_t * pNtk )
             fprintf( pFile, "%15d : ", k );
         else
         {
-            sprintf( Buffer, "%d - %d", (int)pow(10, k/10) * (k%10), (int)pow(10, k/10) * (k%10+1) - 1 ); 
+            sprintf( Buffer, "%d - %d", (int)pow((double)10, k/10) * (k%10), (int)pow((double)10, k/10) * (k%10+1) - 1 ); 
             fprintf( pFile, "%15s : ", Buffer );
         }
         if ( vFanins->pArray[k] == 0 )
@@ -740,7 +744,7 @@ void Abc_NodePrintFactor( FILE * pFile, Abc_Obj_t * pNode, int fUseRealNames )
         return;
     }
     assert( Abc_ObjIsNode(pNode) );
-    pGraph = Dec_Factor( pNode->pData );
+    pGraph = Dec_Factor( (char *)pNode->pData );
     if ( fUseRealNames )
     {
         vNamesIn = Abc_NodeGetFaninNames(pNode);
@@ -924,12 +928,12 @@ void Abc_NodePrintKMap( Abc_Obj_t * pNode, int fUseRealNames )
     if ( fUseRealNames )
     {
         vNamesIn = Abc_NodeGetFaninNames(pNode);
-        Extra_PrintKMap( stdout, pNode->pNtk->pManFunc, pNode->pData, Cudd_Not(pNode->pData), 
+        Extra_PrintKMap( stdout, (DdManager *)pNode->pNtk->pManFunc, (DdNode *)pNode->pData, Cudd_Not(pNode->pData), 
             Abc_ObjFaninNum(pNode), NULL, 0, (char **)vNamesIn->pArray );
         Abc_NodeFreeNames( vNamesIn );
     }
     else
-        Extra_PrintKMap( stdout, pNode->pNtk->pManFunc, pNode->pData, Cudd_Not(pNode->pData), 
+        Extra_PrintKMap( stdout, (DdManager *)pNode->pNtk->pManFunc, (DdNode *)pNode->pData, Cudd_Not(pNode->pData), 
             Abc_ObjFaninNum(pNode), NULL, 0, NULL );
 
 }
@@ -959,8 +963,8 @@ void Abc_NtkPrintGates( Abc_Ntk_t * pNtk, int fUseLibrary )
         int Counter, nGates, i;
 
         // clean value of all gates
-        nGates = Mio_LibraryReadGateNum( pNtk->pManFunc );
-        ppGates = Mio_LibraryReadGatesByName( pNtk->pManFunc );
+        nGates = Mio_LibraryReadGateNum( (Mio_Library_t *)pNtk->pManFunc );
+        ppGates = Mio_LibraryReadGatesByName( (Mio_Library_t *)pNtk->pManFunc );
         for ( i = 0; i < nGates; i++ )
             Mio_GateSetValue( ppGates[i], 0 );
 
@@ -969,7 +973,7 @@ void Abc_NtkPrintGates( Abc_Ntk_t * pNtk, int fUseLibrary )
         Abc_NtkForEachNode( pNtk, pObj, i )
         {
             if ( i == 0 ) continue;
-            Mio_GateSetValue( pObj->pData, 1 + Mio_GateReadValue(pObj->pData) );
+            Mio_GateSetValue( (Mio_Gate_t *)pObj->pData, 1 + Mio_GateReadValue((Mio_Gate_t *)pObj->pData) );
             CounterTotal++;
         }
         // print the gates
@@ -1009,9 +1013,9 @@ void Abc_NtkPrintGates( Abc_Ntk_t * pNtk, int fUseLibrary )
     {
         if ( i == 0 ) continue;
         if ( Abc_NtkHasMapping(pNtk) )
-            pSop = Mio_GateReadSop(pObj->pData);
+            pSop = Mio_GateReadSop((Mio_Gate_t *)pObj->pData);
         else
-            pSop = pObj->pData;
+            pSop = (char *)pObj->pData;
         // collect the stats
         if ( Abc_SopIsConst0(pSop) || Abc_SopIsConst1(pSop) )
             CountConst++;
@@ -1067,7 +1071,7 @@ void Abc_NtkPrintSharing( Abc_Ntk_t * pNtk )
     {
         vNodes1 = Abc_NtkDfsNodes( pNtk, &pObj1, 1 );
         // mark the nodes
-        Vec_PtrForEachEntry( vNodes1, pNode1, m )
+        Vec_PtrForEachEntry( Abc_Obj_t *, vNodes1, pNode1, m )
             pNode1->fMarkA = 1;
         // go through the second COs
         Abc_NtkForEachCo( pNtk, pObj2, k )
@@ -1077,14 +1081,14 @@ void Abc_NtkPrintSharing( Abc_Ntk_t * pNtk )
             vNodes2 = Abc_NtkDfsNodes( pNtk, &pObj2, 1 );
             // count the number of marked
             Counter = 0;
-            Vec_PtrForEachEntry( vNodes2, pNode2, n )
+            Vec_PtrForEachEntry( Abc_Obj_t *, vNodes2, pNode2, n )
                 Counter += pNode2->fMarkA;
             // print
             printf( "(%d,%d)=%d ", i, k, Counter );
             Vec_PtrFree( vNodes2 );
         }
         // unmark the nodes
-        Vec_PtrForEachEntry( vNodes1, pNode1, m )
+        Vec_PtrForEachEntry( Abc_Obj_t *, vNodes1, pNode1, m )
             pNode1->fMarkA = 0;
         Vec_PtrFree( vNodes1 );
     }
@@ -1315,12 +1319,12 @@ float Abc_NtkMfsTotalGlitching( Abc_Ntk_t * pNtk )
         pObj->iTemp = -1;
     Abc_NtkForEachCi( pNtk, pObj, i )
         pObj->iTemp = Gli_ManCreateCi( p, Abc_ObjFanoutNum(pObj) );
-    Vec_PtrForEachEntry( vNodes, pObj, i )
+    Vec_PtrForEachEntry( Abc_Obj_t *, vNodes, pObj, i )
     {
         Vec_IntClear( vFanins );
         Abc_ObjForEachFanin( pObj, pFanin, k )
             Vec_IntPush( vFanins, pFanin->iTemp );
-        puTruth = Hop_ManConvertAigToTruth( pNtk->pManFunc, pObj->pData, Abc_ObjFaninNum(pObj), vTruth, 0 );
+        puTruth = Hop_ManConvertAigToTruth( (Hop_Man_t *)pNtk->pManFunc, (Hop_Obj_t *)pObj->pData, Abc_ObjFaninNum(pObj), vTruth, 0 );
         pObj->iTemp = Gli_ManCreateNode( p, vFanins, Abc_ObjFanoutNum(pObj), puTruth );
     }
     Abc_NtkForEachCo( pNtk, pObj, i )
@@ -1349,4 +1353,6 @@ float Abc_NtkMfsTotalGlitching( Abc_Ntk_t * pNtk )
 ///                       END OF FILE                                ///
 ////////////////////////////////////////////////////////////////////////
 
+
+ABC_NAMESPACE_IMPL_END
 

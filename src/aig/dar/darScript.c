@@ -23,6 +23,9 @@
 #include "gia.h"
 #include "giaAig.h"
 
+ABC_NAMESPACE_IMPL_START
+
+
 ////////////////////////////////////////////////////////////////////////
 ///                        DECLARATIONS                              ///
 ////////////////////////////////////////////////////////////////////////
@@ -373,7 +376,7 @@ Vec_Ptr_t * Dar_ManChoiceSynthesis( Aig_Man_t * pAig, int fBalance, int fUpdateL
     Vec_PtrPush( vAigs, pAig );
 //Aig_ManPrintStats( pAig );
 
-    pAig = Vec_PtrEntry( vAigs, 1 );
+    pAig = (Aig_Man_t *)Vec_PtrEntry( vAigs, 1 );
     Aig_ManForEachObj( pAig, pObj, i )
         pObj->pHaig = pObj->pNext;
 
@@ -406,7 +409,7 @@ clk = clock();
     // (it is also important when constructing choices)
     if ( !fConstruct )
     {
-        pMan = Vec_PtrPop( vAigs );
+        pMan = (Aig_Man_t *)Vec_PtrPop( vAigs );
         Vec_PtrPush( vAigs, Vec_PtrEntry(vAigs,0) );
         Vec_PtrWriteEntry( vAigs, 0, pMan );
     }
@@ -420,7 +423,7 @@ clk = clock();
         pMan = Aig_ManChoiceConstructive( vAigs, fVerbose );
     else
         pMan = Aig_ManChoicePartitioned( vAigs, 300, nConfMax, nLevelMax, fVerbose );
-    Vec_PtrForEachEntry( vAigs, pTemp, i )
+    Vec_PtrForEachEntry( Aig_Man_t *, vAigs, pTemp, i )
         Aig_ManStop( pTemp );
     Vec_PtrFree( vAigs );
 if ( fVerbose )
@@ -648,21 +651,21 @@ Gia_Man_t * Dar_NewChoiceSynthesis( Aig_Man_t * pAig, int fBalance, int fUpdateL
     Aig_ManStop( pAig );
 
     // swap around the first and the last
-    pTemp = Vec_PtrPop( vGias );
+    pTemp = (Gia_Man_t *)Vec_PtrPop( vGias );
     Vec_PtrPush( vGias, Vec_PtrEntry(vGias,0) );
     Vec_PtrWriteEntry( vGias, 0, pTemp );
 
 //    Aig_Man_t * pAig;
 //    int i;
 //    printf( "Choicing will be performed with %d AIGs:\n", Vec_PtrSize(p->vAigs) );
-//    Vec_PtrForEachEntry( p->vAigs, pAig, i )
+//    Vec_PtrForEachEntry( Aig_Man_t *, p->vAigs, pAig, i )
 //        Aig_ManPrintStats( pAig );
 
     // derive the miter
     pGia = Gia_ManChoiceMiter( vGias );
 
     // cleanup
-    Vec_PtrForEachEntry( vGias, pTemp, i )
+    Vec_PtrForEachEntry( Gia_Man_t *, vGias, pTemp, i )
         Gia_ManStop( pTemp );
     Vec_PtrFree( vGias );
     return pGia;
@@ -737,7 +740,7 @@ clk = clock();
     pMan->pSpec = Aig_UtilStrsav( pTemp->pSpec );
 
     // cleanup
-    Vec_PtrForEachEntry( vAigs, pTemp, i )
+    Vec_PtrForEachEntry( Aig_Man_t *, vAigs, pTemp, i )
         Aig_ManStop( pTemp );
     Vec_PtrFree( vAigs );
 
@@ -763,7 +766,7 @@ if ( fVerbose )
 ***********************************************************************/
 Aig_Man_t * Dar_ManChoiceNewAig( Aig_Man_t * pAig, Dch_Pars_t * pPars )
 {
-    extern Aig_Man_t * Dch_DeriveTotalAig( Vec_Ptr_t * vAigs );
+//    extern Aig_Man_t * Dch_DeriveTotalAig( Vec_Ptr_t * vAigs );
     extern Aig_Man_t * Dch_ComputeChoices( Aig_Man_t * pAig, Dch_Pars_t * pPars );
     int fVerbose = pPars->fVerbose;
     Aig_Man_t * pMan, * pTemp;
@@ -779,14 +782,14 @@ pPars->timeSynth = clock() - clk;
     // swap the first and last network
     // this should lead to the primary choice being "better" because of synthesis
     // (it is also important when constructing choices)
-    pMan = Vec_PtrPop( vAigs );
+    pMan = (Aig_Man_t *)Vec_PtrPop( vAigs );
     Vec_PtrPush( vAigs, Vec_PtrEntry(vAigs,0) );
     Vec_PtrWriteEntry( vAigs, 0, pMan );
 
     // derive the total AIG
     pMan = Dch_DeriveTotalAig( vAigs );
     // cleanup
-    Vec_PtrForEachEntry( vAigs, pTemp, i )
+    Vec_PtrForEachEntry( Aig_Man_t *, vAigs, pTemp, i )
         Aig_ManStop( pTemp );
     Vec_PtrFree( vAigs );
 
@@ -834,7 +837,7 @@ pPars->timeSynth = clock() - clk;
 Aig_Man_t * Dar_ManChoiceNew( Aig_Man_t * pAig, Dch_Pars_t * pPars )
 {
     extern Aig_Man_t * Cec_ComputeChoices( Gia_Man_t * pGia, Dch_Pars_t * pPars );
-    extern Aig_Man_t * Dch_DeriveTotalAig( Vec_Ptr_t * vAigs );
+//    extern Aig_Man_t * Dch_DeriveTotalAig( Vec_Ptr_t * vAigs );
     extern Aig_Man_t * Dch_ComputeChoices( Aig_Man_t * pAig, Dch_Pars_t * pPars );
     int fVerbose = pPars->fVerbose;
     Aig_Man_t * pMan, * pTemp;
@@ -891,4 +894,6 @@ pPars->timeSynth = clock() - clk;
 ///                       END OF FILE                                ///
 ////////////////////////////////////////////////////////////////////////
 
+
+ABC_NAMESPACE_IMPL_END
 

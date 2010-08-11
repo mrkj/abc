@@ -21,6 +21,9 @@
 
 #include "ioa.h"
 
+ABC_NAMESPACE_IMPL_START
+
+
 ////////////////////////////////////////////////////////////////////////
 ///                        DECLARATIONS                              ///
 ////////////////////////////////////////////////////////////////////////
@@ -561,4 +564,6 @@ void Ioa_WriteAiger( Aig_Man_t * pMan, char * pFileName, int fWriteSymbols, int 
 ///                       END OF FILE                                ///
 ////////////////////////////////////////////////////////////////////////
 
+
+ABC_NAMESPACE_IMPL_END
 

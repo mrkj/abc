@@ -19,6 +19,10 @@
 ***********************************************************************/
 
 #include "gia.h"
+#include "tim.h"
+
+ABC_NAMESPACE_IMPL_START
+
 
 ////////////////////////////////////////////////////////////////////////
 ///                        DECLARATIONS                              ///
@@ -66,8 +70,7 @@ Gia_Man_t * Gia_ManStart( int nObjsMax )
 ***********************************************************************/
 void Gia_ManStop( Gia_Man_t * p )  
 {
-    extern void Tim_ManStopP( void ** p );
-    Tim_ManStopP( &p->pManTime );
+    Tim_ManStopP( (Tim_Man_t **)&p->pManTime );
     assert( p->pManTime == NULL );
     Vec_PtrFreeFree( p->vNamesIn );
     Vec_PtrFreeFree( p->vNamesOut );
@@ -376,4 +379,6 @@ void Gia_ManReportImprovement( Gia_Man_t * p, Gia_Man_t * pNew )
 ///                       END OF FILE                                ///
 ////////////////////////////////////////////////////////////////////////
 
+
+ABC_NAMESPACE_IMPL_END
 

@@ -20,6 +20,8 @@
 
 #include "darInt.h"
 
+ABC_NAMESPACE_IMPL_START
+
 ////////////////////////////////////////////////////////////////////////
 ///                        DECLARATIONS                              ///
 ////////////////////////////////////////////////////////////////////////
@@ -139,7 +141,13 @@ void Dar_ManPrintStats( Dar_Man_t * p )
 
 ***********************************************************************/
 #if 0
+
+ABC_NAMESPACE_IMPL_END
+
 #include "kit.h"
+
+ABC_NAMESPACE_IMPL_START
+
 void Dar_ManPrintScript()
 {
     unsigned pCanons[222];
@@ -161,4 +169,6 @@ void Dar_ManPrintScript()
 ///                       END OF FILE                                ///
 ////////////////////////////////////////////////////////////////////////
 
+
+ABC_NAMESPACE_IMPL_END
 

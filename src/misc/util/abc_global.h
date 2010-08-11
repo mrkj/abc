@@ -28,6 +28,7 @@
 #ifdef _WIN32
 #define inline __inline // compatible with MS VS 6.0
 #pragma warning(disable : 4152) // warning C4152: nonstandard extension, function/data pointer conversion in expression
+#pragma warning(disable : 4200) // warning C4200: nonstandard extension used : zero-sized array in struct/union
 #pragma warning(disable : 4244) // warning C4244: '+=' : conversion from 'int ' to 'unsigned short ', possible loss of data
 #pragma warning(disable : 4514) // warning C4514: 'Vec_StrPop' : unreferenced inline function has been removed
 #pragma warning(disable : 4710) // warning C4710: function 'Vec_PtrGrow' not inlined
@@ -59,16 +60,50 @@
 #endif
 #endif
 
+/*
+#ifdef __cplusplus
+#error "C++ code"
+#else
+#error "C code"
+#endif
+*/
+
 #include <time.h>
 #include <stdarg.h>
+
+////////////////////////////////////////////////////////////////////////
+///                         NAMESPACES                               ///
+////////////////////////////////////////////////////////////////////////
+
+//#define ABC_NAMESPACE xxx
+
+#ifdef __cplusplus
+#  ifdef ABC_NAMESPACE
+#    define ABC_NAMESPACE_HEADER_START namespace ABC_NAMESPACE {
+#    define ABC_NAMESPACE_HEADER_END }
+#    define ABC_NAMESPACE_IMPL_START namespace ABC_NAMESPACE {
+#    define ABC_NAMESPACE_IMPL_END }
+#    define ABC_NAMESPACE_PREFIX ABC_NAMESPACE::
+#  else
+#    define ABC_NAMESPACE_HEADER_START extern "C" {
+#    define ABC_NAMESPACE_HEADER_END }
+#    define ABC_NAMESPACE_IMPL_START
+#    define ABC_NAMESPACE_IMPL_END
+#    define ABC_NAMESPACE_PREFIX
+#  endif // #ifdef ABC_NAMESPACE
+#else
+#  define ABC_NAMESPACE_HEADER_START
+#  define ABC_NAMESPACE_HEADER_END
+#  define ABC_NAMESPACE_IMPL_START
+#  define ABC_NAMESPACE_IMPL_END
+#  define ABC_NAMESPACE_PREFIX
+#endif // #ifdef __cplusplus
 
 ////////////////////////////////////////////////////////////////////////
 ///                         PARAMETERS                               ///
 ////////////////////////////////////////////////////////////////////////
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+ABC_NAMESPACE_HEADER_START
 
 ////////////////////////////////////////////////////////////////////////
 ///                         BASIC TYPES                              ///
@@ -185,7 +220,9 @@ typedef ABC_UINT64_T word;
         ((obj) ? ((type *) realloc((char *)(obj), sizeof(type) * (num))) : \
 	     ((type *) malloc(sizeof(type) * (num))))
 #else
+ABC_NAMESPACE_HEADER_END
 #include "utilMem.h"
+ABC_NAMESPACE_HEADER_START
 #define ABC_ALLOC(type, num)	 ((type *) Util_MemRecAlloc(malloc(sizeof(type) * (num))))
 #define ABC_CALLOC(type, num)	 ((type *) Util_MemRecAlloc(calloc((num), sizeof(type))))
 #define ABC_FALLOC(type, num)	 ((type *) memset(Util_MemRecAlloc(malloc(sizeof(type) * (num))), 0xff, sizeof(type) * (num)))
@@ -205,7 +242,7 @@ enum Abc_VerbLevel
     ABC_VERBOSE  =  2 
 }; 
 
-static inline void Abc_Print( int level, char * format, ... ) 
+static inline void Abc_Print( int level, const char * format, ... ) 
 {
     va_list args;
 //    if ( level > -2 )
@@ -219,7 +256,7 @@ static inline void Abc_Print( int level, char * format, ... )
     va_end( args );
 } 
 
-static inline void Abc_PrintTime( int level, char * pStr, int time ) 
+static inline void Abc_PrintTime( int level, const char * pStr, int time ) 
 {
     if ( level == ABC_ERROR ) 
         printf( "Error: " );
@@ -228,7 +265,7 @@ static inline void Abc_PrintTime( int level, char * pStr, int time )
     ABC_PRT( pStr, time );
 }
 
-static inline void Abc_PrintTimeP( int level, char * pStr, int time, int Time ) 
+static inline void Abc_PrintTimeP( int level, const char * pStr, int time, int Time ) 
 {
     if ( level == ABC_ERROR ) 
         printf( "Error: " );
@@ -237,7 +274,7 @@ static inline void Abc_PrintTimeP( int level, char * pStr, int time, int Time )
     ABC_PRTP( pStr, time, Time );
 }
 
-static inline void Abc_PrintMemoryP( int level, char * pStr, int time, int Time ) 
+static inline void Abc_PrintMemoryP( int level, const char * pStr, int time, int Time ) 
 {
     if ( level == ABC_ERROR ) 
         printf( "Error: " );
@@ -259,9 +296,7 @@ struct Abc_Cex_t_
     unsigned         pData[0];          // the cex bit data (the number of bits: nRegs + (iFrame+1) * nPis)
 };
 
-#ifdef __cplusplus
-}
-#endif
+ABC_NAMESPACE_HEADER_END
 
 #endif
 

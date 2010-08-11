@@ -18,10 +18,12 @@
 
 ***********************************************************************/
 
+#include "abc.h"
 #include "mainInt.h"
 #include "cmd.h"
 #include "cmdInt.h"
-#include "abc.h"
+
+ABC_NAMESPACE_IMPL_START
 
 ////////////////////////////////////////////////////////////////////////
 ///                        DECLARATIONS                              ///
@@ -90,8 +92,10 @@ int CmdCommandLoad( Abc_Frame_t * pAbc, int argc, char ** argv )
   SeeAlso     []
 
 ***********************************************************************/
-#ifdef WIN32
+#if defined(WIN32) && !defined(__cplusplus)
+
 #include <direct.h>
+
 
 // these structures are defined in <io.h> but are for some reason invisible
 typedef unsigned long _fsize_t; // Could be 64 bits for Win32
@@ -181,7 +185,7 @@ void Load_Init( Abc_Frame_t * pAbc )
     vFileNames = CmdCollectFileNames();
     if ( vFileNames == NULL )
         return;
-    Vec_PtrForEachEntry( vFileNames, pName, i )
+    Vec_PtrForEachEntry( char *, vFileNames, pName, i )
     {
         if ( strncmp( pName, "abccmd_", 7 ) )
             continue;
@@ -217,4 +221,6 @@ void Load_End( Abc_Frame_t * pAbc )
 ///                       END OF FILE                                ///
 ////////////////////////////////////////////////////////////////////////
 
+
+ABC_NAMESPACE_IMPL_END
 

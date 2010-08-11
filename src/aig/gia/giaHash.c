@@ -20,6 +20,9 @@
 
 #include "gia.h"
 
+ABC_NAMESPACE_IMPL_START
+
+
 ////////////////////////////////////////////////////////////////////////
 ///                        DECLARATIONS                              ///
 ////////////////////////////////////////////////////////////////////////
@@ -66,7 +69,7 @@ static inline int * Gia_ManHashFind( Gia_Man_t * p, int iLit0, int iLit1 )
     Gia_Obj_t * pThis;
     int * pPlace = p->pHTable + Gia_ManHashOne( iLit0, iLit1, p->nHTable );
     for ( pThis = (*pPlace)? Gia_ManObj(p, Gia_Lit2Var(*pPlace)) : NULL; pThis; 
-          pPlace = &pThis->Value, pThis = (*pPlace)? Gia_ManObj(p, Gia_Lit2Var(*pPlace)) : NULL )
+          pPlace = (int *)&pThis->Value, pThis = (*pPlace)? Gia_ManObj(p, Gia_Lit2Var(*pPlace)) : NULL )
               if ( Gia_ObjFaninLit0p(p, pThis) == iLit0 && Gia_ObjFaninLit1p(p, pThis) == iLit1 )
                   break;
     return pPlace;
@@ -613,4 +616,6 @@ Gia_Man_t * Gia_ManRehash( Gia_Man_t * p, int fAddStrash )
 ///                       END OF FILE                                ///
 ////////////////////////////////////////////////////////////////////////
 
+
+ABC_NAMESPACE_IMPL_END
 

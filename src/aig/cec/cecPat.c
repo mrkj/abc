@@ -20,6 +20,9 @@
 
 #include "cecInt.h"
 
+ABC_NAMESPACE_IMPL_START
+
+
 ////////////////////////////////////////////////////////////////////////
 ///                        DECLARATIONS                              ///
 ////////////////////////////////////////////////////////////////////////
@@ -412,16 +415,16 @@ int Cec_ManPatCollectTry( Vec_Ptr_t * vInfo, Vec_Ptr_t * vPres, int iBit, int * 
     int i;
     for ( i = 0; i < nLits; i++ )
     {
-        pInfo = Vec_PtrEntry(vInfo, Gia_Lit2Var(pLits[i]));
-        pPres = Vec_PtrEntry(vPres, Gia_Lit2Var(pLits[i]));
+        pInfo = (unsigned *)Vec_PtrEntry(vInfo, Gia_Lit2Var(pLits[i]));
+        pPres = (unsigned *)Vec_PtrEntry(vPres, Gia_Lit2Var(pLits[i]));
         if ( Gia_InfoHasBit( pPres, iBit ) && 
              Gia_InfoHasBit( pInfo, iBit ) == Gia_LitIsCompl(pLits[i]) )
              return 0;
     }
     for ( i = 0; i < nLits; i++ )
     {
-        pInfo = Vec_PtrEntry(vInfo, Gia_Lit2Var(pLits[i]));
-        pPres = Vec_PtrEntry(vPres, Gia_Lit2Var(pLits[i]));
+        pInfo = (unsigned *)Vec_PtrEntry(vInfo, Gia_Lit2Var(pLits[i]));
+        pPres = (unsigned *)Vec_PtrEntry(vPres, Gia_Lit2Var(pLits[i]));
         Gia_InfoSetBit( pPres, iBit );
         if ( Gia_InfoHasBit( pInfo, iBit ) == Gia_LitIsCompl(pLits[i]) )
             Gia_InfoXorBit( pInfo, iBit );
@@ -561,4 +564,6 @@ Vec_Ptr_t * Cec_ManPatPackPatterns( Vec_Int_t * vCexStore, int nInputs, int nReg
 ///                       END OF FILE                                ///
 ////////////////////////////////////////////////////////////////////////
 
+
+ABC_NAMESPACE_IMPL_END
 

@@ -22,8 +22,11 @@
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
-#include "abc_global.h"
+
 #include "mem.h"
+
+ABC_NAMESPACE_IMPL_START
+
 
 ////////////////////////////////////////////////////////////////////////
 ///                        DECLARATIONS                              ///
@@ -597,3 +600,5 @@ int Mem_StepReadMemUsage( Mem_Step_t * p )
 ////////////////////////////////////////////////////////////////////////
 ///                       END OF FILE                                ///
 ////////////////////////////////////////////////////////////////////////
+ABC_NAMESPACE_IMPL_END
+

@@ -21,11 +21,15 @@
 #ifndef __VEC_ATT_H__
 #define __VEC_ATT_H__
 
+
 ////////////////////////////////////////////////////////////////////////
 ///                          INCLUDES                                ///
 ////////////////////////////////////////////////////////////////////////
 
 #include <stdio.h>
+
+ABC_NAMESPACE_HEADER_START
+
 
 ////////////////////////////////////////////////////////////////////////
 ///                         PARAMETERS                               ///
@@ -281,6 +285,10 @@ static inline void ** Vec_AttArray( Vec_Att_t * p )
 {
     return p->pArrayPtr;
 }
+
+
+
+ABC_NAMESPACE_HEADER_END
 
 #endif
 

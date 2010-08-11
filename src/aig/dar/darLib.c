@@ -20,6 +20,10 @@
 
 #include "darInt.h"
 #include "gia.h"
+#include "dar.h"
+
+ABC_NAMESPACE_IMPL_START
+
 
 ////////////////////////////////////////////////////////////////////////
 ///                        DECLARATIONS                              ///
@@ -1025,7 +1029,7 @@ Aig_Obj_t * Dar_LibBuildBest( Dar_Man_t * p )
 {
     int i, Counter = 4;
     for ( i = 0; i < Vec_PtrSize(p->vLeavesBest); i++ )
-        s_DarLib->pDatas[i].pFunc = Vec_PtrEntry( p->vLeavesBest, i );
+        s_DarLib->pDatas[i].pFunc = (Aig_Obj_t *)Vec_PtrEntry( p->vLeavesBest, i );
     Dar_LibBuildClear_rec( Dar_LibObj(s_DarLib, p->OutBest), &Counter );
     return Dar_LibBuildBest_rec( p, Dar_LibObj(s_DarLib, p->OutBest) );
 }
@@ -1329,4 +1333,6 @@ int Dar_LibEvalBuild( Gia_Man_t * p, Vec_Int_t * vCutLits, unsigned uTruth, int 
 ///                       END OF FILE                                ///
 ////////////////////////////////////////////////////////////////////////
 
+
+ABC_NAMESPACE_IMPL_END
 

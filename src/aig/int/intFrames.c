@@ -20,6 +20,9 @@
 
 #include "intInt.h"
 
+ABC_NAMESPACE_IMPL_START
+
+
 ////////////////////////////////////////////////////////////////////////
 ///                        DECLARATIONS                              ///
 ////////////////////////////////////////////////////////////////////////
@@ -107,4 +110,6 @@ Aig_Man_t * Inter_ManFramesInter( Aig_Man_t * pAig, int nFrames, int fAddRegOuts
 ///                       END OF FILE                                ///
 ////////////////////////////////////////////////////////////////////////
 
+
+ABC_NAMESPACE_IMPL_END
 

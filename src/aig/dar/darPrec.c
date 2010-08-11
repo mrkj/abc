@@ -20,6 +20,9 @@
 
 #include "darInt.h"
 
+ABC_NAMESPACE_IMPL_START
+
+
 ////////////////////////////////////////////////////////////////////////
 ///                        DECLARATIONS                              ///
 ////////////////////////////////////////////////////////////////////////
@@ -386,4 +389,6 @@ void Dar_Truth4VarNPN( unsigned short ** puCanons, char ** puPhases, char ** puP
 ///                       END OF FILE                                ///
 ////////////////////////////////////////////////////////////////////////
 
+
+ABC_NAMESPACE_IMPL_END
 

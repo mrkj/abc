@@ -21,6 +21,7 @@
 #ifndef __AMAP_H__
 #define __AMAP_H__
 
+
 ////////////////////////////////////////////////////////////////////////
 ///                          INCLUDES                                ///
 ////////////////////////////////////////////////////////////////////////
@@ -29,14 +30,16 @@
 ///                         PARAMETERS                               ///
 ////////////////////////////////////////////////////////////////////////
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+
+
+ABC_NAMESPACE_HEADER_START
+
 
 ////////////////////////////////////////////////////////////////////////
 ///                         BASIC TYPES                              ///
 ////////////////////////////////////////////////////////////////////////
 
+typedef struct Amap_Lib_t_ Amap_Lib_t;
 
 typedef struct Amap_Par_t_ Amap_Par_t;
 struct Amap_Par_t_
@@ -68,15 +71,19 @@ struct Amap_Out_t_
 ////////////////////////////////////////////////////////////////////////
 
 /*=== amapCore.c ==========================================================*/
-extern void        Amap_ManSetDefaultParams( Amap_Par_t * pPars );
+extern void          Amap_ManSetDefaultParams( Amap_Par_t * pPars );
 //extern Vec_Ptr_t * Amap_ManTest( Aig_Man_t * pAig, Amap_Par_t * pPars );
+/*=== amapLib.c ==========================================================*/
+extern void          Amap_LibFree( Amap_Lib_t * p );
+extern void          Amap_LibPrintSelectedGates( Amap_Lib_t * p, int fAllGates );
+extern Amap_Lib_t *  Amap_LibReadAndPrepare( char * pFileName, int fVerbose, int fVeryVerbose );
 /*=== amapLiberty.c ==========================================================*/
-extern int         Amap_LibertyParse( char * pFileName, char * pFileGenlib, int fVerbose );
+extern int           Amap_LibertyParse( char * pFileName, char * pFileGenlib, int fVerbose );
 
 
-#ifdef __cplusplus
-}
-#endif
+ABC_NAMESPACE_HEADER_END
+
+
 
 #endif
 

@@ -20,6 +20,9 @@
 
 #include "fra.h"
 
+ABC_NAMESPACE_IMPL_START
+
+
 ////////////////////////////////////////////////////////////////////////
 ///                        DECLARATIONS                              ///
 ////////////////////////////////////////////////////////////////////////
@@ -41,7 +44,7 @@
 ***********************************************************************/
 int Fra_SmlNodeHash( Aig_Obj_t * pObj, int nTableSize )
 {
-    Fra_Man_t * p = pObj->pData;
+    Fra_Man_t * p = (Fra_Man_t *)pObj->pData;
     static int s_FPrimes[128] = { 
         1009, 1049, 1093, 1151, 1201, 1249, 1297, 1361, 1427, 1459, 
         1499, 1559, 1607, 1657, 1709, 1759, 1823, 1877, 1933, 1997, 
@@ -81,7 +84,7 @@ int Fra_SmlNodeHash( Aig_Obj_t * pObj, int nTableSize )
 ***********************************************************************/
 int Fra_SmlNodeIsConst( Aig_Obj_t * pObj )
 {
-    Fra_Man_t * p = pObj->pData;
+    Fra_Man_t * p = (Fra_Man_t *)pObj->pData;
     unsigned * pSims;
     int i;
     pSims = Fra_ObjSim(p->pSml, pObj->Id);
@@ -104,7 +107,7 @@ int Fra_SmlNodeIsConst( Aig_Obj_t * pObj )
 ***********************************************************************/
 int Fra_SmlNodesAreEqual( Aig_Obj_t * pObj0, Aig_Obj_t * pObj1 )
 {
-    Fra_Man_t * p = pObj0->pData;
+    Fra_Man_t * p = (Fra_Man_t *)pObj0->pData;
     unsigned * pSims0, * pSims1;
     int i;
     pSims0 = Fra_ObjSim(p->pSml, pObj0->Id);
@@ -1222,4 +1225,6 @@ int Fra_SmlWriteCounterExample( FILE * pFile, Aig_Man_t * pAig, Abc_Cex_t * p )
 ///                       END OF FILE                                ///
 ////////////////////////////////////////////////////////////////////////
 
+
+ABC_NAMESPACE_IMPL_END
 

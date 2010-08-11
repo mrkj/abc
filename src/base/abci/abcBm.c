@@ -31,7 +31,10 @@
 #include "sim.h"
 #include "satSolver.h"
 
-bool match1by1(Abc_Ntk_t * pNtk1, Vec_Ptr_t ** nodesInLevel1, Vec_Int_t ** iMatch1, Vec_Int_t ** iDep1, Vec_Int_t * matchedInputs1, int * iGroup1, Vec_Int_t ** oMatch1, int * oGroup1,
+ABC_NAMESPACE_IMPL_START
+
+
+int match1by1(Abc_Ntk_t * pNtk1, Vec_Ptr_t ** nodesInLevel1, Vec_Int_t ** iMatch1, Vec_Int_t ** iDep1, Vec_Int_t * matchedInputs1, int * iGroup1, Vec_Int_t ** oMatch1, int * oGroup1,
 			   Abc_Ntk_t * pNtk2, Vec_Ptr_t ** nodesInLevel2, Vec_Int_t ** iMatch2, Vec_Int_t ** iDep2, Vec_Int_t * matchedInputs2, int * iGroup2, Vec_Int_t ** oMatch2, int * oGroup2,
 			   Vec_Int_t * matchedOutputs1, Vec_Int_t * matchedOutputs2, Vec_Int_t * oMatchedGroups, Vec_Int_t * iNonSingleton, int ii, int idx);
 
@@ -44,7 +47,7 @@ void getDependencies(Abc_Ntk_t *pNtk, Vec_Int_t** iDep, Vec_Int_t** oDep)
 	
 	vSuppFun = Sim_ComputeFunSupp(pNtk, 0);
 	for(i = 0; i < Abc_NtkPoNum(pNtk); i++) {
-		char * seg = vSuppFun->pArray[i];
+		char * seg = (char *)vSuppFun->pArray[i];
 		
 		for(j = 0; j < Abc_NtkPiNum(pNtk); j+=8) {
 			if(((*seg) & 0x01) == 0x01)
@@ -94,7 +97,7 @@ void getDependencies(Abc_Ntk_t *pNtk, Vec_Int_t** iDep, Vec_Int_t** oDep)
 	printf("\n");	*/	
 }
 
-void initMatchList(Abc_Ntk_t *pNtk, Vec_Int_t** iDep, Vec_Int_t** oDep, Vec_Int_t** iMatch, int* iLastItem, Vec_Int_t** oMatch, int* oLastItem, int* iGroup, int* oGroup, bool p_equivalence)
+void initMatchList(Abc_Ntk_t *pNtk, Vec_Int_t** iDep, Vec_Int_t** oDep, Vec_Int_t** iMatch, int* iLastItem, Vec_Int_t** oMatch, int* oLastItem, int* iGroup, int* oGroup, int p_equivalence)
 {
 	int i, j, curr;
 	Vec_Int_t** temp;
@@ -456,21 +459,21 @@ int * Abc_NtkSimulateOneNode( Abc_Ntk_t * pNtk, int * pModel, int input, Vec_Ptr
     // increment the trav ID
     Abc_NtkIncrementTravId( pNtk );
     // set the CI values     
-	Abc_AigConst1(pNtk)->pCopy = (void *)1;
+	Abc_AigConst1(pNtk)->pCopy = (Abc_Obj_t *)1;
 	pNode = Abc_NtkCi(pNtk, input);
-	pNode->pCopy = (void *)pModel[input];
+	pNode->pCopy = (Abc_Obj_t *)pModel[input];
 	
     // simulate in the topological order	
     for(i = Vec_PtrSize(topOrder[input])-1; i >= 0; i--)
     {
-		pNode = Vec_PtrEntry(topOrder[input], i);		
+		pNode = (Abc_Obj_t *)Vec_PtrEntry(topOrder[input], i);		
 		
-        Value0 = ((int)Abc_ObjFanin0(pNode)->pCopy) ^ Abc_ObjFaninC0(pNode);
-        Value1 = ((int)Abc_ObjFanin1(pNode)->pCopy) ^ Abc_ObjFaninC1(pNode);
+        Value0 = ((int)(ABC_PTRUINT_T)Abc_ObjFanin0(pNode)->pCopy) ^ Abc_ObjFaninC0(pNode);
+        Value1 = ((int)(ABC_PTRUINT_T)Abc_ObjFanin1(pNode)->pCopy) ^ Abc_ObjFaninC1(pNode);
         
-		if( pNode->pCopy != (void*)(Value0 & Value1))
+		if( pNode->pCopy != (Abc_Obj_t *)(Value0 & Value1))
 		{
-			pNode->pCopy = (void *)(Value0 & Value1);
+			pNode->pCopy = (Abc_Obj_t *)(Value0 & Value1);
 			Vec_PtrPush(vNodes, pNode);
 		}
 	
@@ -478,22 +481,22 @@ int * Abc_NtkSimulateOneNode( Abc_Ntk_t * pNtk, int * pModel, int input, Vec_Ptr
     // fill the output values
     pValues = ABC_ALLOC( int, Abc_NtkCoNum(pNtk) );
     Abc_NtkForEachCo( pNtk, pNode, i )
-        pValues[i] = ((int)Abc_ObjFanin0(pNode)->pCopy) ^ Abc_ObjFaninC0(pNode);
+        pValues[i] = ((int)(ABC_PTRUINT_T)Abc_ObjFanin0(pNode)->pCopy) ^ Abc_ObjFaninC0(pNode);
     
 	pNode = Abc_NtkCi(pNtk, input);
-	if(pNode->pCopy == (void*)1)
-		pNode->pCopy = (void*)0;
+	if(pNode->pCopy == (Abc_Obj_t *)1)
+		pNode->pCopy = (Abc_Obj_t *)0;
 	else
-		pNode->pCopy = (void*)1;
+		pNode->pCopy = (Abc_Obj_t *)1;
 
 	for(i = 0; i < Vec_PtrSize(vNodes); i++)
 	{
-		pNode = Vec_PtrEntry(vNodes, i);
+		pNode = (Abc_Obj_t *)Vec_PtrEntry(vNodes, i);
 
-		if(pNode->pCopy == (void*)1)
-			pNode->pCopy = (void*)0;
+		if(pNode->pCopy == (Abc_Obj_t *)1)
+			pNode->pCopy = (Abc_Obj_t *)0;
 		else
-			pNode->pCopy = (void*)1;
+			pNode->pCopy = (Abc_Obj_t *)1;
 	}
 
 	Vec_PtrFree( vNodes );
@@ -501,7 +504,7 @@ int * Abc_NtkSimulateOneNode( Abc_Ntk_t * pNtk, int * pModel, int input, Vec_Ptr
     return pValues;
 }
 
-bool refineIOBySimulation(Abc_Ntk_t *pNtk, Vec_Int_t** iMatch, int* iLastItem, int * iGroup, Vec_Int_t** iDep, Vec_Int_t** oMatch, int* oLastItem, int * oGroup, Vec_Int_t** oDep, char * vPiValues, int * observability, Vec_Ptr_t ** topOrder)
+int refineIOBySimulation(Abc_Ntk_t *pNtk, Vec_Int_t** iMatch, int* iLastItem, int * iGroup, Vec_Int_t** iDep, Vec_Int_t** oMatch, int* oLastItem, int * oGroup, Vec_Int_t** oDep, char * vPiValues, int * observability, Vec_Ptr_t ** topOrder)
 {
 	Abc_Obj_t * pObj;
 	int * pModel;//, ** pModel2;
@@ -511,14 +514,14 @@ bool refineIOBySimulation(Abc_Ntk_t *pNtk, Vec_Int_t** iMatch, int* iLastItem, i
 	Vec_Int_t * iComputedNum, * iComputedNumSorted;	
 	Vec_Int_t * oComputedNum;				// encoding the number of flips		
 	int factor;	
-	bool isRefined = FALSE;	
+	int isRefined = FALSE;	
 
 	pModel = ABC_ALLOC( int, Abc_NtkCiNum(pNtk) );	
 
 	Abc_NtkForEachPi( pNtk, pObj, i )
 		pModel[i] = vPiValues[i] - '0';
 	Abc_NtkForEachLatch( pNtk, pObj, i )
-		pModel[Abc_NtkPiNum(pNtk)+i] = ((int)pObj->pData) - 1;
+		pModel[Abc_NtkPiNum(pNtk)+i] = pObj->iData - 1;
 
 	output = Abc_NtkVerifySimulatePattern( pNtk, pModel );	
 
@@ -532,7 +535,7 @@ bool refineIOBySimulation(Abc_Ntk_t *pNtk, Vec_Int_t** iMatch, int* iLastItem, i
 	lastItem = *oLastItem;
 	for(i = 0; i < lastItem && (*oLastItem) != Abc_NtkPoNum(pNtk); i++)
 	{
-		bool flag = FALSE;
+		int flag = FALSE;
 
 		if(Vec_IntSize(oMatch[i]) == 1)
 			continue;
@@ -727,9 +730,9 @@ Abc_Ntk_t * Abc_NtkMiterBm( Abc_Ntk_t * pNtk1, Abc_Ntk_t * pNtk2, Vec_Ptr_t * iC
 			for(i = 0; i < Vec_PtrSize( iCurrMatch ); i += 2)
 			{
 				pObjNew = Abc_NtkCreatePi( pNtkMiter );
-				pObj = Vec_PtrEntry(iCurrMatch, i);
+				pObj = (Abc_Obj_t *)Vec_PtrEntry(iCurrMatch, i);
 				pObj->pCopy = pObjNew;
-				pObj = Vec_PtrEntry(iCurrMatch, i+1);
+				pObj = (Abc_Obj_t *)Vec_PtrEntry(iCurrMatch, i+1);
 				pObj->pCopy = pObjNew;
 				// add name
 				Abc_ObjAssignName( pObjNew, Abc_ObjName(pObj), NULL );
@@ -748,7 +751,7 @@ Abc_Ntk_t * Abc_NtkMiterBm( Abc_Ntk_t * pNtk1, Abc_Ntk_t * pNtk2, Vec_Ptr_t * iC
 		int i;
 		assert( Abc_NtkIsDfsOrdered(pNtk1) );
 		Abc_AigForEachAnd( pNtk1, pNode, i )
-			pNode->pCopy = Abc_AigAnd( pNtkMiter->pManFunc, Abc_ObjChild0Copy(pNode), Abc_ObjChild1Copy(pNode) );
+			pNode->pCopy = Abc_AigAnd( (Abc_Aig_t *)pNtkMiter->pManFunc, Abc_ObjChild0Copy(pNode), Abc_ObjChild1Copy(pNode) );
 	}
 
 	// Abc_NtkMiterAddOne( pNtk2, pNtkMiter );
@@ -757,7 +760,7 @@ Abc_Ntk_t * Abc_NtkMiterBm( Abc_Ntk_t * pNtk1, Abc_Ntk_t * pNtk2, Vec_Ptr_t * iC
 		int i;
 		assert( Abc_NtkIsDfsOrdered(pNtk2) );
 		Abc_AigForEachAnd( pNtk2, pNode, i )
-			pNode->pCopy = Abc_AigAnd( pNtkMiter->pManFunc, Abc_ObjChild0Copy(pNode), Abc_ObjChild1Copy(pNode) );
+			pNode->pCopy = Abc_AigAnd( (Abc_Aig_t *)pNtkMiter->pManFunc, Abc_ObjChild0Copy(pNode), Abc_ObjChild1Copy(pNode) );
 	}
 	
 	// Abc_NtkMiterFinalize( pNtk1, pNtk2, pNtkMiter, fComb, nPartSize );	
@@ -773,8 +776,8 @@ Abc_Ntk_t * Abc_NtkMiterBm( Abc_Ntk_t * pNtk1, Abc_Ntk_t * pNtk2, Vec_Ptr_t * iC
 		{
 			for(i = 0; i < Vec_PtrSize( oCurrMatch ); i += 2)
 			{
-				Vec_PtrPush( vPairs, Abc_ObjChild0Copy(Vec_PtrEntry(oCurrMatch, i)) );
-				Vec_PtrPush( vPairs, Abc_ObjChild0Copy(Vec_PtrEntry(oCurrMatch, i+1)) );
+				Vec_PtrPush( vPairs, Abc_ObjChild0Copy((Abc_Obj_t *)Vec_PtrEntry(oCurrMatch, i)) );
+				Vec_PtrPush( vPairs, Abc_ObjChild0Copy((Abc_Obj_t *)Vec_PtrEntry(oCurrMatch, i+1)) );
 			}
 		}
 		else
@@ -789,7 +792,7 @@ Abc_Ntk_t * Abc_NtkMiterBm( Abc_Ntk_t * pNtk1, Abc_Ntk_t * pNtk2, Vec_Ptr_t * iC
 			}
 		}
 		
-	 pMiter = Abc_AigMiter( pNtkMiter->pManFunc, vPairs, 0 );
+	 pMiter = Abc_AigMiter( (Abc_Aig_t *)pNtkMiter->pManFunc, vPairs, 0 );
 	 Abc_ObjAddFanin( Abc_NtkPo(pNtkMiter,0), pMiter );
 	 Vec_PtrFree(vPairs);
 	}
@@ -842,17 +845,17 @@ void Abc_NtkVerifyReportError( Abc_Ntk_t * pNtk1, Abc_Ntk_t * pNtk2, int * pMode
         vNodes = Abc_NtkNodeSupport( pNtk1, &pNode, 1 );
         // set the PI numbers
         Abc_NtkForEachCi( pNtk1, pNode, i )
-            pNode->pCopy = (void*)i;
+            pNode->pCopy = (Abc_Obj_t *)i;
         // print the model
-        pNode = Vec_PtrEntry( vNodes, 0 );
+        pNode = (Abc_Obj_t *)Vec_PtrEntry( vNodes, 0 );
         if ( Abc_ObjIsCi(pNode) )
         {
-            Vec_PtrForEachEntry( vNodes, pNode, i )
+            Vec_PtrForEachEntry( Abc_Obj_t *, vNodes, pNode, i )
             {
                 assert( Abc_ObjIsCi(pNode) );
                 //printf( " %s=%d", Abc_ObjName(pNode), pModel[(int)pNode->pCopy] );
 				Vec_IntPush(mismatch, Abc_ObjId(pNode)-1);
-				Vec_IntPush(mismatch, pModel[(int)pNode->pCopy]);			
+				Vec_IntPush(mismatch, pModel[(int)(size_t)pNode->pCopy]);
             }
         }
         //printf( "\n" );
@@ -886,7 +889,7 @@ int Abc_NtkMiterSatBm( Abc_Ntk_t * pNtk, ABC_INT64_T nConfLimit, ABC_INT64_T nIn
 
 			
 		
-	pSat = Abc_NtkMiterSatCreate( pNtk, 0 );
+	pSat = (sat_solver *)Abc_NtkMiterSatCreate( pNtk, 0 );
 			
     if ( pSat == NULL )
         return 1;
@@ -985,10 +988,10 @@ int Abc_NtkBmSat( Abc_Ntk_t * pNtk1, Abc_Ntk_t * pNtk2, Vec_Ptr_t * iMatchPairs,
 
 		for(i = 0; i < Vec_PtrSize( oMatchPairs ); i += 2)
 		{
-			Vec_PtrPush( vPairs, Abc_ObjChild0Copy(Vec_PtrEntry(oMatchPairs, i)) );
-			Vec_PtrPush( vPairs, Abc_ObjChild0Copy(Vec_PtrEntry(oMatchPairs, i+1)) );
+			Vec_PtrPush( vPairs, Abc_ObjChild0Copy((Abc_Obj_t *)Vec_PtrEntry(oMatchPairs, i)) );
+			Vec_PtrPush( vPairs, Abc_ObjChild0Copy((Abc_Obj_t *)Vec_PtrEntry(oMatchPairs, i+1)) );
 		}
-		pNtkMiter = Abc_AigMiter( pMiter->pManFunc, vPairs, 0 );
+		pNtkMiter = Abc_AigMiter( (Abc_Aig_t *)pMiter->pManFunc, vPairs, 0 );
 		Abc_ObjAddFanin( Abc_NtkPo(pMiter,0), pNtkMiter );	 
 		Vec_PtrFree( vPairs);
 	}
@@ -1053,12 +1056,12 @@ int Abc_NtkBmSat( Abc_Ntk_t * pNtk1, Abc_Ntk_t * pNtk2, Vec_Ptr_t * iMatchPairs,
 	return RetValue;
 }
 
-bool checkEquivalence( Abc_Ntk_t * pNtk1, Vec_Int_t* matchedInputs1, Vec_Int_t * matchedOutputs1,
+int checkEquivalence( Abc_Ntk_t * pNtk1, Vec_Int_t* matchedInputs1, Vec_Int_t * matchedOutputs1,
 					   Abc_Ntk_t * pNtk2, Vec_Int_t* matchedInputs2, Vec_Int_t * matchedOutputs2)
 {	
 	Vec_Ptr_t * iMatchPairs, * oMatchPairs;
 	int i;
-	bool result;
+	int result;
 
 	iMatchPairs = Vec_PtrAlloc( Abc_NtkPiNum( pNtk1 ) * 2);
 	oMatchPairs = Vec_PtrAlloc( Abc_NtkPoNum( pNtk1 ) * 2);
@@ -1089,7 +1092,7 @@ bool checkEquivalence( Abc_Ntk_t * pNtk1, Vec_Int_t* matchedInputs1, Vec_Int_t *
 	return result;
 }
 
-Abc_Ntk_t * computeCofactor(Abc_Ntk_t * pNtk, Vec_Ptr_t ** nodesInLevel, bool * bitVector, Vec_Int_t * currInputs)
+Abc_Ntk_t * computeCofactor(Abc_Ntk_t * pNtk, Vec_Ptr_t ** nodesInLevel, int * bitVector, Vec_Int_t * currInputs)
 {	
 	Abc_Ntk_t * subNtk;	
 	Abc_Obj_t * pObj, * pObjNew;
@@ -1112,7 +1115,7 @@ Abc_Ntk_t * computeCofactor(Abc_Ntk_t * pNtk, Vec_Ptr_t ** nodesInLevel, bool * 
 			if(bitVector[i])
 			{
 				pObj = Abc_NtkPi(pNtk, i);
-				pObj->pCopy = (void*)(1);
+				pObj->pCopy = (Abc_Obj_t *)(1);
 			}
 	}
 
@@ -1128,7 +1131,7 @@ Abc_Ntk_t * computeCofactor(Abc_Ntk_t * pNtk, Vec_Ptr_t ** nodesInLevel, bool * 
 	for( i = 0; i <= numOfLevels; i++ )	
 		for( j = 0; j < Vec_PtrSize( nodesInLevel[i] ); j++)
 		{
-			pObj = Vec_PtrEntry( nodesInLevel[i], j );
+			pObj = (Abc_Obj_t *)Vec_PtrEntry( nodesInLevel[i], j );
 
 			if(Abc_ObjChild0Copy(pObj) == NULL && Abc_ObjChild1Copy(pObj) == NULL)
 				pObj->pCopy = NULL;
@@ -1139,7 +1142,7 @@ Abc_Ntk_t * computeCofactor(Abc_Ntk_t * pNtk, Vec_Ptr_t ** nodesInLevel, bool * 
 			else if(Abc_ObjChild0Copy(pObj) == (void*)(1) && Abc_ObjChild1Copy(pObj) == NULL)
 				pObj->pCopy = NULL;
 			else if(Abc_ObjChild0Copy(pObj) == (void*)(1) && Abc_ObjChild1Copy(pObj) == (void*)(1))
-				pObj->pCopy = (void*)(1);
+				pObj->pCopy = (Abc_Obj_t *)(1);
 			else if(Abc_ObjChild0Copy(pObj) == (void*)(1) && (Abc_ObjChild1Copy(pObj) != (NULL) && Abc_ObjChild1Copy(pObj) != (void*)(1)) )
 				pObj->pCopy = Abc_ObjChild1Copy(pObj);
 			else if( (Abc_ObjChild0Copy(pObj) != (NULL) && Abc_ObjChild0Copy(pObj) != (void*)(1)) && Abc_ObjChild1Copy(pObj) == NULL )
@@ -1148,7 +1151,7 @@ Abc_Ntk_t * computeCofactor(Abc_Ntk_t * pNtk, Vec_Ptr_t ** nodesInLevel, bool * 
 				pObj->pCopy = Abc_ObjChild0Copy(pObj);
 			else if( (Abc_ObjChild0Copy(pObj) != (NULL) && Abc_ObjChild0Copy(pObj) != (void*)(1)) &&
 					 (Abc_ObjChild1Copy(pObj) != (NULL) && Abc_ObjChild1Copy(pObj) != (void*)(1)) )
-				pObj->pCopy = Abc_AigAnd( subNtk->pManFunc, Abc_ObjChild0Copy(pObj), Abc_ObjChild1Copy(pObj) );					
+				pObj->pCopy = Abc_AigAnd( (Abc_Aig_t *)subNtk->pManFunc, Abc_ObjChild0Copy(pObj), Abc_ObjChild1Copy(pObj) );					
 		}	
 
 	for(i = 0; i < Abc_NtkPoNum(pNtk); i++)
@@ -1175,7 +1178,7 @@ Abc_Ntk_t * computeCofactor(Abc_Ntk_t * pNtk, Vec_Ptr_t ** nodesInLevel, bool * 
 
 FILE *matchFile;
 
-bool matchNonSingletonOutputs(Abc_Ntk_t * pNtk1, Vec_Ptr_t ** nodesInLevel1, Vec_Int_t ** iMatch1, Vec_Int_t ** iDep1, Vec_Int_t * matchedInputs1, int * iGroup1, Vec_Int_t ** oMatch1, int * oGroup1,
+int matchNonSingletonOutputs(Abc_Ntk_t * pNtk1, Vec_Ptr_t ** nodesInLevel1, Vec_Int_t ** iMatch1, Vec_Int_t ** iDep1, Vec_Int_t * matchedInputs1, int * iGroup1, Vec_Int_t ** oMatch1, int * oGroup1,
 							  Abc_Ntk_t * pNtk2, Vec_Ptr_t ** nodesInLevel2, Vec_Int_t ** iMatch2, Vec_Int_t ** iDep2, Vec_Int_t * matchedInputs2, int * iGroup2, Vec_Int_t ** oMatch2, int * oGroup2,
 							  Vec_Int_t * matchedOutputs1, Vec_Int_t * matchedOutputs2, Vec_Int_t * oMatchedGroups, Vec_Int_t * iNonSingleton,						 
 							  Abc_Ntk_t * subNtk1, Abc_Ntk_t * subNtk2, Vec_Ptr_t * oMatchPairs,
@@ -1185,7 +1188,7 @@ bool matchNonSingletonOutputs(Abc_Ntk_t * pNtk1, Vec_Ptr_t ** nodesInLevel1, Vec
 	int i;
 	int j, temp;
 	Vec_Int_t * mismatch;		
-	bool * skipList;	
+	int * skipList;	
 	static int counter = 0;
 
 	MATCH_FOUND = FALSE;
@@ -1208,7 +1211,7 @@ bool matchNonSingletonOutputs(Abc_Ntk_t * pNtk1, Vec_Ptr_t ** nodesInLevel1, Vec
 
 	mismatch = Vec_IntAlloc(10);
 	
-	skipList = ABC_ALLOC(bool, Vec_IntSize(oMatch1[i]));
+	skipList = ABC_ALLOC(int, Vec_IntSize(oMatch1[i]));
 
 	for(j = 0; j < Vec_IntSize(oMatch1[i]); j++)
 		skipList[j] = FALSE;
@@ -1273,12 +1276,12 @@ bool matchNonSingletonOutputs(Abc_Ntk_t * pNtk1, Vec_Ptr_t ** nodesInLevel1, Vec
 			Abc_NtkForEachPi( subNtk1, pObj, k )
 				pModel[k] = vPiValues[k] - '0';
 			Abc_NtkForEachLatch( subNtk1, pObj, k )
-				pModel[Abc_NtkPiNum(subNtk1)+k] = ((int)pObj->pData) - 1;			
+				pModel[Abc_NtkPiNum(subNtk1)+k] = pObj->iData - 1;			
 	
 			output1 = Abc_NtkVerifySimulatePattern( subNtk1, pModel );
 
 			Abc_NtkForEachLatch( subNtk2, pObj, k )
-				pModel[Abc_NtkPiNum(subNtk2)+k] = ((int)pObj->pData) - 1;
+				pModel[Abc_NtkPiNum(subNtk2)+k] = pObj->iData - 1;
 
 			output2 = Abc_NtkVerifySimulatePattern( subNtk2, pModel );
 			
@@ -1321,15 +1324,15 @@ bool matchNonSingletonOutputs(Abc_Ntk_t * pNtk1, Vec_Ptr_t ** nodesInLevel1, Vec
 	return MATCH_FOUND;
 }
 
-bool match1by1(Abc_Ntk_t * pNtk1, Vec_Ptr_t ** nodesInLevel1, Vec_Int_t ** iMatch1, Vec_Int_t ** iDep1, Vec_Int_t * matchedInputs1, int * iGroup1, Vec_Int_t ** oMatch1, int * oGroup1,
+int match1by1(Abc_Ntk_t * pNtk1, Vec_Ptr_t ** nodesInLevel1, Vec_Int_t ** iMatch1, Vec_Int_t ** iDep1, Vec_Int_t * matchedInputs1, int * iGroup1, Vec_Int_t ** oMatch1, int * oGroup1,
 			   Abc_Ntk_t * pNtk2, Vec_Ptr_t ** nodesInLevel2, Vec_Int_t ** iMatch2, Vec_Int_t ** iDep2, Vec_Int_t * matchedInputs2, int * iGroup2, Vec_Int_t ** oMatch2, int * oGroup2,
 			   Vec_Int_t * matchedOutputs1, Vec_Int_t * matchedOutputs2, Vec_Int_t * oMatchedGroups, Vec_Int_t * iNonSingleton, int ii, int idx)
 {
-	static bool MATCH_FOUND = FALSE;
+	static int MATCH_FOUND = FALSE;
 	Abc_Ntk_t * subNtk1, * subNtk2;
 	Vec_Int_t * oNonSingleton;	
 	Vec_Ptr_t * oMatchPairs;
-	bool * skipList;
+	int * skipList;
 	int j, m;	
 	int i;		
 	static int counter = 0;
@@ -1355,7 +1358,7 @@ bool match1by1(Abc_Ntk_t * pNtk1, Vec_Ptr_t ** nodesInLevel1, Vec_Int_t ** iMatc
 	
 	oNonSingleton = Vec_IntAlloc(10);
 	oMatchPairs = Vec_PtrAlloc(100);	
-	skipList = ABC_ALLOC(bool, Vec_IntSize(iMatch1[i]));
+	skipList = ABC_ALLOC(int, Vec_IntSize(iMatch1[i]));
 
 	for(j = 0; j < Vec_IntSize(iMatch1[i]); j++)
 		skipList[j] = FALSE;
@@ -1430,15 +1433,15 @@ bool match1by1(Abc_Ntk_t * pNtk1, Vec_Ptr_t ** nodesInLevel1, Vec_Int_t ** iMatc
 		else
 		{
 			Abc_Ntk_t * FpNtk1, * FpNtk2;
-			bool * bitVector1, * bitVector2;
+			int * bitVector1, * bitVector2;
 			Vec_Int_t * currInputs1, * currInputs2;			
 			Vec_Ptr_t * vSupp;	
 			Abc_Obj_t * pObj;
 			int suppNum1 = 0;
 			int * suppNum2;			
 			
-			bitVector1 = ABC_ALLOC( bool, Abc_NtkPiNum(pNtk1) );
-			bitVector2 = ABC_ALLOC( bool, Abc_NtkPiNum(pNtk2) );
+			bitVector1 = ABC_ALLOC( int, Abc_NtkPiNum(pNtk1) );
+			bitVector2 = ABC_ALLOC( int, Abc_NtkPiNum(pNtk2) );
 
 			currInputs1 = Vec_IntAlloc(10);
 			currInputs2 = Vec_IntAlloc(10);		
@@ -1489,7 +1492,7 @@ bool match1by1(Abc_Ntk_t * pNtk1, Vec_Ptr_t ** nodesInLevel1, Vec_Int_t ** iMatc
 				vSupp  = Abc_NtkNodeSupport( FpNtk1, &pObj, 1 );			    		
 				
 				for(n = 0; n < vSupp->nSize; n++)
-					if( Abc_ObjId(vSupp->pArray[n]) == 1 )
+					if( Abc_ObjId((Abc_Obj_t *)vSupp->pArray[n]) == 1 )
 						suppNum1 += Vec_IntFind( matchedOutputs1, m) + 1;				
 						
 				Vec_PtrFree( vSupp );
@@ -1501,9 +1504,9 @@ bool match1by1(Abc_Ntk_t * pNtk1, Vec_Ptr_t ** nodesInLevel1, Vec_Int_t ** iMatc
 				vSupp  = Abc_NtkNodeSupport( FpNtk2, &pObj, 1 );			    		
 				
 				for(n = 0; n < vSupp->nSize; n++)
-					if( Abc_ObjId(vSupp->pArray[n])-1 < (unsigned)(Vec_IntSize(iMatch2[i]))-idx+1 &&
-						Abc_ObjId(vSupp->pArray[n])-1 >= 0)
-						suppNum2[Abc_ObjId(vSupp->pArray[n])-1] += Vec_IntFind( matchedOutputs2, m) + 1;				
+					if( Abc_ObjId((Abc_Obj_t *)vSupp->pArray[n])-1 < (unsigned)(Vec_IntSize(iMatch2[i]))-idx+1 &&
+						Abc_ObjId((Abc_Obj_t *)vSupp->pArray[n])-1 >= 0)
+						suppNum2[Abc_ObjId((Abc_Obj_t *)vSupp->pArray[n])-1] += Vec_IntFind( matchedOutputs2, m) + 1;				
 						
 				Vec_PtrFree( vSupp );
 			}
@@ -1577,7 +1580,7 @@ float refineBySAT(Abc_Ntk_t * pNtk1, Vec_Int_t ** iMatch1, int * iGroup1, Vec_In
 	Vec_Ptr_t ** nodesInLevel1, ** nodesInLevel2;
 	Vec_Int_t * oMatchedGroups;
 	FILE *result;	
-	bool matchFound;
+	int matchFound;
 	int clk = clock();
 	float satTime = 0.0;
 
@@ -1748,7 +1751,7 @@ float refineBySAT(Abc_Ntk_t * pNtk1, Vec_Int_t ** iMatch1, int * iGroup1, Vec_In
 	return satTime;
 }
 
-bool checkListConsistency(Vec_Int_t ** iMatch1, Vec_Int_t ** oMatch1, Vec_Int_t ** iMatch2, Vec_Int_t ** oMatch2, int iLastItem1, int oLastItem1, int iLastItem2, int oLastItem2)
+int checkListConsistency(Vec_Int_t ** iMatch1, Vec_Int_t ** oMatch1, Vec_Int_t ** iMatch2, Vec_Int_t ** oMatch2, int iLastItem1, int oLastItem1, int iLastItem2, int oLastItem2)
 {
 	//int i;
 
@@ -1769,7 +1772,7 @@ bool checkListConsistency(Vec_Int_t ** iMatch1, Vec_Int_t ** oMatch1, Vec_Int_t 
 }
 
 
-void bmGateWay( Abc_Ntk_t * pNtk1, Abc_Ntk_t * pNtk2, bool p_equivalence )
+void bmGateWay( Abc_Ntk_t * pNtk1, Abc_Ntk_t * pNtk2, int p_equivalence )
 {	
 	Vec_Int_t ** iDep1, ** oDep1;
 	Vec_Int_t ** iDep2, ** oDep2;
@@ -1790,16 +1793,16 @@ void bmGateWay( Abc_Ntk_t * pNtk1, Abc_Ntk_t * pNtk2, bool p_equivalence )
 	Vec_Ptr_t ** topOrder1 = NULL, ** topOrder2 = NULL;
 
 	extern void getDependencies(Abc_Ntk_t *pNtk, Vec_Int_t** iDep, Vec_Int_t** oDep);
-	extern void initMatchList(Abc_Ntk_t *pNtk, Vec_Int_t** iDep, Vec_Int_t** oDep, Vec_Int_t** iMatch, int* iLastItem, Vec_Int_t** oMatch, int* oLastItem, int* iGroup, int* oGroup, bool p_equivalence);		
+	extern void initMatchList(Abc_Ntk_t *pNtk, Vec_Int_t** iDep, Vec_Int_t** oDep, Vec_Int_t** iMatch, int* iLastItem, Vec_Int_t** oMatch, int* oLastItem, int* iGroup, int* oGroup, int p_equivalence);		
 	extern void iSortDependencies(Abc_Ntk_t *pNtk, Vec_Int_t** iDep, int* oGroup);
 	extern void oSortDependencies(Abc_Ntk_t *pNtk, Vec_Int_t** oDep, int* iGroup);
 	extern int iSplitByDep(Abc_Ntk_t *pNtk, Vec_Int_t** iDep, Vec_Int_t** iMatch, int* iGroup, int* iLastItem, int* oGroup);
 	extern int oSplitByDep(Abc_Ntk_t *pNtk, Vec_Int_t** oDep, Vec_Int_t** oMatch, int* oGroup, int* oLastItem, int* iGroup);	
 	extern Vec_Ptr_t ** findTopologicalOrder(Abc_Ntk_t * pNtk);
-	extern bool refineIOBySimulation(Abc_Ntk_t *pNtk, Vec_Int_t** iMatch, int* iLastItem, int * iGroup, Vec_Int_t** iDep, Vec_Int_t** oMatch, int* oLastItem, int * oGroup, Vec_Int_t** oDep, char * vPiValues, int * observability, Vec_Ptr_t ** topOrder);	
+	extern int refineIOBySimulation(Abc_Ntk_t *pNtk, Vec_Int_t** iMatch, int* iLastItem, int * iGroup, Vec_Int_t** iDep, Vec_Int_t** oMatch, int* oLastItem, int * oGroup, Vec_Int_t** oDep, char * vPiValues, int * observability, Vec_Ptr_t ** topOrder);	
 	extern float refineBySAT(Abc_Ntk_t * pNtk1, Vec_Int_t ** iMatch1, int * iGroup1, Vec_Int_t ** iDep1, int* iLastItem1, Vec_Int_t ** oMatch1, int * oGroup1, Vec_Int_t ** oDep1, int* oLastItem1, int * observability1,
 							Abc_Ntk_t * pNtk2, Vec_Int_t ** iMatch2, int * iGroup2, Vec_Int_t ** iDep2, int* iLastItem2, Vec_Int_t ** oMatch2, int * oGroup2, Vec_Int_t ** oDep2, int* oLastItem2, int * observability2);				
-	bool checkListConsistency(Vec_Int_t ** iMatch1, Vec_Int_t ** oMatch1, Vec_Int_t ** iMatch2, Vec_Int_t ** oMatch2, int iLastItem1, int oLastItem1, int iLastItem2, int oLastItem2);	
+	int checkListConsistency(Vec_Int_t ** iMatch1, Vec_Int_t ** oMatch1, Vec_Int_t ** iMatch2, Vec_Int_t ** oMatch2, int iLastItem1, int oLastItem1, int iLastItem2, int oLastItem2);	
 
 	iDep1 = ABC_ALLOC( Vec_Int_t*,  (unsigned)Abc_NtkPiNum(pNtk1) );
 	oDep1 = ABC_ALLOC( Vec_Int_t*,  (unsigned)Abc_NtkPoNum(pNtk1) );
@@ -1936,13 +1939,13 @@ void bmGateWay( Abc_Ntk_t * pNtk1, Abc_Ntk_t * pNtk2, bool p_equivalence )
 	do
 	{
 		int counter = 0;
-		bool ioSuccess1, ioSuccess2;	
+		int ioSuccess1, ioSuccess2;	
 		
 		do
 		{
 			for(i = 0; i < iLastItem1; i++)
 			{
-				bool temp = SIM_RANDOM_UNSIGNED % 2;		
+				int temp = (int)(SIM_RANDOM_UNSIGNED % 2);		
 				
 				if(Vec_IntSize(iMatch1[i]) != Vec_IntSize(iMatch2[i]))
 				{
@@ -2040,4 +2043,5 @@ freeAndExit:
 		ABC_FREE( topOrder1 );
 		ABC_FREE( topOrder2 );
 	}
-}
+}ABC_NAMESPACE_IMPL_END
+

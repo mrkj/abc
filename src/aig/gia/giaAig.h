@@ -21,12 +21,16 @@
 #ifndef __GIA_AIG_H__
 #define __GIA_AIG_H__
 
+
 ////////////////////////////////////////////////////////////////////////
 ///                          INCLUDES                                ///
 ////////////////////////////////////////////////////////////////////////
 
 #include "aig.h"
 #include "gia.h"
+
+ABC_NAMESPACE_HEADER_START
+
 
 ////////////////////////////////////////////////////////////////////////
 ///                         PARAMETERS                               ///
@@ -61,9 +65,8 @@ extern Gia_Man_t *         Gia_ManAbstraction( Gia_Man_t * p, Vec_Int_t * vFlops
 extern void                Gia_ManSeqCleanupClasses( Gia_Man_t * p, int fConst, int fEquiv, int fVerbose );
 extern int                 Gia_ManSolveSat( Gia_Man_t * p );
 
-#ifdef __cplusplus
-}
-#endif
+
+ABC_NAMESPACE_HEADER_END
 
 #endif
 

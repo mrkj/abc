@@ -22,6 +22,9 @@
 #include "ssw.h"
 #include "fra.h"
 
+ABC_NAMESPACE_IMPL_START
+
+
 ////////////////////////////////////////////////////////////////////////
 ///                        DECLARATIONS                              ///
 ////////////////////////////////////////////////////////////////////////
@@ -229,4 +232,6 @@ Aig_Man_t * Saig_ManConCexAbstraction( Aig_Man_t * p, Gia_ParAbs_t * pPars )
 ///                       END OF FILE                                ///
 ////////////////////////////////////////////////////////////////////////
 
+
+ABC_NAMESPACE_IMPL_END
 

@@ -19,7 +19,12 @@
 ***********************************************************************/
 
 #include "gia.h"
+#include "aig.h"
 #include "if.h"
+#include "dar.h"
+
+ABC_NAMESPACE_IMPL_START
+
 
 ////////////////////////////////////////////////////////////////////////
 ///                        DECLARATIONS                              ///
@@ -120,8 +125,8 @@ If_Man_t * Gia_ManToIf( Gia_Man_t * p, If_Par_t * pPars, Vec_Ptr_t * vAigToIf )
     {
         if ( Gia_ObjIsAnd(pNode) )
             pIfObj = If_ManCreateAnd( pIfMan, 
-                If_NotCond( Vec_PtrEntry(vAigToIf, Gia_ObjFaninId0(pNode, i)), Gia_ObjFaninC0(pNode) ), 
-                If_NotCond( Vec_PtrEntry(vAigToIf, Gia_ObjFaninId1(pNode, i)), Gia_ObjFaninC1(pNode) ) );
+                If_NotCond( (If_Obj_t *)Vec_PtrEntry(vAigToIf, Gia_ObjFaninId0(pNode, i)), Gia_ObjFaninC0(pNode) ), 
+                If_NotCond( (If_Obj_t *)Vec_PtrEntry(vAigToIf, Gia_ObjFaninId1(pNode, i)), Gia_ObjFaninC1(pNode) ) );
         else if ( Gia_ObjIsCi(pNode) )
         {
             pIfObj = If_ManCreateCi( pIfMan );
@@ -132,7 +137,7 @@ If_Man_t * Gia_ManToIf( Gia_Man_t * p, If_Par_t * pPars, Vec_Ptr_t * vAigToIf )
         }
         else if ( Gia_ObjIsCo(pNode) )
         {
-            pIfObj = If_ManCreateCo( pIfMan, If_NotCond( Vec_PtrEntry(vAigToIf, Gia_ObjFaninId0(pNode, i)), Gia_ObjFaninC0(pNode) ) );
+            pIfObj = If_ManCreateCo( pIfMan, If_NotCond( (If_Obj_t *)Vec_PtrEntry(vAigToIf, Gia_ObjFaninId0(pNode, i)), Gia_ObjFaninC0(pNode) ) );
 //            Abc_Print( 1, "po=%d ", pIfObj->Level );
         }
         else if ( Gia_ObjIsConst0(pNode) )
@@ -200,7 +205,7 @@ int * Gia_ManFromIf( If_Man_t * pIfMan, Gia_Man_t * p, Vec_Ptr_t * vAigToIf )
     vIfToAig = Vec_PtrStart( If_ManObjNum(pIfMan) );
     Gia_ManForEachObj( p, pObj, i )
     {
-        pIfObj = Vec_PtrEntry( vAigToIf, i );
+        pIfObj = (If_Obj_t *)Vec_PtrEntry( vAigToIf, i );
         Vec_PtrWriteEntry( vIfToAig, pIfObj->Id, pObj );
         if ( !Gia_ObjIsAnd(pObj) || pIfObj->nRefs == 0 )
             continue;
@@ -211,7 +216,7 @@ int * Gia_ManFromIf( If_Man_t * pIfMan, Gia_Man_t * p, Vec_Ptr_t * vAigToIf )
     iOffset = Gia_ManObjNum(p);
     Gia_ManForEachObj( p, pObj, i )
     {
-        pIfObj = Vec_PtrEntry( vAigToIf, i );
+        pIfObj = (If_Obj_t *)Vec_PtrEntry( vAigToIf, i );
         if ( !Gia_ObjIsAnd(pObj) || pIfObj->nRefs == 0 )
             continue;
         pCutBest = If_ObjCutBest( pIfObj );
@@ -222,7 +227,7 @@ int * Gia_ManFromIf( If_Man_t * pIfMan, Gia_Man_t * p, Vec_Ptr_t * vAigToIf )
         pMapping[k++] = nLeaves;
         for ( j = 0; j < nLeaves; j++ )
         {
-            pObjRepr = Vec_PtrEntry( vIfToAig, ppLeaves[j] );
+            pObjRepr = (Gia_Obj_t *)Vec_PtrEntry( vIfToAig, ppLeaves[j] );
             pMapping[k++] = Gia_ObjId( p, pObjRepr );
         }
         pMapping[k++] = i;
@@ -438,7 +443,6 @@ void Gia_ManSetRefsMapped( Gia_Man_t * p )
 ***********************************************************************/
 void Gia_ManPrintNpnClasses( Gia_Man_t * p )
 {
-    extern int Dar_LibReturnClass( unsigned uTruth );
     extern char ** Kit_DsdNpn4ClassNames();
     char ** pNames = Kit_DsdNpn4ClassNames();
     Vec_Int_t * vLeaves, * vTruth, * vVisited;
@@ -520,4 +524,6 @@ void Gia_ManPrintNpnClasses( Gia_Man_t * p )
 ///                       END OF FILE                                ///
 ////////////////////////////////////////////////////////////////////////
 
+
+ABC_NAMESPACE_IMPL_END
 

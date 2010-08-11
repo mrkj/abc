@@ -20,6 +20,9 @@
 
 #include "llbInt.h"
 
+ABC_NAMESPACE_IMPL_START
+
+
 ////////////////////////////////////////////////////////////////////////
 ///                        DECLARATIONS                              ///
 ////////////////////////////////////////////////////////////////////////
@@ -346,7 +349,7 @@ void Llb_MtrAddColumn( Llb_Mtr_t * p, Llb_Grp_t * pGrp )
     int i, iRow, iCol = pGrp->Id;
     assert( iCol >= 0 && iCol < p->nCols );
     p->pColGrps[iCol] = pGrp;
-    Vec_PtrForEachEntry( pGrp->vIns, pVar, i )
+    Vec_PtrForEachEntry( Aig_Obj_t *, pGrp->vIns, pVar, i )
     {
         iRow = Vec_IntEntry( pGrp->pMan->vObj2Var, Aig_ObjId(pVar) );
         assert( iRow >= 0 && iRow < p->nRows );
@@ -354,7 +357,7 @@ void Llb_MtrAddColumn( Llb_Mtr_t * p, Llb_Grp_t * pGrp )
         p->pColSums[iCol]++;
         p->pRowSums[iRow]++;
     }
-    Vec_PtrForEachEntry( pGrp->vOuts, pVar, i )
+    Vec_PtrForEachEntry( Aig_Obj_t *, pGrp->vOuts, pVar, i )
     {
         iRow = Vec_IntEntry( pGrp->pMan->vObj2Var, Aig_ObjId(pVar) );
         assert( iRow >= 0 && iRow < p->nRows );
@@ -411,7 +414,7 @@ Llb_Mtr_t * Llb_MtrCreate( Llb_Man_t * p )
     int i;
     pMatrix = Llb_MtrAlloc( Saig_ManPiNum(p->pAig), Saig_ManRegNum(p->pAig), 
         Vec_PtrSize(p->vGroups), Vec_IntSize(p->vVar2Obj) );
-    Vec_PtrForEachEntry( p->vGroups, pGroup, i )
+    Vec_PtrForEachEntry( Llb_Grp_t *, p->vGroups, pGroup, i )
         Llb_MtrAddColumn( pMatrix, pGroup );
 //    Llb_MtrRemoveSingletonRows( pMatrix );
     return pMatrix;
@@ -422,4 +425,6 @@ Llb_Mtr_t * Llb_MtrCreate( Llb_Man_t * p )
 ///                       END OF FILE                                ///
 ////////////////////////////////////////////////////////////////////////
 
+
+ABC_NAMESPACE_IMPL_END
 

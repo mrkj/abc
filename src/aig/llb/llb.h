@@ -18,8 +18,9 @@
 
 ***********************************************************************/
  
-#ifndef __LLB_INT_H__
-#define __LLB_INT_H__
+#ifndef __LLB_H__
+#define __LLB_H__
+
  
 ////////////////////////////////////////////////////////////////////////
 ///                          INCLUDES                                ///
@@ -29,9 +30,10 @@
 ///                         PARAMETERS                               ///
 ////////////////////////////////////////////////////////////////////////
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+
+
+ABC_NAMESPACE_HEADER_START
+
 
 ////////////////////////////////////////////////////////////////////////
 ///                         BASIC TYPES                              ///
@@ -76,9 +78,11 @@ struct Gia_ParLlb_t_
 /*=== llbCore.c ==========================================================*/
 extern void     Llb_ManSetDefaultParams( Gia_ParLlb_t * pPars );
 
-#ifdef __cplusplus
-}
-#endif
+
+
+ABC_NAMESPACE_HEADER_END
+
+
 
 #endif
 

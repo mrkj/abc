@@ -20,6 +20,9 @@
 
 #include "sswInt.h"
 
+ABC_NAMESPACE_IMPL_START
+
+
 ////////////////////////////////////////////////////////////////////////
 ///                        DECLARATIONS                              ///
 ////////////////////////////////////////////////////////////////////////
@@ -468,7 +471,7 @@ Aig_Man_t * Ssw_SignalCorrespondence( Aig_Man_t * pAig, Ssw_Pars_t * pPars )
             p->pSml = Ssw_SmlStart( pAig, 0, p->nFrames + p->pPars->nFramesAddSim, 1 );
         else
             p->pSml = Ssw_SmlStart( pAig, 0, 1 + p->pPars->nFramesAddSim, 1 );
-        Ssw_ClassesSetData( p->ppClasses, p->pSml, Ssw_SmlObjHashWord, Ssw_SmlObjIsConstWord, Ssw_SmlObjsAreEqualWord );
+        Ssw_ClassesSetData( p->ppClasses, p->pSml, (unsigned(*)(void *,Aig_Obj_t *))Ssw_SmlObjHashWord, (int(*)(void *,Aig_Obj_t *))Ssw_SmlObjIsConstWord, (int(*)(void *,Aig_Obj_t *,Aig_Obj_t *))Ssw_SmlObjsAreEqualWord );
     }
     // allocate storage
     if ( p->pPars->fLocalSim )
@@ -511,4 +514,6 @@ Aig_Man_t * Ssw_LatchCorrespondence( Aig_Man_t * pAig, Ssw_Pars_t * pPars )
 ///                       END OF FILE                                ///
 ////////////////////////////////////////////////////////////////////////
 
+
+ABC_NAMESPACE_IMPL_END
 

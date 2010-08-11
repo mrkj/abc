@@ -21,11 +21,15 @@
 #ifndef __VEC_WRD_H__
 #define __VEC_WRD_H__
 
+
 ////////////////////////////////////////////////////////////////////////
 ///                          INCLUDES                                ///
 ////////////////////////////////////////////////////////////////////////
 
 #include <stdio.h>
+
+ABC_NAMESPACE_HEADER_START
+
 
 ////////////////////////////////////////////////////////////////////////
 ///                         PARAMETERS                               ///
@@ -1054,6 +1058,10 @@ static inline void Vec_WrdSortUnsigned( Vec_Wrd_t * p )
     qsort( (void *)p->pArray, p->nSize, sizeof(word), 
             (int (*)(const void *, const void *)) Vec_WrdSortCompareUnsigned );
 }
+
+
+
+ABC_NAMESPACE_HEADER_END
 
 #endif
 

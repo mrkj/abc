@@ -28,6 +28,9 @@
 #include "mem.h"
 #include "tim.h"
 
+ABC_NAMESPACE_IMPL_START
+
+
 ////////////////////////////////////////////////////////////////////////
 ///                        DECLARATIONS                              ///
 ////////////////////////////////////////////////////////////////////////
@@ -71,12 +74,12 @@ struct Tim_Obj_t_
     float            timeReq;        // required time of the object
 };
 
-static inline Tim_Obj_t * Tim_ManCi( Tim_Man_t * p, int i )                           { assert( i < p->nCis ); return p->pCis + i;    }
-static inline Tim_Obj_t * Tim_ManCo( Tim_Man_t * p, int i )                           { assert( i < p->nCos ); return p->pCos + i;    }
-static inline Tim_Box_t * Tim_ManBox( Tim_Man_t * p, int i )                          { return Vec_PtrEntry(p->vBoxes, i);            }
+static inline Tim_Obj_t * Tim_ManCi( Tim_Man_t * p, int i )                           { assert( i < p->nCis ); return p->pCis + i;      }
+static inline Tim_Obj_t * Tim_ManCo( Tim_Man_t * p, int i )                           { assert( i < p->nCos ); return p->pCos + i;      }
+static inline Tim_Box_t * Tim_ManBox( Tim_Man_t * p, int i )                          { return (Tim_Box_t *)Vec_PtrEntry(p->vBoxes, i); }
 
-static inline Tim_Box_t * Tim_ManCiBox( Tim_Man_t * p, int i )                        { return Tim_ManCi(p,i)->iObj2Box < 0 ? NULL : Vec_PtrEntry( p->vBoxes, Tim_ManCi(p,i)->iObj2Box ); }
-static inline Tim_Box_t * Tim_ManCoBox( Tim_Man_t * p, int i )                        { return Tim_ManCo(p,i)->iObj2Box < 0 ? NULL : Vec_PtrEntry( p->vBoxes, Tim_ManCo(p,i)->iObj2Box ); }
+static inline Tim_Box_t * Tim_ManCiBox( Tim_Man_t * p, int i )                        { return Tim_ManCi(p,i)->iObj2Box < 0 ? NULL : (Tim_Box_t *)Vec_PtrEntry( p->vBoxes, Tim_ManCi(p,i)->iObj2Box ); }
+static inline Tim_Box_t * Tim_ManCoBox( Tim_Man_t * p, int i )                        { return Tim_ManCo(p,i)->iObj2Box < 0 ? NULL : (Tim_Box_t *)Vec_PtrEntry( p->vBoxes, Tim_ManCo(p,i)->iObj2Box ); }
 
 static inline Tim_Obj_t * Tim_ManBoxInput( Tim_Man_t * p, Tim_Box_t * pBox, int i )   { assert( i < pBox->nInputs  ); return p->pCos + pBox->Inouts[i];               }
 static inline Tim_Obj_t * Tim_ManBoxOutput( Tim_Man_t * p, Tim_Box_t * pBox, int i )  { assert( i < pBox->nOutputs ); return p->pCis + pBox->Inouts[pBox->nInputs+i]; }
@@ -93,7 +96,7 @@ static inline Tim_Obj_t * Tim_ManBoxOutput( Tim_Man_t * p, Tim_Box_t * pBox, int
     for ( i = 0; (i < (p)->nCos) && ((pObj) = (p)->pCos + i); i++ )              \
         if ( pObj->iObj2Box >= 0 ) {} else 
 #define Tim_ManForEachBox( p, pBox, i )                                          \
-    Vec_PtrForEachEntry( p->vBoxes, pBox, i )
+    Vec_PtrForEachEntry( Tim_Box_t *, p->vBoxes, pBox, i )
 
 ////////////////////////////////////////////////////////////////////////
 ///                     FUNCTION DEFINITIONS                         ///
@@ -291,7 +294,7 @@ void Tim_ManStop( Tim_Man_t * p )
     int i;
     if ( p->vDelayTables )
     {
-        Vec_PtrForEachEntry( p->vDelayTables, pTable, i )
+        Vec_PtrForEachEntry( float *, p->vDelayTables, pTable, i )
             ABC_FREE( pTable );
         Vec_PtrFree( p->vDelayTables );
     }
@@ -909,7 +912,7 @@ int Tim_ManBoxForCo( Tim_Man_t * p, int iCo )
 ***********************************************************************/
 int Tim_ManBoxInputFirst( Tim_Man_t * p, int iBox )
 {
-    Tim_Box_t * pBox = Vec_PtrEntry( p->vBoxes, iBox );
+    Tim_Box_t * pBox = (Tim_Box_t *)Vec_PtrEntry( p->vBoxes, iBox );
     return pBox->Inouts[0];
 }
 
@@ -926,7 +929,7 @@ int Tim_ManBoxInputFirst( Tim_Man_t * p, int iBox )
 ***********************************************************************/
 int Tim_ManBoxOutputFirst( Tim_Man_t * p, int iBox )
 {
-    Tim_Box_t * pBox = Vec_PtrEntry( p->vBoxes, iBox );
+    Tim_Box_t * pBox = (Tim_Box_t *)Vec_PtrEntry( p->vBoxes, iBox );
     return pBox->Inouts[pBox->nInputs];
 }
 
@@ -943,7 +946,7 @@ int Tim_ManBoxOutputFirst( Tim_Man_t * p, int iBox )
 ***********************************************************************/
 int Tim_ManBoxInputNum( Tim_Man_t * p, int iBox )
 {
-    Tim_Box_t * pBox = Vec_PtrEntry( p->vBoxes, iBox );
+    Tim_Box_t * pBox = (Tim_Box_t *)Vec_PtrEntry( p->vBoxes, iBox );
     return pBox->nInputs;
 }
 
@@ -960,7 +963,7 @@ int Tim_ManBoxInputNum( Tim_Man_t * p, int iBox )
 ***********************************************************************/
 int Tim_ManBoxOutputNum( Tim_Man_t * p, int iBox )
 {
-    Tim_Box_t * pBox = Vec_PtrEntry( p->vBoxes, iBox );
+    Tim_Box_t * pBox = (Tim_Box_t *)Vec_PtrEntry( p->vBoxes, iBox );
     return pBox->nOutputs;
 }
 
@@ -988,4 +991,6 @@ void Tim_ManChangeForAdders( Tim_Man_t * p )
 ///                       END OF FILE                                ///
 ////////////////////////////////////////////////////////////////////////
 
+
+ABC_NAMESPACE_IMPL_END
 

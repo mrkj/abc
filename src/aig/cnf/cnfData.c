@@ -20,11 +20,14 @@
 
 #include "cnf.h"
 
+ABC_NAMESPACE_IMPL_START
+
+
 ////////////////////////////////////////////////////////////////////////
 ///                        DECLARATIONS                              ///
 ////////////////////////////////////////////////////////////////////////
 
-static char s_Data3[81] = "!#&()*+,-.0123456789:;<=>?ABCDEFGHIJKLMNOPQRSTUVWXYZ[]abcdefghijklmnopqrstuvwxyz|";
+static char s_Data3[82] = "!#&()*+,-.0123456789:;<=>?ABCDEFGHIJKLMNOPQRSTUVWXYZ[]abcdefghijklmnopqrstuvwxyz|";
 
 static char * s_Data4[] = {
 "! B a . 8 .B 8a K !K T Ta j 8j Tj s ( + (B +a (. +8 .B( +8a (K +K T( +T j( ",
@@ -4781,4 +4784,6 @@ int Aig_ManDeriveCnfTest2()
 ///                       END OF FILE                                ///
 ////////////////////////////////////////////////////////////////////////
 
+
+ABC_NAMESPACE_IMPL_END
 

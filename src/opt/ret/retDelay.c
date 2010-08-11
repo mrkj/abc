@@ -20,6 +20,9 @@
 
 #include "retInt.h"
 
+ABC_NAMESPACE_IMPL_START
+
+
 ////////////////////////////////////////////////////////////////////////
 ///                        DECLARATIONS                              ///
 ////////////////////////////////////////////////////////////////////////
@@ -127,7 +130,7 @@ if ( fVerbose && !fInitial )
         if ( nDelayLim > 0 && DelayCur <= nDelayLim )
             break;
         // try retiming to improve the delay
-        Vec_PtrForEachEntry( vCritical, pObj, k )
+        Vec_PtrForEachEntry( Abc_Obj_t *, vCritical, pObj, k )
             if ( Abc_NtkRetimeNodeIsEnabled(pObj, fForward) )
                 Abc_NtkRetimeNode( pObj, fForward, fInitial );
         // share latches
@@ -186,7 +189,7 @@ int Abc_NtkRetimeTiming( Abc_Ntk_t * pNtk, int fForward, Vec_Ptr_t * vCritical )
     // perform analysis from CIs/COs
     if ( fForward )
     {
-        Vec_PtrForEachEntry( vLatches, pObj, i )
+        Vec_PtrForEachEntry( Abc_Obj_t *, vLatches, pObj, i )
         {
             Abc_ObjForEachFanout( pObj, pNext, k )
             {
@@ -207,7 +210,7 @@ int Abc_NtkRetimeTiming( Abc_Ntk_t * pNtk, int fForward, Vec_Ptr_t * vCritical )
     }
     else
     {
-        Vec_PtrForEachEntry( vLatches, pObj, i )
+        Vec_PtrForEachEntry( Abc_Obj_t *, vLatches, pObj, i )
         {
             LevelCur = Abc_NtkRetimeTiming_rec( Abc_ObjFanin0(pObj), fForward );
             if ( LevelMax < LevelCur )
@@ -225,7 +228,7 @@ int Abc_NtkRetimeTiming( Abc_Ntk_t * pNtk, int fForward, Vec_Ptr_t * vCritical )
     Abc_NtkIncrementTravId(pNtk);
     if ( fForward )
     {
-        Vec_PtrForEachEntry( vLatches, pObj, i )
+        Vec_PtrForEachEntry( Abc_Obj_t *, vLatches, pObj, i )
         {
             Abc_ObjForEachFanout( pObj, pNext, k )
             {
@@ -241,7 +244,7 @@ int Abc_NtkRetimeTiming( Abc_Ntk_t * pNtk, int fForward, Vec_Ptr_t * vCritical )
     }
     else
     {
-        Vec_PtrForEachEntry( vLatches, pObj, i )
+        Vec_PtrForEachEntry( Abc_Obj_t *, vLatches, pObj, i )
         {
             Abc_ObjForEachFanin( pObj, pNext, k )
             {
@@ -307,4 +310,6 @@ int Abc_NtkRetimeTiming_rec( Abc_Obj_t * pObj, int fForward )
 ///                       END OF FILE                                ///
 ////////////////////////////////////////////////////////////////////////
 
+
+ABC_NAMESPACE_IMPL_END
 

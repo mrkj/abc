@@ -20,6 +20,9 @@
 
 #include "llbInt.h"
 
+ABC_NAMESPACE_IMPL_START
+
+
 ////////////////////////////////////////////////////////////////////////
 ///                        DECLARATIONS                              ///
 ////////////////////////////////////////////////////////////////////////
@@ -202,7 +205,6 @@ int Llb_ManModelCheckAigWithHints( Aig_Man_t * pAigGlo, Gia_ParLlb_t * pPars )
 Finish:
     if ( ddGlo )
     {
-        extern void Extra_StopManager( void * p );
         if ( ddGlo->bReached )
             Cudd_RecursiveDeref( ddGlo, ddGlo->bReached ); 
         Extra_StopManager( ddGlo );
@@ -219,4 +221,6 @@ Finish:
 ///                       END OF FILE                                ///
 ////////////////////////////////////////////////////////////////////////
 
+
+ABC_NAMESPACE_IMPL_END
 

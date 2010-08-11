@@ -14,6 +14,9 @@
 
 #include "espresso.h"
 
+ABC_NAMESPACE_IMPL_START
+
+
 void fprint_pla(fp, PLA, output_type)
 INOUT FILE *fp;
 IN pPLA PLA;
@@ -607,3 +610,5 @@ int output_symbolic;
 	}
     }
 }
+ABC_NAMESPACE_IMPL_END
+

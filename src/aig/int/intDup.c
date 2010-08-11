@@ -20,6 +20,9 @@
 
 #include "intInt.h"
 
+ABC_NAMESPACE_IMPL_START
+
+
 ////////////////////////////////////////////////////////////////////////
 ///                        DECLARATIONS                              ///
 ////////////////////////////////////////////////////////////////////////
@@ -163,7 +166,7 @@ Aig_Man_t * Inter_ManStartOneOutput( Aig_Man_t * p, int fAddFirstPo )
         // create register inputs with MUXes
         Saig_ManForEachLiLo( p, pObjLi, pObjLo, i )
         {
-            pObj = Aig_Mux( pNew, pCtrl, pObjLo->pData, Aig_ObjChild0Copy(pObjLi) );
+            pObj = Aig_Mux( pNew, pCtrl, (Aig_Obj_t *)pObjLo->pData, Aig_ObjChild0Copy(pObjLi) );
     //        pObj = Aig_Mux( pNew, pCtrl, Aig_ManConst0(pNew), Aig_ObjChild0Copy(pObjLi) );
             Aig_ObjCreatePo( pNew, pObj );
         }
@@ -176,4 +179,6 @@ Aig_Man_t * Inter_ManStartOneOutput( Aig_Man_t * p, int fAddFirstPo )
 ///                       END OF FILE                                ///
 ////////////////////////////////////////////////////////////////////////
 
+
+ABC_NAMESPACE_IMPL_END
 

@@ -21,6 +21,9 @@
 #include "sswInt.h"
 #include "giaAig.h"
 
+ABC_NAMESPACE_IMPL_START
+
+
 ////////////////////////////////////////////////////////////////////////
 ///                        DECLARATIONS                              ///
 ////////////////////////////////////////////////////////////////////////
@@ -484,4 +487,6 @@ void Ssw_SignalFilterGia( Gia_Man_t * p, int nFramesMax, int nConfMax, int nRoun
 ///                       END OF FILE                                ///
 ////////////////////////////////////////////////////////////////////////
 
+
+ABC_NAMESPACE_IMPL_END
 

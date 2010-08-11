@@ -18,10 +18,13 @@
 
 ***********************************************************************/
 
-#include "mainInt.h"
 #include "abc.h"
+#include "mainInt.h"
 #include "cmdInt.h"
-#include <ctype.h>	// proper declaration of isspace
+#include <ctype.h>
+
+ABC_NAMESPACE_IMPL_START
+	// proper declaration of isspace
 
 ////////////////////////////////////////////////////////////////////////
 ///                        DECLARATIONS                              ///
@@ -171,9 +174,10 @@ int CmdCommandDispatch( Abc_Frame_t * pAbc, int * pargc, char *** pargv )
   SeeAlso     []
 
 ***********************************************************************/
-char * CmdSplitLine( Abc_Frame_t * pAbc, char *sCommand, int *argc, char ***argv )
+const char * CmdSplitLine( Abc_Frame_t * pAbc, const char *sCommand, int *argc, char ***argv )
 {
-    char *p, *start, c;
+    const char *p, *start;
+    char c;
     int i, j;
     char *new_arg;
     Vec_Ptr_t * vArgs;
@@ -259,7 +263,8 @@ char * CmdSplitLine( Abc_Frame_t * pAbc, char *sCommand, int *argc, char ***argv
 int CmdApplyAlias( Abc_Frame_t * pAbc, int *argcp, char ***argvp, int *loop )
 {
     int i, argc, stopit, added, offset, did_subst, subst, fError, newc, j;
-    char *arg, **argv, **newv;
+    const char *arg;
+    char **argv, **newv;
     Abc_Alias *alias;
 
     argc = *argcp;
@@ -526,9 +531,10 @@ void CmdCommandFree( Abc_Command * pCommand )
   SeeAlso     []
 
 ***********************************************************************/
-void CmdCommandPrint( Abc_Frame_t * pAbc, bool fPrintAll )
+void CmdCommandPrint( Abc_Frame_t * pAbc, int fPrintAll )
 {
-    char *key, *value;
+    const char *key;
+    char *value;
     st_generator * gen;
     Abc_Command ** ppCommands;
     Abc_Command * pCommands;
@@ -661,12 +667,13 @@ int CmdNamePrintCompare( char ** ppC1, char ** ppC2 )
 void CmdPrintTable( st_table * tTable, int fAliases )
 {
     st_generator * gen;
-    char ** ppNames;
-    char * key, * value;
+    const char ** ppNames;
+    const char * key;
+    char* value;
     int nNames, i;
 
     // collect keys in the array
-    ppNames = ABC_ALLOC( char *, st_count(tTable) );
+    ppNames = ABC_ALLOC( const char *, st_count(tTable) );
     nNames = 0;
     st_foreach_item( tTable, gen, &key, &value )
         ppNames[nNames++] = key;
@@ -690,3 +697,5 @@ void CmdPrintTable( st_table * tTable, int fAliases )
 ////////////////////////////////////////////////////////////////////////
 ///                       END OF FILE                                ///
 ////////////////////////////////////////////////////////////////////////
+ABC_NAMESPACE_IMPL_END
+

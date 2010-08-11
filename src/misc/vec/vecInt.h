@@ -21,11 +21,15 @@
 #ifndef __VEC_INT_H__
 #define __VEC_INT_H__
 
+
 ////////////////////////////////////////////////////////////////////////
 ///                          INCLUDES                                ///
 ////////////////////////////////////////////////////////////////////////
 
 #include <stdio.h>
+
+ABC_NAMESPACE_HEADER_START
+
 
 ////////////////////////////////////////////////////////////////////////
 ///                         PARAMETERS                               ///
@@ -1117,6 +1121,10 @@ static inline Vec_Int_t * Vec_IntTwoMerge( Vec_Int_t * vArr1, Vec_Int_t * vArr2 
     assert( vArr->nSize >= vArr2->nSize );
     return vArr;
 }
+
+
+
+ABC_NAMESPACE_HEADER_END
 
 #endif
 

@@ -22,6 +22,11 @@ OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWA
 #ifndef satVec_h
 #define satVec_h
 
+#include "abc_global.h"
+
+ABC_NAMESPACE_HEADER_START
+
+
 // vector of 32-bit intergers (added for 64-bit portability)
 struct veci_t {
     int    size;
@@ -77,5 +82,9 @@ static inline void   vecp_push   (vecp* v, void* e)
     v->ptr[v->size++] = e;
 }
 
+
+
+
+ABC_NAMESPACE_HEADER_END
 
 #endif

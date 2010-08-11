@@ -21,6 +21,9 @@
 #include "gia.h"
 #include "kit.h"
 
+ABC_NAMESPACE_IMPL_START
+
+
 ////////////////////////////////////////////////////////////////////////
 ///                        DECLARATIONS                              ///
 ////////////////////////////////////////////////////////////////////////
@@ -157,4 +160,6 @@ void Gia_ManSupExperiment( Gia_Man_t * pGia, Vec_Int_t * vPairs )
 ///                       END OF FILE                                ///
 ////////////////////////////////////////////////////////////////////////
 
+
+ABC_NAMESPACE_IMPL_END
 

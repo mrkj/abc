@@ -19,6 +19,7 @@
 ***********************************************************************/
 
 #include "abc.h"
+#include "main.h"
 #include "giaAig.h"
 #include "saig.h"
 #include "dar.h"
@@ -29,10 +30,13 @@
 #include "dch.h"
 #include "ssw.h"
 #include "cgt.h"
-//#include "fsim.h"
+#include "bbr.h"
 #include "gia.h"
 #include "cec.h"
+#include "csw.h"
 #include "giaAbs.h"
+
+ABC_NAMESPACE_IMPL_START
 
 ////////////////////////////////////////////////////////////////////////
 ///                        DECLARATIONS                              ///
@@ -186,13 +190,13 @@ Aig_Man_t * Abc_NtkToDarChoices( Abc_Ntk_t * pNtk )
     Abc_NtkForEachCi( pNtk, pObj, i )
         pObj->pCopy = (Abc_Obj_t *)Aig_ObjCreatePi(pMan);
     // perform the conversion of the internal nodes (assumes DFS ordering)
-    Vec_PtrForEachEntry( vNodes, pObj, i )
+    Vec_PtrForEachEntry( Abc_Obj_t *, vNodes, pObj, i )
     {
         pObj->pCopy = (Abc_Obj_t *)Aig_And( pMan, (Aig_Obj_t *)Abc_ObjChild0Copy(pObj), (Aig_Obj_t *)Abc_ObjChild1Copy(pObj) );
 //        printf( "%d->%d ", pObj->Id, ((Aig_Obj_t *)pObj->pCopy)->Id );
         if ( Abc_AigNodeIsChoice( pObj ) )
         {
-            for ( pPrev = pObj, pFanin = pObj->pData; pFanin; pPrev = pFanin, pFanin = pFanin->pData )
+            for ( pPrev = pObj, pFanin = (Abc_Obj_t *)pObj->pData; pFanin; pPrev = pFanin, pFanin = (Abc_Obj_t *)pFanin->pData )
                 Aig_ObjSetEquiv( pMan, (Aig_Obj_t *)pPrev->pCopy, (Aig_Obj_t *)pFanin->pCopy );
 //            Aig_ManCreateChoice( pIfMan, (Aig_Obj_t *)pNode->pCopy );
         }
@@ -241,11 +245,11 @@ Abc_Ntk_t * Abc_NtkFromDar( Abc_Ntk_t * pNtkOld, Aig_Man_t * pMan )
         pObj->pData = Abc_NtkCi(pNtkNew, i);
     // rebuild the AIG
     vNodes = Aig_ManDfs( pMan, 1 );
-    Vec_PtrForEachEntry( vNodes, pObj, i )
+    Vec_PtrForEachEntry( Aig_Obj_t *, vNodes, pObj, i )
         if ( Aig_ObjIsBuf(pObj) )
             pObj->pData = (Abc_Obj_t *)Aig_ObjChild0Copy(pObj);
         else
-            pObj->pData = Abc_AigAnd( pNtkNew->pManFunc, (Abc_Obj_t *)Aig_ObjChild0Copy(pObj), (Abc_Obj_t *)Aig_ObjChild1Copy(pObj) );
+            pObj->pData = Abc_AigAnd( (Abc_Aig_t *)pNtkNew->pManFunc, (Abc_Obj_t *)Aig_ObjChild0Copy(pObj), (Abc_Obj_t *)Aig_ObjChild1Copy(pObj) );
     Vec_PtrFree( vNodes );
     // connect the PO nodes
     Aig_ManForEachPo( pMan, pObj, i )
@@ -313,17 +317,17 @@ Abc_Ntk_t * Abc_NtkFromDarSeqSweep( Abc_Ntk_t * pNtkOld, Aig_Man_t * pMan )
         pObjNew = Abc_NtkCreateLatch( pNtkNew );
         pObjLi->pData = Abc_NtkCreateBi( pNtkNew );
         pObjLo->pData = Abc_NtkCreateBo( pNtkNew );
-        Abc_ObjAddFanin( pObjNew, pObjLi->pData );
-        Abc_ObjAddFanin( pObjLo->pData, pObjNew );
+        Abc_ObjAddFanin( pObjNew, (Abc_Obj_t *)pObjLi->pData );
+        Abc_ObjAddFanin( (Abc_Obj_t *)pObjLo->pData, pObjNew );
         Abc_LatchSetInit0( pObjNew );
     }
     // rebuild the AIG
     vNodes = Aig_ManDfs( pMan, 1 );
-    Vec_PtrForEachEntry( vNodes, pObj, i )
+    Vec_PtrForEachEntry( Aig_Obj_t *, vNodes, pObj, i )
         if ( Aig_ObjIsBuf(pObj) )
             pObj->pData = (Abc_Obj_t *)Aig_ObjChild0Copy(pObj);
         else
-            pObj->pData = Abc_AigAnd( pNtkNew->pManFunc, (Abc_Obj_t *)Aig_ObjChild0Copy(pObj), (Abc_Obj_t *)Aig_ObjChild1Copy(pObj) );
+            pObj->pData = Abc_AigAnd( (Abc_Aig_t *)pNtkNew->pManFunc, (Abc_Obj_t *)Aig_ObjChild0Copy(pObj), (Abc_Obj_t *)Aig_ObjChild1Copy(pObj) );
     Vec_PtrFree( vNodes );
     // connect the PO nodes
     Aig_ManForEachPo( pMan, pObj, i )
@@ -443,19 +447,19 @@ Abc_Ntk_t * Abc_NtkFromAigPhase( Aig_Man_t * pMan )
         pObjNew = Abc_NtkCreateLatch( pNtkNew );
         pObjLi->pData = Abc_NtkCreateBi( pNtkNew );
         pObjLo->pData = Abc_NtkCreateBo( pNtkNew );
-        Abc_ObjAddFanin( pObjNew, pObjLi->pData );
-        Abc_ObjAddFanin( pObjLo->pData, pObjNew );
+        Abc_ObjAddFanin( pObjNew, (Abc_Obj_t *)pObjLi->pData );
+        Abc_ObjAddFanin( (Abc_Obj_t *)pObjLo->pData, pObjNew );
         Abc_LatchSetInit0( pObjNew );
-        Abc_ObjAssignName( pObjLi->pData, Abc_ObjName(pObjLi->pData), NULL );
-        Abc_ObjAssignName( pObjLo->pData, Abc_ObjName(pObjLo->pData), NULL );
+        Abc_ObjAssignName( (Abc_Obj_t *)pObjLi->pData, Abc_ObjName((Abc_Obj_t *)pObjLi->pData), NULL );
+        Abc_ObjAssignName( (Abc_Obj_t *)pObjLo->pData, Abc_ObjName((Abc_Obj_t *)pObjLo->pData), NULL );
     }
     // rebuild the AIG
     vNodes = Aig_ManDfs( pMan, 1 );
-    Vec_PtrForEachEntry( vNodes, pObj, i )
+    Vec_PtrForEachEntry( Aig_Obj_t *, vNodes, pObj, i )
         if ( Aig_ObjIsBuf(pObj) )
             pObj->pData = (Abc_Obj_t *)Aig_ObjChild0Copy(pObj);
         else
-            pObj->pData = Abc_AigAnd( pNtkNew->pManFunc, (Abc_Obj_t *)Aig_ObjChild0Copy(pObj), (Abc_Obj_t *)Aig_ObjChild1Copy(pObj) );
+            pObj->pData = Abc_AigAnd( (Abc_Aig_t *)pNtkNew->pManFunc, (Abc_Obj_t *)Aig_ObjChild0Copy(pObj), (Abc_Obj_t *)Aig_ObjChild1Copy(pObj) );
     Vec_PtrFree( vNodes );
     // connect the PO nodes
     Aig_ManForEachPo( pMan, pObj, i )
@@ -526,23 +530,23 @@ Abc_Ntk_t * Abc_NtkAfterTrim( Aig_Man_t * pMan, Abc_Ntk_t * pNtkOld )
         pObjNew = Abc_NtkCreateLatch( pNtkNew );
         pObjLi->pData = Abc_NtkCreateBi( pNtkNew );
         pObjLo->pData = Abc_NtkCreateBo( pNtkNew );
-        Abc_ObjAddFanin( pObjNew, pObjLi->pData );
-        Abc_ObjAddFanin( pObjLo->pData, pObjNew );
+        Abc_ObjAddFanin( pObjNew, (Abc_Obj_t *)pObjLi->pData );
+        Abc_ObjAddFanin( (Abc_Obj_t *)pObjLo->pData, pObjNew );
         Abc_LatchSetInit0( pObjNew );
         // find the name
         pObjOld = Abc_NtkCi( pNtkOld, Vec_IntEntry(pMan->vCiNumsOrig, Saig_ManPiNum(pMan)+i) );
-        Abc_ObjAssignName( pObjLo->pData, Abc_ObjName(pObjOld), NULL );
+        Abc_ObjAssignName( (Abc_Obj_t *)pObjLo->pData, Abc_ObjName(pObjOld), NULL );
         // find the name
         pObjOld = Abc_NtkCo( pNtkOld, Saig_ManPoNum(pMan)+i );
-        Abc_ObjAssignName( pObjLi->pData, Abc_ObjName(pObjOld), NULL );
+        Abc_ObjAssignName( (Abc_Obj_t *)pObjLi->pData, Abc_ObjName(pObjOld), NULL );
     }
     // rebuild the AIG
     vNodes = Aig_ManDfs( pMan, 1 );
-    Vec_PtrForEachEntry( vNodes, pObj, i )
+    Vec_PtrForEachEntry( Aig_Obj_t *, vNodes, pObj, i )
         if ( Aig_ObjIsBuf(pObj) )
             pObj->pData = (Abc_Obj_t *)Aig_ObjChild0Copy(pObj);
         else
-            pObj->pData = Abc_AigAnd( pNtkNew->pManFunc, (Abc_Obj_t *)Aig_ObjChild0Copy(pObj), (Abc_Obj_t *)Aig_ObjChild1Copy(pObj) );
+            pObj->pData = Abc_AigAnd( (Abc_Aig_t *)pNtkNew->pManFunc, (Abc_Obj_t *)Aig_ObjChild0Copy(pObj), (Abc_Obj_t *)Aig_ObjChild1Copy(pObj) );
     Vec_PtrFree( vNodes );
     // connect the PO nodes
     Aig_ManForEachPo( pMan, pObj, i )
@@ -585,15 +589,15 @@ Abc_Ntk_t * Abc_NtkFromDarChoices( Abc_Ntk_t * pNtkOld, Aig_Man_t * pMan )
 
     // rebuild the AIG
     vNodes = Aig_ManDfsChoices( pMan );
-    Vec_PtrForEachEntry( vNodes, pObj, i )
+    Vec_PtrForEachEntry( Aig_Obj_t *, vNodes, pObj, i )
     {
-        pObj->pData = Abc_AigAnd( pNtkNew->pManFunc, (Abc_Obj_t *)Aig_ObjChild0Copy(pObj), (Abc_Obj_t *)Aig_ObjChild1Copy(pObj) );
+        pObj->pData = Abc_AigAnd( (Abc_Aig_t *)pNtkNew->pManFunc, (Abc_Obj_t *)Aig_ObjChild0Copy(pObj), (Abc_Obj_t *)Aig_ObjChild1Copy(pObj) );
         if ( (pTemp = Aig_ObjEquiv(pMan, pObj)) )
         {
             Abc_Obj_t * pAbcRepr, * pAbcObj;
             assert( pTemp->pData != NULL );
-            pAbcRepr = pObj->pData;
-            pAbcObj  = pTemp->pData;
+            pAbcRepr = (Abc_Obj_t *)pObj->pData;
+            pAbcObj  = (Abc_Obj_t *)pTemp->pData;
             pAbcObj->pData  = pAbcRepr->pData;
             pAbcRepr->pData = pAbcObj;
         }
@@ -648,7 +652,7 @@ Abc_Ntk_t * Abc_NtkFromDarSeq( Abc_Ntk_t * pNtkOld, Aig_Man_t * pMan )
     Abc_NtkAddDummyBoxNames( pNtkNew );
     // rebuild the AIG
     vNodes = Aig_ManDfs( pMan, 1 );
-    Vec_PtrForEachEntry( vNodes, pObj, i )
+    Vec_PtrForEachEntry( Aig_Obj_t *, vNodes, pObj, i )
     {
         // add the first fanin
         pObj->pData = pFaninNew0 = (Abc_Obj_t *)Aig_ObjChild0Copy(pObj);
@@ -658,9 +662,9 @@ Abc_Ntk_t * Abc_NtkFromDarSeq( Abc_Ntk_t * pNtkOld, Aig_Man_t * pMan )
         pFaninNew1 = (Abc_Obj_t *)Aig_ObjChild1Copy(pObj);
         // create the new node
         if ( Aig_ObjIsExor(pObj) )
-            pObj->pData = pObjNew = Abc_AigXor( pNtkNew->pManFunc, pFaninNew0, pFaninNew1 );
+            pObj->pData = pObjNew = Abc_AigXor( (Abc_Aig_t *)pNtkNew->pManFunc, pFaninNew0, pFaninNew1 );
         else
-            pObj->pData = pObjNew = Abc_AigAnd( pNtkNew->pManFunc, pFaninNew0, pFaninNew1 );
+            pObj->pData = pObjNew = Abc_AigAnd( (Abc_Aig_t *)pNtkNew->pManFunc, pFaninNew0, pFaninNew1 );
     }
     Vec_PtrFree( vNodes );
     // connect the PO nodes
@@ -673,7 +677,7 @@ Abc_Ntk_t * Abc_NtkFromDarSeq( Abc_Ntk_t * pNtkOld, Aig_Man_t * pMan )
     Aig_ManForEachObj( pMan, pObj, i )
     {
         pFaninNew = (Abc_Obj_t *)Aig_ObjChild0Copy( pObj );
-        Abc_ObjAddFanin( Abc_ObjFanin0(Abc_ObjFanin0(pObj->pData)), pFaninNew );
+        Abc_ObjAddFanin( Abc_ObjFanin0(Abc_ObjFanin0((Abc_Obj_t *)pObj->pData)), pFaninNew );
     }
     if ( !Abc_NtkCheck( pNtkNew ) )
         fprintf( stdout, "Abc_NtkFromIvySeq(): Network check has failed.\n" );
@@ -868,7 +872,7 @@ Abc_Ntk_t * Abc_NtkDarFraigPart( Abc_Ntk_t * pNtk, int nPartSize, int nConfLimit
 ***********************************************************************/
 Abc_Ntk_t * Abc_NtkCSweep( Abc_Ntk_t * pNtk, int nCutsMax, int nLeafMax, int fVerbose )
 {
-    extern Aig_Man_t * Csw_Sweep( Aig_Man_t * pAig, int nCutsMax, int nLeafMax, int fVerbose );
+//    extern Aig_Man_t * Csw_Sweep( Aig_Man_t * pAig, int nCutsMax, int nLeafMax, int fVerbose );
     Abc_Ntk_t * pNtkAig;
     Aig_Man_t * pMan, * pTemp;
     pMan = Abc_NtkToDar( pNtk, 0, 0 );
@@ -1129,23 +1133,23 @@ Abc_Ntk_t * Abc_NtkConstructFromCnf( Abc_Ntk_t * pNtk, Cnf_Man_t * p, Vec_Ptr_t 
         Aig_ManPi(p->pManAig, i)->pData = pNode->pCopy;
     // process the nodes in topological order
     vCover = Vec_IntAlloc( 1 << 16 );
-    Vec_PtrForEachEntry( vMapped, pObj, i )
+    Vec_PtrForEachEntry( Aig_Obj_t *, vMapped, pObj, i )
     {
         // create new node
         pNodeNew = Abc_NtkCreateNode( pNtkNew );
         // add fanins according to the cut
-        pCut = pObj->pData;
+        pCut = (Cnf_Cut_t *)pObj->pData;
         Cnf_CutForEachLeaf( p->pManAig, pCut, pLeaf, k )
-            Abc_ObjAddFanin( pNodeNew, pLeaf->pData );
+            Abc_ObjAddFanin( pNodeNew, (Abc_Obj_t *)pLeaf->pData );
         // add logic function
         if ( pCut->nFanins < 5 )
         {
             uTruth = 0xFFFF & *Cnf_CutTruth(pCut);
             Cnf_SopConvertToVector( p->pSops[uTruth], p->pSopSizes[uTruth], vCover );
-            pNodeNew->pData = Abc_SopCreateFromIsop( pNtkNew->pManFunc, pCut->nFanins, vCover );
+            pNodeNew->pData = Abc_SopCreateFromIsop( (Extra_MmFlex_t *)pNtkNew->pManFunc, pCut->nFanins, vCover );
         }
         else
-            pNodeNew->pData = Abc_SopCreateFromIsop( pNtkNew->pManFunc, pCut->nFanins, pCut->vIsop[1] );
+            pNodeNew->pData = Abc_SopCreateFromIsop( (Extra_MmFlex_t *)pNtkNew->pManFunc, pCut->nFanins, pCut->vIsop[1] );
         // save the node
         pObj->pData = pNodeNew;
     }
@@ -1154,7 +1158,7 @@ Abc_Ntk_t * Abc_NtkConstructFromCnf( Abc_Ntk_t * pNtk, Cnf_Man_t * p, Vec_Ptr_t 
     Abc_NtkForEachCo( pNtk, pNode, i )
     {
         pObj = Aig_ManPo(p->pManAig, i);
-        pNodeNew = Abc_ObjNotCond( Aig_ObjFanin0(pObj)->pData, Aig_ObjFaninC0(pObj) );
+        pNodeNew = Abc_ObjNotCond( (Abc_Obj_t *)Aig_ObjFanin0(pObj)->pData, Aig_ObjFaninC0(pObj) );
         Abc_ObjAddFanin( pNode->pCopy, pNodeNew );
     }
 
@@ -1248,7 +1252,7 @@ int Abc_NtkDSat( Abc_Ntk_t * pNtk, ABC_INT64_T nConfLimit, ABC_INT64_T nInsLimit
     assert( Abc_NtkPoNum(pNtk) == 1 );
     pMan = Abc_NtkToDar( pNtk, 0, 0 );
     RetValue = Fra_FraigSat( pMan, nConfLimit, nInsLimit, fAlignPol, fAndOuts, fVerbose ); 
-    pNtk->pModel = pMan->pData, pMan->pData = NULL;
+    pNtk->pModel = (int *)pMan->pData, pMan->pData = NULL;
     Aig_ManStop( pMan );
     return RetValue;
 }
@@ -1273,7 +1277,7 @@ int Abc_NtkPartitionedSat( Abc_Ntk_t * pNtk, int nAlgo, int nPartSize, int nConf
     assert( Abc_NtkLatchNum(pNtk) == 0 );
     pMan = Abc_NtkToDar( pNtk, 0, 0 );
     RetValue = Aig_ManPartitionedSat( pMan, nAlgo, nPartSize, nConfPart, nConfTotal, fAlignPol, fSynthesize, fVerbose ); 
-    pNtk->pModel = pMan->pData, pMan->pData = NULL;
+    pNtk->pModel = (int *)pMan->pData, pMan->pData = NULL;
     Aig_ManStop( pMan );
     return RetValue;
 }
@@ -1370,7 +1374,7 @@ int Abc_NtkDarCec( Abc_Ntk_t * pNtk1, Abc_Ntk_t * pNtk2, int nConfLimit, int fPa
     RetValue = Fra_FraigCec( &pMan, 100000, fVerbose );
     // transfer model if given
     if ( pNtk2 == NULL )
-        pNtk1->pModel = pMan->pData, pMan->pData = NULL;
+        pNtk1->pModel = (int *)pMan->pData, pMan->pData = NULL;
     Aig_ManStop( pMan );
 
 finish:
@@ -1466,10 +1470,10 @@ ABC_PRT( "Initial fraiging time", clock() - clk );
 ***********************************************************************/
 void Abc_NtkPrintLatchEquivClasses( Abc_Ntk_t * pNtk, Aig_Man_t * pAig )
 {
-    bool header_dumped = false;
+    int header_dumped = 0;
     int num_orig_latches = Abc_NtkLatchNum(pNtk);
     char **pNames = ABC_ALLOC( char *, num_orig_latches );
-    bool *p_irrelevant = ABC_ALLOC( bool, num_orig_latches );
+    int *p_irrelevant = ABC_ALLOC( int, num_orig_latches );
     char * pFlopName, * pReprName;
     Aig_Obj_t * pFlop, * pRepr;
     Abc_Obj_t * pNtkFlop; 
@@ -1897,7 +1901,7 @@ int Abc_NtkDarBmcInter_int( Aig_Man_t * pMan, Inter_ManParams_t * pPars, Aig_Man
                 pTemp->pSeqModel = NULL;
                 RetValue = Fra_FraigSat( pTemp, pPars->nBTLimit, 0, 0, 0, 0 ); 
                 if ( pTemp->pData )
-                    pTemp->pSeqModel = Gia_ManCreateFromComb( Aig_ManRegNum(pMan), Saig_ManPiNum(pMan), i, pTemp->pData );
+                    pTemp->pSeqModel = Gia_ManCreateFromComb( Aig_ManRegNum(pMan), Saig_ManPiNum(pMan), i, (int *)pTemp->pData );
 //                pNtk->pModel = pTemp->pData, pTemp->pData = NULL;
             }
             else
@@ -2643,7 +2647,7 @@ int Abc_NtkDarSeqSim( Abc_Ntk_t * pNtk, int nFrames, int nWords, int TimeOut, in
     if ( Abc_NtkGetChoiceNum(pNtk) )
     {
         printf( "Removing %d choices from the AIG.\n", Abc_NtkGetChoiceNum(pNtk) );
-        Abc_AigCleanup(pNtk->pManFunc);
+        Abc_AigCleanup((Abc_Aig_t *)pNtk->pManFunc);
     }
     pMan = Abc_NtkToDar( pNtk, 0, 1 );
     if ( fComb || Abc_NtkLatchNum(pNtk) == 0 )
@@ -3170,16 +3174,17 @@ void Abc_NtkPrintSccs( Abc_Ntk_t * pNtk, int fVerbose )
   SeeAlso     []
 
 ***********************************************************************/
-void Abc_NtkDarPrintCone( Abc_Ntk_t * pNtk )
+int Abc_NtkDarPrintCone( Abc_Ntk_t * pNtk )
 {
     extern void Saig_ManPrintCones( Aig_Man_t * pAig );
     Aig_Man_t * pMan;
     pMan = Abc_NtkToDar( pNtk, 0, 1 );
     if ( pMan == NULL )
-        return;
+        return 0;
     assert( Aig_ManRegNum(pMan) > 0 );
     Saig_ManPrintCones( pMan );
     Aig_ManStop( pMan );
+    return 1;
 }
 
 /**Function*************************************************************
@@ -3581,7 +3586,6 @@ Abc_Ntk_t * Abc_NtkDarCleanupAig( Abc_Ntk_t * pNtk, int fCleanupPis, int fCleanu
 ***********************************************************************/
 int Abc_NtkDarReach( Abc_Ntk_t * pNtk, Saig_ParBbr_t * pPars )
 {
-    extern int Aig_ManVerifyUsingBdds( Aig_Man_t * p, Saig_ParBbr_t * pPars );
     Aig_Man_t * pMan;
     int RetValue;
     pMan = Abc_NtkToDar( pNtk, 0, 1 );
@@ -3595,8 +3599,13 @@ int Abc_NtkDarReach( Abc_Ntk_t * pNtk, Saig_ParBbr_t * pPars )
     return RetValue;
 }
 
+ABC_NAMESPACE_IMPL_END
+
 #include "amap.h"
 #include "mio.h"
+
+ABC_NAMESPACE_IMPL_START
+
 
 /**Function*************************************************************
 
@@ -3611,15 +3620,15 @@ int Abc_NtkDarReach( Abc_Ntk_t * pNtk, Saig_ParBbr_t * pPars )
 ***********************************************************************/
 Abc_Ntk_t * Amap_ManProduceNetwork( Abc_Ntk_t * pNtk, Vec_Ptr_t * vMapping )
 {
-    extern void * Abc_FrameReadLibGen();
-    Mio_Library_t * pLib = Abc_FrameReadLibGen();
+//    extern void * Abc_FrameReadLibGen();
+    Mio_Library_t * pLib = (Mio_Library_t *)Abc_FrameReadLibGen();
     Amap_Out_t * pRes;
     Vec_Ptr_t * vNodesNew;
     Abc_Ntk_t * pNtkNew;
     Abc_Obj_t * pNodeNew, * pFaninNew;
     int i, k, iPis, iPos, nDupGates;
     // make sure gates exist in the current library
-    Vec_PtrForEachEntry( vMapping, pRes, i )
+    Vec_PtrForEachEntry( Amap_Out_t *, vMapping, pRes, i )
         if ( pRes->pName && Mio_LibraryReadGateByName( pLib, pRes->pName ) == NULL )
         {
             printf( "Current library does not contain gate \"%s\".\n", pRes->pName );
@@ -3630,7 +3639,7 @@ Abc_Ntk_t * Amap_ManProduceNetwork( Abc_Ntk_t * pNtk, Vec_Ptr_t * vMapping )
     pNtkNew->pManFunc = pLib;
     iPis = iPos = 0;
     vNodesNew = Vec_PtrAlloc( Vec_PtrSize(vMapping) );
-    Vec_PtrForEachEntry( vMapping, pRes, i )
+    Vec_PtrForEachEntry( Amap_Out_t *, vMapping, pRes, i )
     {
         if ( pRes->Type == -1 )
             pNodeNew = Abc_NtkCi( pNtkNew, iPis++ );
@@ -3643,7 +3652,7 @@ Abc_Ntk_t * Amap_ManProduceNetwork( Abc_Ntk_t * pNtk, Vec_Ptr_t * vMapping )
         }
         for ( k = 0; k < pRes->nFans; k++ )
         {
-            pFaninNew = Vec_PtrEntry( vNodesNew, pRes->pFans[k] );
+            pFaninNew = (Abc_Obj_t *)Vec_PtrEntry( vNodesNew, pRes->pFans[k] );
             Abc_ObjAddFanin( pNodeNew, pFaninNew );
         }
         Vec_PtrPush( vNodesNew, pNodeNew );
@@ -3688,7 +3697,7 @@ Abc_Ntk_t * Abc_NtkDarAmap( Abc_Ntk_t * pNtk, Amap_Par_t * pPars )
     Aig_ManStop( pMan );
     if ( vMapping == NULL )
         return NULL;
-    pMem = Vec_PtrPop( vMapping );
+    pMem = (Aig_MmFlex_t *)Vec_PtrPop( vMapping );
     pNtkAig = Amap_ManProduceNetwork( pNtk, vMapping );
     Aig_MmFlexStop( pMem, 0 );
     Vec_PtrFree( vMapping );
@@ -3804,7 +3813,6 @@ void Abc_NtkDarConstrProfile( Abc_Ntk_t * pNtk, int fVerbose )
 {
     extern int Ssw_ManProfileConstraints( Aig_Man_t * p, int nWords, int nFrames, int fVerbose );
     extern Vec_Int_t * Saig_ManComputeSwitchProbs( Aig_Man_t * p, int nFrames, int nPref, int fProbOne );
-    extern int Ssw_ManSetConstrPhases( Aig_Man_t * p, int nFrames, Vec_Int_t ** pvInits );
     Aig_Man_t * pMan;
 //    Vec_Int_t * vProbOne;
 //    Aig_Obj_t * pObj;
@@ -3891,14 +3899,14 @@ Aig_ManPrintStats( pMan );
 //    Ioa_WriteAigerBufferTest( pMan, "test.aig", 0, 0 );
 //    Saig_ManFoldConstrTest( pMan );
     {
-    void Saig_ManBmcSectionsTest( Aig_Man_t * p );
-    void Saig_ManBmcTerSimTest( Aig_Man_t * p );
-    void Saig_ManBmcSupergateTest( Aig_Man_t * p );
-    void Saig_ManBmcMappingTest( Aig_Man_t * p );
+    extern void Saig_ManBmcSectionsTest( Aig_Man_t * p );
+    extern void Saig_ManBmcTerSimTest( Aig_Man_t * p );
+    extern void Saig_ManBmcSupergateTest( Aig_Man_t * p );
+    extern void Saig_ManBmcMappingTest( Aig_Man_t * p );
 //    Saig_ManBmcSectionsTest( pMan );
 //    Saig_ManBmcTerSimTest( pMan );
 //    Saig_ManBmcSupergateTest( pMan );
-    Saig_ManBmcMappingTest( pMan );
+//    Saig_ManBmcMappingTest( pMan );
     }
 
 
@@ -3986,4 +3994,6 @@ Abc_Ntk_t * Abc_NtkDarTestNtk( Abc_Ntk_t * pNtk )
 ///                       END OF FILE                                ///
 ////////////////////////////////////////////////////////////////////////
 
+
+ABC_NAMESPACE_IMPL_END
 

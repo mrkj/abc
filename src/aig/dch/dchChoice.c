@@ -20,6 +20,9 @@
 
 #include "dchInt.h"
 
+ABC_NAMESPACE_IMPL_START
+
+
 ////////////////////////////////////////////////////////////////////////
 ///                        DECLARATIONS                              ///
 ////////////////////////////////////////////////////////////////////////
@@ -204,8 +207,8 @@ void Dch_DeriveChoiceAigNode( Aig_Man_t * pAigNew, Aig_Man_t * pAigOld, Aig_Obj_
     if ( pRepr == NULL )
         return;
     // get the corresponding new nodes
-    pObjNew  = Aig_Regular(pObj->pData);
-    pReprNew = Aig_Regular(pRepr->pData);
+    pObjNew  = Aig_Regular((Aig_Obj_t *)pObj->pData);
+    pReprNew = Aig_Regular((Aig_Obj_t *)pRepr->pData);
     if ( pObjNew == pReprNew )
         return;
     // skip the earlier nodes
@@ -332,4 +335,6 @@ Aig_Man_t * Dch_DeriveChoiceAig( Aig_Man_t * pAig )
 ///                       END OF FILE                                ///
 ////////////////////////////////////////////////////////////////////////
 
+
+ABC_NAMESPACE_IMPL_END
 

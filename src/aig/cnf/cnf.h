@@ -21,6 +21,7 @@
 #ifndef __CNF_H__
 #define __CNF_H__
 
+
 ////////////////////////////////////////////////////////////////////////
 ///                          INCLUDES                                ///
 ////////////////////////////////////////////////////////////////////////
@@ -39,9 +40,10 @@
 ///                         PARAMETERS                               ///
 ////////////////////////////////////////////////////////////////////////
 
-#ifdef __cplusplus
-extern "C" {
-#endif 
+
+
+ABC_NAMESPACE_HEADER_START
+ 
 
 ////////////////////////////////////////////////////////////////////////
 ///                         BASIC TYPES                              ///
@@ -97,7 +99,7 @@ static inline int          Cnf_CutLeaveNum( Cnf_Cut_t * pCut )    { return pCut-
 static inline int *        Cnf_CutLeaves( Cnf_Cut_t * pCut )      { return pCut->pFanins;                               }
 static inline unsigned *   Cnf_CutTruth( Cnf_Cut_t * pCut )       { return (unsigned *)(pCut->pFanins + pCut->nFanins); }
 
-static inline Cnf_Cut_t *  Cnf_ObjBestCut( Aig_Obj_t * pObj )                       { return pObj->pData;  }
+static inline Cnf_Cut_t *  Cnf_ObjBestCut( Aig_Obj_t * pObj )                       { return (Cnf_Cut_t *)pObj->pData;  }
 static inline void         Cnf_ObjSetBestCut( Aig_Obj_t * pObj, Cnf_Cut_t * pCut )  { pObj->pData = pCut;  }
 
 ////////////////////////////////////////////////////////////////////////
@@ -168,9 +170,11 @@ extern Cnf_Dat_t *     Cnf_ManWriteCnf( Cnf_Man_t * p, Vec_Ptr_t * vMapped, int 
 extern Cnf_Dat_t *     Cnf_DeriveSimple( Aig_Man_t * p, int nOutputs );
 extern Cnf_Dat_t *     Cnf_DeriveSimpleForRetiming( Aig_Man_t * p );
 
-#ifdef __cplusplus
-}
-#endif
+
+
+ABC_NAMESPACE_HEADER_END
+
+
 
 #endif
 

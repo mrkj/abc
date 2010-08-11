@@ -20,6 +20,9 @@
 
 #include "rwr.h"
 
+ABC_NAMESPACE_IMPL_START
+
+
 ////////////////////////////////////////////////////////////////////////
 ///                        DECLARATIONS                              ///
 ////////////////////////////////////////////////////////////////////////
@@ -149,7 +152,7 @@ void Rwt_Man4ExplorePrint()
     for ( i = 0; i < s_pManRwrExp4->nFuncs; i++ )
         if ( s_pManRwrExp4->pnCounts[i] > 0 )
         {
-            Extra_PrintHex( pFile, &i, 4 );
+            Extra_PrintHex( pFile, (unsigned *)&i, 4 );
             fprintf( pFile, " %10d\n", s_pManRwrExp4->pnCounts[i] );
 //            fprintf( pFile, "%d ", i );
             CountWrite++;
@@ -328,4 +331,6 @@ ABC_PRT( "Computing NPN classes", clock() - clk );
 ///                       END OF FILE                                ///
 ////////////////////////////////////////////////////////////////////////
 
+
+ABC_NAMESPACE_IMPL_END
 

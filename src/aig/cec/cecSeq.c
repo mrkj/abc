@@ -20,6 +20,9 @@
 
 #include "cecInt.h"
 
+ABC_NAMESPACE_IMPL_START
+
+
 ////////////////////////////////////////////////////////////////////////
 ///                        DECLARATIONS                              ///
 ////////////////////////////////////////////////////////////////////////
@@ -56,14 +59,14 @@ void Cec_ManSeqDeriveInfoFromCex( Vec_Ptr_t * vInfo, Gia_Man_t * pAig, Abc_Cex_t
 */
     for ( k = 0; k < Gia_ManRegNum(pAig); k++ )
     {
-        pInfo = Vec_PtrEntry( vInfo, k );
+        pInfo = (unsigned *)Vec_PtrEntry( vInfo, k );
         for ( w = 0; w < nWords; w++ )
             pInfo[w] = 0;
     }
 
     for ( i = pCex->nRegs; i < pCex->nBits; i++ )
     {
-        pInfo = Vec_PtrEntry( vInfo, k++ );
+        pInfo = (unsigned *)Vec_PtrEntry( vInfo, k++ );
         for ( w = 0; w < nWords; w++ )
             pInfo[w] = Gia_ManRandom(0);
         // set simulation pattern and make sure it is second (first will be erased during simulation)
@@ -72,7 +75,7 @@ void Cec_ManSeqDeriveInfoFromCex( Vec_Ptr_t * vInfo, Gia_Man_t * pAig, Abc_Cex_t
     }
     for ( ; k < Vec_PtrSize(vInfo); k++ )
     {
-        pInfo = Vec_PtrEntry( vInfo, k );
+        pInfo = (unsigned *)Vec_PtrEntry( vInfo, k );
         for ( w = 0; w < nWords; w++ )
             pInfo[w] = Gia_ManRandom(0);
     }
@@ -98,14 +101,14 @@ void Cec_ManSeqDeriveInfoInitRandom( Vec_Ptr_t * vInfo, Gia_Man_t * pAig, Abc_Ce
     assert( Gia_ManRegNum(pAig) <= Vec_PtrSize(vInfo) );
     for ( k = 0; k < Gia_ManRegNum(pAig); k++ )
     {
-        pInfo = Vec_PtrEntry( vInfo, k );
+        pInfo = (unsigned *)Vec_PtrEntry( vInfo, k );
         for ( w = 0; w < nWords; w++ )
             pInfo[w] = (pCex && Gia_InfoHasBit(pCex->pData, k))? ~0 : 0;
     }
 
     for ( ; k < Vec_PtrSize(vInfo); k++ )
     {
-        pInfo = Vec_PtrEntry( vInfo, k );
+        pInfo = (unsigned *)Vec_PtrEntry( vInfo, k );
         for ( w = 0; w < nWords; w++ )
             pInfo[w] = Gia_ManRandom( 0 );
     }
@@ -130,8 +133,8 @@ int Cec_ManSeqResimulate( Cec_ManSim_t * p, Vec_Ptr_t * vInfo )
     assert( Vec_PtrSize(vInfo) == Gia_ManRegNum(p->pAig) + Gia_ManPiNum(p->pAig) * p->pPars->nFrames );
     for ( k = 0; k < Gia_ManRegNum(p->pAig); k++ )
     {
-        pInfo0 = Vec_PtrEntry( vInfo, k );
-        pInfo1 = Vec_PtrEntry( p->vCoSimInfo, Gia_ManPoNum(p->pAig) + k );
+        pInfo0 = (unsigned *)Vec_PtrEntry( vInfo, k );
+        pInfo1 = (unsigned *)Vec_PtrEntry( p->vCoSimInfo, Gia_ManPoNum(p->pAig) + k );
         for ( w = 0; w < p->nWords; w++ )
             pInfo1[w] = pInfo0[w];
     }
@@ -139,15 +142,15 @@ int Cec_ManSeqResimulate( Cec_ManSim_t * p, Vec_Ptr_t * vInfo )
     {
         for ( i = 0; i < Gia_ManPiNum(p->pAig); i++ )
         {
-            pInfo0 = Vec_PtrEntry( vInfo, k++ );
-            pInfo1 = Vec_PtrEntry( p->vCiSimInfo, i );
+            pInfo0 = (unsigned *)Vec_PtrEntry( vInfo, k++ );
+            pInfo1 = (unsigned *)Vec_PtrEntry( p->vCiSimInfo, i );
             for ( w = 0; w < p->nWords; w++ )
                 pInfo1[w] = pInfo0[w];
         }
         for ( i = 0; i < Gia_ManRegNum(p->pAig); i++ )
         {
-            pInfo0 = Vec_PtrEntry( p->vCoSimInfo, Gia_ManPoNum(p->pAig) + i );
-            pInfo1 = Vec_PtrEntry( p->vCiSimInfo, Gia_ManPiNum(p->pAig) + i );
+            pInfo0 = (unsigned *)Vec_PtrEntry( p->vCoSimInfo, Gia_ManPoNum(p->pAig) + i );
+            pInfo1 = (unsigned *)Vec_PtrEntry( p->vCiSimInfo, Gia_ManPiNum(p->pAig) + i );
             for ( w = 0; w < p->nWords; w++ )
                 pInfo1[w] = pInfo0[w];
         }
@@ -431,4 +434,6 @@ int Cec_ManSeqSemiformal( Gia_Man_t * pAig, Cec_ParSmf_t * pPars )
 ///                       END OF FILE                                ///
 ////////////////////////////////////////////////////////////////////////
 
+
+ABC_NAMESPACE_IMPL_END
 

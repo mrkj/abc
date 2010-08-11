@@ -19,6 +19,10 @@
 ***********************************************************************/
 
 #include "giaAig.h"
+#include "main.h"
+
+ABC_NAMESPACE_IMPL_START
+
 
 ////////////////////////////////////////////////////////////////////////
 ///                        DECLARATIONS                              ///
@@ -653,7 +657,6 @@ Vec_Int_t * Gia_ManSwiSimulate( Gia_Man_t * pAig, Gia_ParSwi_t * pPars )
 ***********************************************************************/
 Vec_Int_t * Saig_ManComputeSwitchProbs( Aig_Man_t * pAig, int nFrames, int nPref, int fProbOne )
 {
-    extern char * Abc_FrameReadFlag( char * pFlag );
     Gia_ParSwi_t Pars, * pPars = &Pars;
     Vec_Int_t * vSwitching, * vResult;
     Gia_Man_t * p;
@@ -788,4 +791,6 @@ float Gia_ManComputeSwitching( Gia_Man_t * p, int nFrames, int nPref, int fProbO
 ///                       END OF FILE                                ///
 ////////////////////////////////////////////////////////////////////////
 
+
+ABC_NAMESPACE_IMPL_END
 

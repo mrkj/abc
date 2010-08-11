@@ -20,6 +20,9 @@
 
 #include "gia.h"
 
+ABC_NAMESPACE_IMPL_START
+
+
 ////////////////////////////////////////////////////////////////////////
 ///                        DECLARATIONS                              ///
 ////////////////////////////////////////////////////////////////////////
@@ -72,7 +75,7 @@ void Gia_ManRandomInfo( Vec_Ptr_t * vInfo, int iInputStart, int iWordStart, int 
 {
     unsigned * pInfo;
     int i, w;
-    Vec_PtrForEachEntryStart( vInfo, pInfo, i, iInputStart )
+    Vec_PtrForEachEntryStart( unsigned *, vInfo, pInfo, i, iInputStart )
         for ( w = iWordStart; w < iWordStop; w++ )
             pInfo[w] = Gia_ManRandom(0);
 }
@@ -1300,4 +1303,6 @@ void Gia_ObjPrint( Gia_Man_t * p, Gia_Obj_t * pObj )
 ///                       END OF FILE                                ///
 ////////////////////////////////////////////////////////////////////////
 
+
+ABC_NAMESPACE_IMPL_END
 

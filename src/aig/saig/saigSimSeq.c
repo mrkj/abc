@@ -21,6 +21,9 @@
 #include "saig.h"
 #include "ssw.h"
 
+ABC_NAMESPACE_IMPL_START
+
+
 ////////////////////////////////////////////////////////////////////////
 ///                        DECLARATIONS                              ///
 ////////////////////////////////////////////////////////////////////////
@@ -228,7 +231,7 @@ unsigned * Raig_ManSimRef( Raig_Man_t * p, int i )
     assert( p->pSims[i] == 0 );
     if ( p->MemFree == 0 )
     {
-        int * pPlace, Ent;
+        unsigned * pPlace, Ent;
         if ( p->nWordsAlloc == 0 )
         {
             assert( p->pMems == NULL );
@@ -238,9 +241,9 @@ unsigned * Raig_ManSimRef( Raig_Man_t * p, int i )
         p->nWordsAlloc *= 2;
         p->pMems = ABC_REALLOC( unsigned, p->pMems, p->nWordsAlloc );
         memset( p->pMems, 0xff, sizeof(unsigned) * (p->nWords + 1) );
-        pPlace = &p->MemFree;
+        pPlace = (unsigned *)&p->MemFree;
         for ( Ent = p->nMems * (p->nWords + 1); 
-              Ent + p->nWords + 1 < p->nWordsAlloc; 
+              Ent + p->nWords + 1 < (unsigned)p->nWordsAlloc; 
               Ent += p->nWords + 1 )
         {
             *pPlace = Ent;
@@ -510,4 +513,6 @@ int Raig_ManSimulate( Aig_Man_t * pAig, int nWords, int nIters, int TimeLimit, i
 ///                       END OF FILE                                ///
 ////////////////////////////////////////////////////////////////////////
 
+
+ABC_NAMESPACE_IMPL_END
 

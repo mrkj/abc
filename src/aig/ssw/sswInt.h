@@ -21,6 +21,7 @@
 #ifndef __SSW_INT_H__
 #define __SSW_INT_H__
 
+
 ////////////////////////////////////////////////////////////////////////
 ///                          INCLUDES                                ///
 ////////////////////////////////////////////////////////////////////////
@@ -33,9 +34,10 @@
 ///                         PARAMETERS                               ///
 ////////////////////////////////////////////////////////////////////////
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+
+
+ABC_NAMESPACE_HEADER_START
+
 
 ////////////////////////////////////////////////////////////////////////
 ///                         BASIC TYPES                              ///
@@ -182,7 +184,7 @@ static inline void        Ssw_ObjSetFrame( Ssw_Man_t * p, Aig_Obj_t * pObj, int 
 static inline Aig_Obj_t * Ssw_ObjChild0Fra( Ssw_Man_t * p, Aig_Obj_t * pObj, int i ) { assert( !Aig_IsComplement(pObj) ); return Aig_ObjFanin0(pObj)? Aig_NotCond(Ssw_ObjFrame(p, Aig_ObjFanin0(pObj), i), Aig_ObjFaninC0(pObj)) : NULL;  }
 static inline Aig_Obj_t * Ssw_ObjChild1Fra( Ssw_Man_t * p, Aig_Obj_t * pObj, int i ) { assert( !Aig_IsComplement(pObj) ); return Aig_ObjFanin1(pObj)? Aig_NotCond(Ssw_ObjFrame(p, Aig_ObjFanin1(pObj), i), Aig_ObjFaninC1(pObj)) : NULL;  }
 
-static inline Aig_Obj_t * Ssw_ObjFrame_( Ssw_Frm_t * p, Aig_Obj_t * pObj, int i )                       { return Vec_PtrGetEntry( p->vAig2Frm, p->nObjs*i+pObj->Id );     }
+static inline Aig_Obj_t * Ssw_ObjFrame_( Ssw_Frm_t * p, Aig_Obj_t * pObj, int i )                       { return (Aig_Obj_t *)Vec_PtrGetEntry( p->vAig2Frm, p->nObjs*i+pObj->Id );     }
 static inline void        Ssw_ObjSetFrame_( Ssw_Frm_t * p, Aig_Obj_t * pObj, int i, Aig_Obj_t * pNode ) { Vec_PtrSetEntry( p->vAig2Frm, p->nObjs*i+pObj->Id, pNode );     }
 
 static inline Aig_Obj_t * Ssw_ObjChild0Fra_( Ssw_Frm_t * p, Aig_Obj_t * pObj, int i ) { assert( !Aig_IsComplement(pObj) ); return Aig_ObjFanin0(pObj)? Aig_NotCond(Ssw_ObjFrame_(p, Aig_ObjFanin0(pObj), i), Aig_ObjFaninC0(pObj)) : NULL;  }
@@ -234,7 +236,6 @@ extern int           Ssw_CnfGetNodeValue( Ssw_Sat_t * p, Aig_Obj_t * pObjFraig )
 /*=== sswConstr.c ===================================================*/
 extern int           Ssw_ManSweepBmcConstr( Ssw_Man_t * p );
 extern int           Ssw_ManSweepConstr( Ssw_Man_t * p );
-extern int           Ssw_ManSetConstrPhases( Aig_Man_t * p, int nFrames, Vec_Int_t ** pvInits );
 extern void          Ssw_ManRefineByConstrSim( Ssw_Man_t * p );
 /*=== sswCore.c ===================================================*/
 extern Aig_Man_t *   Ssw_SignalCorrespondenceRefine( Ssw_Man_t * p );
@@ -284,9 +285,11 @@ extern void          Ssw_UniqueRegisterPairInfo( Ssw_Man_t * p );
 extern int           Ssw_ManUniqueOne( Ssw_Man_t * p, Aig_Obj_t * pRepr, Aig_Obj_t * pObj, int fVerbose );
 extern int           Ssw_ManUniqueAddConstraint( Ssw_Man_t * p, Vec_Ptr_t * vCommon, int f1, int f2 );
 
-#ifdef __cplusplus
-}
-#endif
+
+
+ABC_NAMESPACE_HEADER_END
+
+
 
 #endif
 

@@ -29,6 +29,9 @@
 #include "main.h"
 #include "ioAbc.h"
 
+ABC_NAMESPACE_IMPL_START
+
+
 ////////////////////////////////////////////////////////////////////////
 ///                        DECLARATIONS                              ///
 ////////////////////////////////////////////////////////////////////////
@@ -71,7 +74,7 @@ void Abc_NodeShowBdd( Abc_Obj_t * pNode )
     // set the node names 
     vNamesIn = Abc_NodeGetFaninNames( pNode );
     pNameOut = Abc_ObjName(pNode);
-    Cudd_DumpDot( pNode->pNtk->pManFunc, 1, (DdNode **)&pNode->pData, (char **)vNamesIn->pArray, &pNameOut, pFile );
+    Cudd_DumpDot( (DdManager *)pNode->pNtk->pManFunc, 1, (DdNode **)&pNode->pData, (char **)vNamesIn->pArray, &pNameOut, pFile );
     Abc_NodeFreeNames( vNamesIn );
     Abc_NtkCleanCopy( pNode->pNtk );
     fclose( pFile );
@@ -80,6 +83,30 @@ void Abc_NodeShowBdd( Abc_Obj_t * pNode )
     Abc_ShowFile( FileNameDot );
 }
 
+/**Function*************************************************************
+
+  Synopsis    [Visualizes BDD of the node.]
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+void Abc_NodeShowBddOne( DdManager * dd, DdNode * bFunc )
+{
+    char * FileNameDot = "temp.dot";
+    FILE * pFile;
+    if ( (pFile = fopen( FileNameDot, "w" )) == NULL )
+    {
+        fprintf( stdout, "Cannot open the intermediate file \"%s\".\n", FileNameDot );
+        return;
+    }
+    Cudd_DumpDot( dd, 1, (DdNode **)&bFunc, NULL, NULL, pFile );
+    fclose( pFile );
+    Abc_ShowFile( FileNameDot );
+}
 /**Function*************************************************************
 
   Synopsis    [Visualizes a reconvergence driven cut at the node.]
@@ -118,7 +145,7 @@ void Abc_NodeShowCut( Abc_Obj_t * pNode, int nNodeSizeMax, int nConeSizeMax )
 
     // add the nodes in the TFO 
     vNodesTfo = Abc_NodeCollectTfoCands( p, pNode, vCutSmall, ABC_INFINITY );
-    Vec_PtrForEachEntry( vNodesTfo, pTemp, i )
+    Vec_PtrForEachEntry( Abc_Obj_t *, vNodesTfo, pTemp, i )
         Vec_PtrPushUnique( vInside, pTemp );
 
     // create the file name
@@ -349,7 +376,7 @@ void Abc_NtkWriteFlopDependency( Abc_Ntk_t * pNtk, char * pFileName )
         Abc_ObjFanout0( Abc_ObjFanout0(pObj) )->iTemp = i;
         vSupp = Abc_NtkNodeSupport( pNtk, &pObj, 1 );
         Count = 0;
-        Vec_PtrForEachEntry( vSupp, pTemp, k )
+        Vec_PtrForEachEntry( Abc_Obj_t *, vSupp, pTemp, k )
             Count += Abc_ObjIsPi(pTemp);
         Vec_PtrFree( vSupp );
         fprintf( pFile, "  { rank = same; %d [label=\"%d(%d)\"]; }\n", i, i, Count );
@@ -358,7 +385,7 @@ void Abc_NtkWriteFlopDependency( Abc_Ntk_t * pNtk, char * pFileName )
     {
         vSupp = Abc_NtkNodeSupport( pNtk, &pObj, 1 );
         Count = 0;
-        Vec_PtrForEachEntry( vSupp, pTemp, k )
+        Vec_PtrForEachEntry( Abc_Obj_t *, vSupp, pTemp, k )
             if ( !Abc_ObjIsPi(pTemp) )
                 fprintf( pFile, "  %4d -> %4d\n", pTemp->iTemp, i );
         Vec_PtrFree( vSupp );
@@ -404,4 +431,6 @@ void Abc_NtkShowFlopDependency( Abc_Ntk_t * pNtk )
 ///                       END OF FILE                                ///
 ////////////////////////////////////////////////////////////////////////
 
+
+ABC_NAMESPACE_IMPL_END
 

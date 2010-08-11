@@ -20,6 +20,9 @@
 
 #include "if.h"
 
+ABC_NAMESPACE_IMPL_START
+
+
 ////////////////////////////////////////////////////////////////////////
 ///                        DECLARATIONS                              ///
 ////////////////////////////////////////////////////////////////////////
@@ -126,7 +129,7 @@ int If_ManImproveCutCost( If_Man_t * p, Vec_Ptr_t * vFront )
 {
     If_Obj_t * pFanin;
     int i, Counter = 0;
-    Vec_PtrForEachEntry( vFront, pFanin, i )
+    Vec_PtrForEachEntry( If_Obj_t *, vFront, pFanin, i )
         if ( pFanin->nRefs == 0 )
             Counter++;
     return Counter;
@@ -170,7 +173,7 @@ void If_ManImproveNodeExpand( If_Man_t * p, If_Obj_t * pObj, int nLimit, Vec_Ptr
     If_CutAreaRef( p, pCut );
     assert( CostBef >= CostAft );
     // clean up
-    Vec_PtrForEachEntry( vVisited, pFanin, i )
+    Vec_PtrForEachEntry( If_Obj_t *, vVisited, pFanin, i )
         pFanin->fMark = 0;
     // update the node
     If_ManImproveNodeUpdate( p, pObj, vFront );
@@ -261,7 +264,7 @@ void If_ManImproveNodeUpdate( If_Man_t * p, If_Obj_t * pObj, Vec_Ptr_t * vFront 
     If_CutAreaDeref( p, pCut );
     // update the node's cut
     pCut->nLeaves = Vec_PtrSize(vFront);
-    Vec_PtrForEachEntry( vFront, pFanin, i )
+    Vec_PtrForEachEntry( If_Obj_t *, vFront, pFanin, i )
         pCut->pLeaves[i] = pFanin->Id;
     If_CutOrder( pCut );
     // ref the new cut
@@ -363,7 +366,7 @@ int If_ManImproveNodeFaninCompact0( If_Man_t * p, If_Obj_t * pObj, int nLimit, V
 {
     If_Obj_t * pFanin;
     int i;
-    Vec_PtrForEachEntry( vFront, pFanin, i )
+    Vec_PtrForEachEntry( If_Obj_t *, vFront, pFanin, i )
     {
         if ( If_ObjIsCi(pFanin) )
             continue;
@@ -393,7 +396,7 @@ int If_ManImproveNodeFaninCompact1( If_Man_t * p, If_Obj_t * pObj, int nLimit, V
 {
     If_Obj_t * pFanin;
     int i;
-    Vec_PtrForEachEntry( vFront, pFanin, i )
+    Vec_PtrForEachEntry( If_Obj_t *, vFront, pFanin, i )
     {
         if ( If_ObjIsCi(pFanin) )
             continue;
@@ -421,7 +424,7 @@ int If_ManImproveNodeFaninCompact2( If_Man_t * p, If_Obj_t * pObj, int nLimit, V
 {
     If_Obj_t * pFanin;
     int i;
-    Vec_PtrForEachEntry( vFront, pFanin, i )
+    Vec_PtrForEachEntry( If_Obj_t *, vFront, pFanin, i )
     {
         if ( If_ObjIsCi(pFanin) )
             continue;
@@ -573,4 +576,6 @@ void If_ManImproveReduce( If_Man_t * p, int nLimit )
 ///                       END OF FILE                                ///
 ////////////////////////////////////////////////////////////////////////
 
+
+ABC_NAMESPACE_IMPL_END
 

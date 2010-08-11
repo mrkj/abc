@@ -19,10 +19,16 @@
 ***********************************************************************/
 
 #include "abc.h"
+#include "main.h"
+#include "cmd.h"
 #include "fraig.h"
 #include "sim.h"
 #include "aig.h"
 #include "gia.h"
+#include "ssw.h"
+
+ABC_NAMESPACE_IMPL_START
+
 
 ////////////////////////////////////////////////////////////////////////
 ///                        DECLARATIONS                              ///
@@ -153,7 +159,7 @@ void Abc_NtkCecFraig( Abc_Ntk_t * pNtk1, Abc_Ntk_t * pNtk2, int nSeconds, int fV
 //    Params.fFuncRed = 0;
 //    Params.nPatsRand = 0;
 //    Params.nPatsDyna = 0;
-    pMan = Abc_NtkToFraig( pMiter, &Params, 0, 0 ); 
+    pMan = (Fraig_Man_t *)Abc_NtkToFraig( pMiter, &Params, 0, 0 ); 
     Fraig_ManProveMiter( pMan );
 
     // analyze the result
@@ -211,9 +217,6 @@ void Abc_NtkCecFraig( Abc_Ntk_t * pNtk1, Abc_Ntk_t * pNtk2, int nSeconds, int fV
 ***********************************************************************/
 void Abc_NtkCecFraigPart( Abc_Ntk_t * pNtk1, Abc_Ntk_t * pNtk2, int nSeconds, int nPartSize, int fVerbose )
 {
-    extern int Cmd_CommandExecute( void * pAbc, char * sCommand );
-    extern void * Abc_FrameGetGlobalFrame();
-
     Prove_Params_t Params, * pParams = &Params;
     Abc_Ntk_t * pMiter, * pMiterPart;
     Abc_Obj_t * pObj;
@@ -329,8 +332,6 @@ void Abc_NtkCecFraigPartAuto( Abc_Ntk_t * pNtk1, Abc_Ntk_t * pNtk2, int nSeconds
     extern int Abc_NtkCombinePos( Abc_Ntk_t * pNtk, int fAnd );
     extern Vec_Ptr_t * Abc_NtkPartitionSmart( Abc_Ntk_t * pNtk, int nPartSizeLimit, int fVerbose );
     extern void Abc_NtkConvertCos( Abc_Ntk_t * pNtk, Vec_Int_t * vOuts, Vec_Ptr_t * vOnePtr );
-    extern int Cmd_CommandExecute( void * pAbc, char * sCommand );
-    extern void * Abc_FrameGetGlobalFrame();
 
     Vec_Ptr_t * vParts, * vOnePtr;
     Vec_Int_t * vOne;
@@ -377,7 +378,7 @@ void Abc_NtkCecFraigPartAuto( Abc_Ntk_t * pNtk1, Abc_Ntk_t * pNtk2, int nSeconds
     Status = 1;
     nOutputs = 0;
     vOnePtr = Vec_PtrAlloc( 1000 );
-    Vec_PtrForEachEntry( vParts, vOne, i )
+    Vec_PtrForEachEntry( Vec_Int_t *, vParts, vOne, i )
     {
         // get this part of the miter
         Abc_NtkConvertCos( pMiter, vOne, vOnePtr );
@@ -598,7 +599,7 @@ int Abc_NtkSecFraig( Abc_Ntk_t * pNtk1, Abc_Ntk_t * pNtk2, int nSeconds, int nFr
 //    Params.fFuncRed = 0;
 //    Params.nPatsRand = 0;
 //    Params.nPatsDyna = 0;
-    pMan = Abc_NtkToFraig( pFrames, &Params, 0, 0 ); 
+    pMan = (Fraig_Man_t *)Abc_NtkToFraig( pFrames, &Params, 0, 0 ); 
     Fraig_ManProveMiter( pMan );
 
     // analyze the result
@@ -669,20 +670,20 @@ int * Abc_NtkVerifySimulatePattern( Abc_Ntk_t * pNtk, int * pModel )
     // increment the trav ID
     Abc_NtkIncrementTravId( pNtk );
     // set the CI values
-    Abc_AigConst1(pNtk)->pCopy = (void *)1;
+    Abc_AigConst1(pNtk)->pCopy = (Abc_Obj_t *)1;
     Abc_NtkForEachCi( pNtk, pNode, i )
-        pNode->pCopy = (void *)(ABC_PTRINT_T)pModel[i];
+        pNode->pCopy = (Abc_Obj_t *)(ABC_PTRINT_T)pModel[i];
     // simulate in the topological order
     Abc_NtkForEachNode( pNtk, pNode, i )
     {
-        Value0 = ((int)(ABC_PTRINT_T)Abc_ObjFanin0(pNode)->pCopy) ^ Abc_ObjFaninC0(pNode);
-        Value1 = ((int)(ABC_PTRINT_T)Abc_ObjFanin1(pNode)->pCopy) ^ Abc_ObjFaninC1(pNode);
-        pNode->pCopy = (void *)(ABC_PTRINT_T)(Value0 & Value1);
+        Value0 = ((int)(ABC_PTRINT_T)Abc_ObjFanin0(pNode)->pCopy) ^ (int)Abc_ObjFaninC0(pNode);
+        Value1 = ((int)(ABC_PTRINT_T)Abc_ObjFanin1(pNode)->pCopy) ^ (int)Abc_ObjFaninC1(pNode);
+        pNode->pCopy = (Abc_Obj_t *)(ABC_PTRINT_T)(Value0 & Value1);
     }
     // fill the output values
     pValues = ABC_ALLOC( int, Abc_NtkCoNum(pNtk) );
     Abc_NtkForEachCo( pNtk, pNode, i )
-        pValues[i] = ((int)(ABC_PTRINT_T)Abc_ObjFanin0(pNode)->pCopy) ^ Abc_ObjFaninC0(pNode);
+        pValues[i] = ((int)(ABC_PTRINT_T)Abc_ObjFanin0(pNode)->pCopy) ^ (int)Abc_ObjFaninC0(pNode);
     if ( fStrashed )
         Abc_NtkDelete( pNtk );
     return pValues;
@@ -742,12 +743,12 @@ void Abc_NtkVerifyReportError( Abc_Ntk_t * pNtk1, Abc_Ntk_t * pNtk2, int * pMode
         vNodes = Abc_NtkNodeSupport( pNtk1, &pNode, 1 );
         // set the PI numbers
         Abc_NtkForEachCi( pNtk1, pNode, i )
-            pNode->pCopy = (void*)(ABC_PTRINT_T)i;
+            pNode->pCopy = (Abc_Obj_t *)(ABC_PTRINT_T)i;
         // print the model
-        pNode = Vec_PtrEntry( vNodes, 0 );
+        pNode = (Abc_Obj_t *)Vec_PtrEntry( vNodes, 0 );
         if ( Abc_ObjIsCi(pNode) )
         {
-            Vec_PtrForEachEntry( vNodes, pNode, i )
+            Vec_PtrForEachEntry( Abc_Obj_t *, vNodes, pNode, i )
             {
                 assert( Abc_ObjIsCi(pNode) );
                 printf( " %s=%d", Abc_ObjName(pNode), pModel[(int)(ABC_PTRINT_T)pNode->pCopy] );
@@ -789,18 +790,18 @@ void Abc_NtkGetSeqPoSupp( Abc_Ntk_t * pNtk, int iFrame, int iNumPo )
     // mark the support of the frames
     Abc_NtkForEachCi( pFrames, pObj, i )
         pObj->pCopy = NULL;
-    Vec_PtrForEachEntry( vSupp, pObj, i )
-        pObj->pCopy = (void *)1;
+    Vec_PtrForEachEntry( Abc_Obj_t *, vSupp, pObj, i )
+        pObj->pCopy = (Abc_Obj_t *)1;
     // mark the support of the network if the support of the timeframes is marked
     Abc_NtkForEachCi( pNtk, pObj, i )
         pObj->pCopy = NULL;
     Abc_NtkForEachLatch( pNtk, pObj, i )
         if ( Abc_NtkBox(pFrames, i)->pCopy )
-            pObj->pCopy = (void *)1;
+            pObj->pCopy = (Abc_Obj_t *)1;
     Abc_NtkForEachPi( pNtk, pObj, i )
         for ( k = 0; k <= iFrame; k++ )
             if ( Abc_NtkPi(pFrames, k*Abc_NtkPiNum(pNtk) + i)->pCopy )
-                pObj->pCopy = (void *)1;
+                pObj->pCopy = (Abc_Obj_t *)1;
     // free stuff
     Vec_PtrFree( vSupp );
     Abc_NtkDelete( pFrames );
@@ -1028,7 +1029,7 @@ void Abc_NtkSimulteBuggyMiter( Abc_Ntk_t * pNtk )
 int Abc_NtkIsTrueCex( Abc_Ntk_t * pNtk, Abc_Cex_t * pCex )
 {
     extern Aig_Man_t * Abc_NtkToDar( Abc_Ntk_t * pNtk, int fExors, int fRegisters );
-    extern int Ssw_SmlRunCounterExample( Aig_Man_t * pAig, Abc_Cex_t * p );
+//    extern int Ssw_SmlRunCounterExample( Aig_Man_t * pAig, Abc_Cex_t * p );
     Aig_Man_t * pMan;
     int status, fStrashed = 0;
     if ( !Abc_NtkIsStrash(pNtk) )
@@ -1068,4 +1069,6 @@ int Abc_NtkIsValidCex( Abc_Ntk_t * pNtk, Abc_Cex_t * pCex )
 ///                       END OF FILE                                ///
 ////////////////////////////////////////////////////////////////////////
 
+
+ABC_NAMESPACE_IMPL_END
 

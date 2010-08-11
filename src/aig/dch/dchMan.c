@@ -20,6 +20,9 @@
 
 #include "dchInt.h"
 
+ABC_NAMESPACE_IMPL_START
+
+
 ////////////////////////////////////////////////////////////////////////
 ///                        DECLARATIONS                              ///
 ////////////////////////////////////////////////////////////////////////
@@ -154,7 +157,7 @@ void Dch_ManSatSolverRecycle( Dch_Man_t * p )
     {
         Aig_Obj_t * pObj;
         int i;
-        Vec_PtrForEachEntry( p->vUsedNodes, pObj, i )
+        Vec_PtrForEachEntry( Aig_Obj_t *, p->vUsedNodes, pObj, i )
             Dch_ObjSetSatNum( p, pObj, 0 );
         Vec_PtrClear( p->vUsedNodes );
 //        memset( p->pSatVars, 0, sizeof(int) * Aig_ManObjNumMax(p->pAigTotal) );
@@ -183,4 +186,6 @@ void Dch_ManSatSolverRecycle( Dch_Man_t * p )
 ///                       END OF FILE                                ///
 ////////////////////////////////////////////////////////////////////////
 
+
+ABC_NAMESPACE_IMPL_END
 

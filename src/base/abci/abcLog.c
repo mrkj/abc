@@ -21,6 +21,9 @@
 #include "abc.h"
 #include "gia.h"
 
+ABC_NAMESPACE_IMPL_START
+
+
 ////////////////////////////////////////////////////////////////////////
 ///                        DECLARATIONS                              ///
 ////////////////////////////////////////////////////////////////////////
@@ -207,4 +210,6 @@ int Abc_NtkReadLogFile( char * pFileName, Abc_Cex_t ** ppCex )
 ///                       END OF FILE                                ///
 ////////////////////////////////////////////////////////////////////////
 
+
+ABC_NAMESPACE_IMPL_END
 

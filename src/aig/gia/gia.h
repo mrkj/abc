@@ -21,6 +21,7 @@
 #ifndef __GIA_H__
 #define __GIA_H__
 
+
 ////////////////////////////////////////////////////////////////////////
 ///                          INCLUDES                                ///
 ////////////////////////////////////////////////////////////////////////
@@ -37,9 +38,10 @@
 ///                         PARAMETERS                               ///
 ////////////////////////////////////////////////////////////////////////
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+
+
+ABC_NAMESPACE_HEADER_START
+
 
 #define GIA_NONE 0x1FFFFFFF
 #define GIA_VOID 0x0FFFFFFF
@@ -806,9 +808,11 @@ extern int                 Tas_ManSolve( Tas_Man_t * p, Gia_Obj_t * pObj, Gia_Ob
 extern int                 Tas_ManSolveArray( Tas_Man_t * p, Vec_Ptr_t * vObjs );
 
  
-#ifdef __cplusplus
-}
-#endif
+
+
+ABC_NAMESPACE_HEADER_END
+
+
 
 #endif
 

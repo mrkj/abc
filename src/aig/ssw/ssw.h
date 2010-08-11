@@ -21,6 +21,7 @@
 #ifndef __SSW_H__
 #define __SSW_H__
 
+
 ////////////////////////////////////////////////////////////////////////
 ///                          INCLUDES                                ///
 ////////////////////////////////////////////////////////////////////////
@@ -29,9 +30,7 @@
 ///                         PARAMETERS                               ///
 ////////////////////////////////////////////////////////////////////////
 
-#ifdef __cplusplus
-extern "C" { 
-#endif
+ABC_NAMESPACE_HEADER_START
 
 ////////////////////////////////////////////////////////////////////////
 ///                         BASIC TYPES                              ///
@@ -96,6 +95,8 @@ typedef struct Ssw_Sml_t_ Ssw_Sml_t; // sequential simulation manager
 
 /*=== sswBmc.c ==========================================================*/
 extern int           Ssw_BmcDynamic( Aig_Man_t * pAig, int nFramesMax, int nConfLimit, int fVerbose, int * piFrame );
+/*=== sswConstr.c ==========================================================*/
+extern int           Ssw_ManSetConstrPhases( Aig_Man_t * p, int nFrames, Vec_Int_t ** pvInits );
 /*=== sswCore.c ==========================================================*/
 extern void          Ssw_ManSetDefaultParams( Ssw_Pars_t * p );
 extern void          Ssw_ManSetDefaultParamsLcorr( Ssw_Pars_t * p );
@@ -105,7 +106,6 @@ extern Aig_Man_t *   Ssw_LatchCorrespondence( Aig_Man_t * pAig, Ssw_Pars_t * pPa
 extern int           Ssw_SecWithSimilarityPairs( Aig_Man_t * p0, Aig_Man_t * p1, Vec_Int_t * vPairs, Ssw_Pars_t * pPars );
 extern int           Ssw_SecWithSimilarity( Aig_Man_t * p0, Aig_Man_t * p1, Ssw_Pars_t * pPars );
 /*=== sswMiter.c ===================================================*/
-extern int           Ssw_SecSpecialMiter( Aig_Man_t * p0, Aig_Man_t * p1, int nFrames, int fVerbose );
 /*=== sswPart.c ==========================================================*/
 extern Aig_Man_t *   Ssw_SignalCorrespondencePart( Aig_Man_t * pAig, Ssw_Pars_t * pPars );
 /*=== sswPairs.c ===================================================*/
@@ -128,9 +128,11 @@ extern int           Ssw_SmlRunCounterExample( Aig_Man_t * pAig, Abc_Cex_t * p )
 extern int           Ssw_SmlFindOutputCounterExample( Aig_Man_t * pAig, Abc_Cex_t * p );
 extern Abc_Cex_t *   Ssw_SmlDupCounterExample( Abc_Cex_t * p, int nRegsNew );
 
-#ifdef __cplusplus
-}
-#endif
+
+
+ABC_NAMESPACE_HEADER_END
+
+
 
 #endif
 

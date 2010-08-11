@@ -21,6 +21,9 @@
 #include "gia.h"
 #include "sky.h"
 
+ABC_NAMESPACE_IMPL_START
+
+
 ////////////////////////////////////////////////////////////////////////
 ///                        DECLARATIONS                              ///
 ////////////////////////////////////////////////////////////////////////
@@ -66,7 +69,7 @@ ATTR Sky_Man_t *     Sky_ManUnmap( Sky_Man_t * p )                              
 ATTR Sky_Man_t *     Sky_ManShortNames( Sky_Man_t * p )                                                 { return NULL; }
 /*=== skyMan.c ===================================================================*/
 ATTR void            Sky_ManFree( Sky_Man_t * p )                                                       {}
-ATTR void            Sky_ManFreeP( void ** p )                                                          {}
+ATTR void            Sky_ManFreeP( Sky_Man_t ** p )                                                     {}
 ATTR Sky_Man_t *     Sky_ManDup( Sky_Man_t * p, Sky_Mod_t*(*pFuncModDup)(Sky_Man_t*,Sky_Mod_t*,int) )   { return NULL; }
 ATTR Sky_Mod_t *     Sky_ManReadRoot( Sky_Man_t * p )                                                   { return NULL; }
 /*=== skyName.c ==================================================================*/
@@ -148,4 +151,6 @@ ATTR Sky_Man_t *     Rme_ManRetime( Sky_Man_t * p, Sky_RmePar_t * pPars )       
 ///                       END OF FILE                                ///
 ////////////////////////////////////////////////////////////////////////
 
+
+ABC_NAMESPACE_IMPL_END
 

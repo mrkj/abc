@@ -21,8 +21,10 @@
 #include <string.h>
 #include <assert.h>
 
-#include "abc_global.h"
 #include "satMem.h"
+
+ABC_NAMESPACE_IMPL_START
+
 
 ////////////////////////////////////////////////////////////////////////
 ///                        DECLARATIONS                              ///
@@ -548,3 +550,5 @@ int Sat_MmStepReadMemUsage( Sat_MmStep_t * p )
         nMemTotal += p->pMems[i]->nMemoryAlloc;
     return nMemTotal;
 }
+ABC_NAMESPACE_IMPL_END
+

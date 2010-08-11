@@ -21,6 +21,7 @@
 #ifndef __FRA_H__
 #define __FRA_H__
 
+
 ////////////////////////////////////////////////////////////////////////
 ///                          INCLUDES                                ///
 ////////////////////////////////////////////////////////////////////////
@@ -41,9 +42,10 @@
 ///                         PARAMETERS                               ///
 ////////////////////////////////////////////////////////////////////////
 
-#ifdef __cplusplus
-extern "C" {
-#endif 
+
+
+ABC_NAMESPACE_HEADER_START
+ 
 
 ////////////////////////////////////////////////////////////////////////
 ///                         BASIC TYPES                              ///
@@ -376,10 +378,12 @@ extern void                Fra_SmlFreeCounterExample( Abc_Cex_t * p );
 extern Abc_Cex_t *         Fra_SmlTrivCounterExample( Aig_Man_t * pAig, int iFrameOut );
 extern int                 Fra_SmlRunCounterExample( Aig_Man_t * pAig, Abc_Cex_t * p );
 extern int                 Fra_SmlWriteCounterExample( FILE * pFile, Aig_Man_t * pAig, Abc_Cex_t * p );
+extern Abc_Cex_t *         Fra_SmlSimpleCounterExample( Aig_Man_t * pAig, int * pModel, int iFrame, int iPo );
 
-#ifdef __cplusplus
-}
-#endif
+
+ABC_NAMESPACE_HEADER_END
+
+
 
 #endif
 

@@ -21,6 +21,10 @@
 #include "saig.h"
 #include "ssw.h"
 #include "fra.h"
+#include "bbr.h"
+
+ABC_NAMESPACE_IMPL_START
+
 
 ////////////////////////////////////////////////////////////////////////
 ///                        DECLARATIONS                              ///
@@ -168,7 +172,6 @@ int Saig_ManCexFirstFlopPi( Aig_Man_t * p, Aig_Man_t * pAbs )
 Aig_Man_t * Saig_ManCexRefine( Aig_Man_t * p, Aig_Man_t * pAbs, Vec_Int_t * vFlops, int nFrames, int nConfMaxOne, int fUseBdds, int fUseDprove, int fVerbose, int * pnUseStart, int * piRetValue, int * pnFrames )
 { 
     extern int Saig_BmcPerform( Aig_Man_t * pAig, int nStart, int nFramesMax, int nNodesMax, int nTimeOut, int nConfMaxOne, int nConfMaxAll, int fVerbose, int fVerbOverwrite, int * piFrames );
-    extern Vec_Int_t * Saig_ManExtendCounterExampleTest( Aig_Man_t * p, int iFirstPi, void * pCex, int fVerbose );
     Vec_Int_t * vFlopsNew;
     int i, Entry;
     *piRetValue = -1;
@@ -182,8 +185,6 @@ Aig_Man_t * Saig_ManCexRefine( Aig_Man_t * p, Aig_Man_t * pAbs, Vec_Int_t * vFlo
     }
     else if ( fUseBdds && (Aig_ManRegNum(pAbs) > 0 && Aig_ManRegNum(pAbs) <= 80) )
     {
-        extern void Bbr_ManSetDefaultParams( Saig_ParBbr_t * pPars );
-        extern int Aig_ManVerifyUsingBdds( Aig_Man_t * p, Saig_ParBbr_t * pPars );
         Saig_ParBbr_t Pars, * pPars = &Pars;
         Bbr_ManSetDefaultParams( pPars );
         pPars->TimeLimit     = 0;
@@ -248,7 +249,6 @@ Aig_Man_t * Saig_ManCexRefine( Aig_Man_t * p, Aig_Man_t * pAbs, Vec_Int_t * vFlo
 ***********************************************************************/
 int Saig_ManCexRefineStep( Aig_Man_t * p, Vec_Int_t * vFlops, Abc_Cex_t * pCex, int fVerbose )
 {
-    extern Vec_Int_t * Saig_ManExtendCounterExampleTest( Aig_Man_t * p, int iFirstPi, void * pCex, int fVerbose );
     Aig_Man_t * pAbs;
     Vec_Int_t * vFlopsNew;
     int i, Entry;
@@ -384,4 +384,6 @@ Aig_Man_t * Saig_ManCexAbstraction( Aig_Man_t * p, Gia_ParAbs_t * pPars )
 ///                       END OF FILE                                ///
 ////////////////////////////////////////////////////////////////////////
 
+
+ABC_NAMESPACE_IMPL_END
 

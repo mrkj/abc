@@ -20,6 +20,9 @@
 #include "fxuInt.h"
 #include "fxu.h"
 
+ABC_NAMESPACE_IMPL_START
+
+
 ////////////////////////////////////////////////////////////////////////
 ///                        DECLARATIONS                              ///
 ////////////////////////////////////////////////////////////////////////
@@ -69,7 +72,7 @@ int Fxu_PreprocessCubePairs( Fxu_Matrix * p, Vec_Ptr_t * vCovers, int nPairsTota
     iPair    =  0;
     nBitsMax = -1;
     for ( c = 0; c < vCovers->nSize; c++ )
-        if ( (pSopCover = vCovers->pArray[c]) )
+        if ( (pSopCover = (char *)vCovers->pArray[c]) )
         {
             nFanins = Abc_SopGetVarNum(pSopCover);
             // precompute the differences
@@ -135,7 +138,7 @@ int Fxu_PreprocessCubePairs( Fxu_Matrix * p, Vec_Ptr_t * vCovers, int nPairsTota
     // collect the corresponding pairs and add the divisors
     iPair = 0;
     for ( c = 0; c < vCovers->nSize; c++ )
-        if ( (pSopCover = vCovers->pArray[c]) )
+        if ( (pSopCover = (char *)vCovers->pArray[c]) )
         {
             // get the var
             pVar = p->ppVars[2*c+1];
@@ -201,4 +204,6 @@ int Fxu_CountPairDiffs( char * pCover, unsigned char pDiffs[] )
 ///                       END OF FILE                                ///
 ////////////////////////////////////////////////////////////////////////
 
+
+ABC_NAMESPACE_IMPL_END
 

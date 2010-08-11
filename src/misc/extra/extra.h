@@ -29,6 +29,7 @@
 #ifndef __EXTRA_H__
 #define __EXTRA_H__
 
+
 #ifdef _WIN32
 #define inline __inline // compatible with MS VS 6.0
 #endif
@@ -42,13 +43,14 @@
 #include <string.h>
 #include <assert.h>
 #include <time.h>
-#include "abc_global.h"
+
 #include "st.h"
 #include "cuddInt.h"
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+
+
+ABC_NAMESPACE_HEADER_START
+
 
 /*---------------------------------------------------------------------------*/
 /* Constant declarations                                                     */
@@ -594,20 +596,22 @@ extern long          Extra_CpuTime();
 extern double        Extra_CpuTimeDouble();
 extern int           Extra_GetSoftDataLimit();
 extern ABC_DLL void  Extra_UtilGetoptReset();
-extern int           Extra_UtilGetopt( int argc, char *argv[], char *optstring );
+extern int           Extra_UtilGetopt( int argc, char *argv[], const char *optstring );
 extern char *        Extra_UtilPrintTime( long t );
-extern char *        Extra_UtilStrsav( char *s );
+extern char *        Extra_UtilStrsav( const char *s );
 extern char *        Extra_UtilTildeExpand( char *fname );
 extern char *        Extra_UtilFileSearch( char *file, char *path, char *mode );
-extern void          (*Extra_UtilMMoutOfMemory)();
+extern void          (*Extra_UtilMMoutOfMemory)( long size );
 
-extern char *        globalUtilOptarg;
+extern const char *        globalUtilOptarg;
 extern int           globalUtilOptind;
 
 /**AutomaticEnd***************************************************************/
 
-#ifdef __cplusplus
-}
-#endif
+
+
+ABC_NAMESPACE_HEADER_END
+
+
 
 #endif /* __EXTRA_H__ */

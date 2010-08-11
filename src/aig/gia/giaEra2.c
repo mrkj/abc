@@ -19,6 +19,9 @@
 ***********************************************************************/
 
 #include "gia.h"
+#include "giaAig.h"
+
+ABC_NAMESPACE_IMPL_START
 
 /*
     Limitations of this package:
@@ -141,7 +144,7 @@ static inline void            Gia_StaSetValue1( Gia_StaAre_t * p, int iReg )    
 
 static inline Gia_StaAre_t *  Gia_StaPrev( Gia_ManAre_t * p, Gia_StaAre_t * pS )      { return Gia_ManAreSta(p, pS->iPrev);                      }
 static inline Gia_StaAre_t *  Gia_StaNext( Gia_ManAre_t * p, Gia_StaAre_t * pS )      { return Gia_ManAreSta(p, pS->iNext);                      }
-static inline int             Gia_StaIsGood( Gia_ManAre_t * p, Gia_StaAre_t * pS )    { return (int*)pS != p->ppStas[0];                         }
+static inline int             Gia_StaIsGood( Gia_ManAre_t * p, Gia_StaAre_t * pS )    { return ((unsigned *)pS) != p->ppStas[0];                         }
 
 static inline void            Gia_StaSetUnused( Gia_StaAre_t * pS )                   { pS->iPrev.fMark = 1;                                     }
 static inline int             Gia_StaIsUnused( Gia_StaAre_t * pS )                    { return  pS->iPrev.fMark;                                 }
@@ -1554,8 +1557,8 @@ int Gia_ManAreDeriveNexts_rec( Gia_ManAre_t * p, Gia_PtrAre_t Sta )
         return p->fStopped;
     }
     // remember values in the cone and perform update
-    vTfos = Vec_VecEntry( p->vCiTfos, Gia_ObjCioId(pPivot) );
-    vLits = Vec_VecEntry( p->vCiLits, Gia_ObjCioId(pPivot) );
+    vTfos = (Vec_Int_t *)Vec_VecEntry( p->vCiTfos, Gia_ObjCioId(pPivot) );
+    vLits = (Vec_Int_t *)Vec_VecEntry( p->vCiLits, Gia_ObjCioId(pPivot) );
     assert( Vec_IntSize(vTfos) == Vec_IntSize(vLits) );
     Gia_ManForEachObjVec( vTfos, p->pAig, pObj, i )
     {
@@ -1697,7 +1700,7 @@ void Gia_ManArePrintReport( Gia_ManAre_t * p, int Time, int fFinal )
 ***********************************************************************/
 int Gia_ManArePerform( Gia_Man_t * pAig, int nStatesMax, int fMiter, int fVerbose )
 {
-    extern Gia_Man_t * Gia_ManCompress2( Gia_Man_t * p, int fUpdateLevel, int fVerbose );
+//    extern Gia_Man_t * Gia_ManCompress2( Gia_Man_t * p, int fUpdateLevel, int fVerbose );
     extern Abc_Cex_t * Gia_ManAreDeriveCex( Gia_ManAre_t * p, Gia_StaAre_t * pLast );
     Gia_ManAre_t * p;
     int clk = clock();
@@ -1764,10 +1767,14 @@ int Gia_ManArePerform( Gia_Man_t * pAig, int nStatesMax, int fMiter, int fVerbos
     return RetValue;
 }
 
+ABC_NAMESPACE_IMPL_END
 
 #include "giaAig.h"
 #include "cnf.h"
 #include "satSolver.h"
+
+ABC_NAMESPACE_IMPL_START
+
 
 /**Function*************************************************************
 
@@ -1812,7 +1819,7 @@ void Gia_ManAreDeriveCexSatStop( Gia_ManAre_t * p )
 {
     assert( p->pSat != NULL );
     assert( p->pTarget != NULL );
-    sat_solver_delete( p->pSat );
+    sat_solver_delete( (sat_solver *)p->pSat );
     Vec_IntFree( p->vSatNumCis );
     Vec_IntFree( p->vSatNumCos );
     Vec_IntFree( p->vAssumps );
@@ -1859,7 +1866,7 @@ void Gia_ManAreDeriveCexSat( Gia_ManAre_t * p, Gia_StaAre_t * pCur, Gia_StaAre_t
         Vec_IntPush( p->vAssumps, Gia_Var2Lit( Vec_IntEntry(p->vSatNumCos, iOutFailed), 0 ) );
     }
     // solve SAT
-    status = sat_solver_solve( p->pSat, (int *)Vec_IntArray(p->vAssumps), (int *)Vec_IntArray(p->vAssumps) + Vec_IntSize(p->vAssumps), 
+    status = sat_solver_solve( (sat_solver *)p->pSat, (int *)Vec_IntArray(p->vAssumps), (int *)Vec_IntArray(p->vAssumps) + Vec_IntSize(p->vAssumps), 
         (ABC_INT64_T)1000000, (ABC_INT64_T)0, (ABC_INT64_T)0, (ABC_INT64_T)0 );
     if ( status != l_True )
     {
@@ -1871,18 +1878,18 @@ void Gia_ManAreDeriveCexSat( Gia_ManAre_t * p, Gia_StaAre_t * pCur, Gia_StaAre_t
     Vec_IntClear( p->vCofVars );
     for ( i = 0; i < Gia_ManPiNum(p->pAig); i++ )
     {
-        if ( sat_solver_var_value( p->pSat, Vec_IntEntry(p->vSatNumCis, i) ) )
+        if ( sat_solver_var_value( (sat_solver *)p->pSat, Vec_IntEntry(p->vSatNumCis, i) ) )
             Vec_IntPush( p->vCofVars, i );
     }
     // write the current state
     for ( i = 0; i < Gia_ManRegNum(p->pAig); i++ )
     {
         if ( Gia_StaHasValue0(pCur, i) )
-            assert( sat_solver_var_value( p->pSat, Vec_IntEntry(p->vSatNumCis, Gia_ManPiNum(p->pAig)+i) ) == 0 );
+            assert( sat_solver_var_value( (sat_solver *)p->pSat, Vec_IntEntry(p->vSatNumCis, Gia_ManPiNum(p->pAig)+i) ) == 0 );
         else if ( Gia_StaHasValue1(pCur, i) )
-            assert( sat_solver_var_value( p->pSat, Vec_IntEntry(p->vSatNumCis, Gia_ManPiNum(p->pAig)+i) ) == 1 );
+            assert( sat_solver_var_value( (sat_solver *)p->pSat, Vec_IntEntry(p->vSatNumCis, Gia_ManPiNum(p->pAig)+i) ) == 1 );
         // set don't-care value
-        if ( sat_solver_var_value( p->pSat, Vec_IntEntry(p->vSatNumCis, Gia_ManPiNum(p->pAig)+i) ) == 0 )
+        if ( sat_solver_var_value( (sat_solver *)p->pSat, Vec_IntEntry(p->vSatNumCis, Gia_ManPiNum(p->pAig)+i) ) == 0 )
             Gia_StaSetValue0( pCur, i );
         else
             Gia_StaSetValue1( pCur, i );
@@ -1920,7 +1927,7 @@ Abc_Cex_t * Gia_ManAreDeriveCex( Gia_ManAre_t * p, Gia_StaAre_t * pLast )
     pCex->iPo = p->iOutFail;
     // compute states
     pPrev = NULL;
-    Vec_PtrForEachEntry( vStates, pSta, i )
+    Vec_PtrForEachEntry( Gia_StaAre_t *, vStates, pSta, i )
     {
         Gia_ManAreDeriveCexSat( p, pSta, pPrev, (i == 0) ? p->iOutFail : -1 ); 
         pPrev = pSta;
@@ -1942,4 +1949,6 @@ Abc_Cex_t * Gia_ManAreDeriveCex( Gia_ManAre_t * p, Gia_StaAre_t * pLast )
 ///                       END OF FILE                                ///
 ////////////////////////////////////////////////////////////////////////
 
+
+ABC_NAMESPACE_IMPL_END
 

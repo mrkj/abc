@@ -7,12 +7,10 @@ SRC +=	src/base/abci/abc.c \
 	src/base/abci/abcBm.c \
 	src/base/abci/abcBmc.c \
 	src/base/abci/abcCas.c \
-	src/base/abci/abcClpBdd.c \
-	src/base/abci/abcClpSop.c \
+	src/base/abci/abcCollapse.c \
 	src/base/abci/abcCut.c \
 	src/base/abci/abcDar.c \
 	src/base/abci/abcDebug.c \
-	src/base/abci/abcDprove2.c \
 	src/base/abci/abcDress.c \
 	src/base/abci/abcDress2.c \
 	src/base/abci/abcDsd.c \

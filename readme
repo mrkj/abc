@@ -32,14 +32,14 @@ Several things to try if it does not compile on your platform:
 
 To compile the latest version of ABC, you may need to define "LIN" or "LIN64" 
 (depending on whether you are using 32- or 64-bit Linux). 
-For example, instead of
-    OPTFLAGS  := -g -O
+For example, in Makefile instead of
+    OPTFLAGS  := -g -O -DLIN -m32
 use
-    OPTFLAGS  := -g -O -DLIN64
-in Makefile.
-
-Finally, run regression test:
-abc>>> so regtest.script
+    OPTFLAGS  := -g -O -DLIN64 <...>
+and instead of 
+    LIBS := -m32 -ldl -rdynamic -lreadline -ltermcap
+use
+    LIBS := -ldl /usr/lib64/libreadline.a /usr/lib64/libncurses.a -rdynamic
 
 
 The following comment was added by Krish Sundaresan:
@@ -53,3 +53,5 @@ locally. Also modified CFLAGS to add the local include files
 for readline and LIBS to add the local libreadline.a. Perhaps 
 you can add these steps in the readme to help folks compiling 
 this on Solaris."
+
+Archiving the binary: tar czf archive.tar.gz directory

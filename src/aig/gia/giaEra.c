@@ -21,6 +21,9 @@
 #include "gia.h"
 #include "mem.h"
 
+ABC_NAMESPACE_IMPL_START
+
+
 ////////////////////////////////////////////////////////////////////////
 ///                        DECLARATIONS                              ///
 ////////////////////////////////////////////////////////////////////////
@@ -55,7 +58,7 @@ struct Gia_ManEra_t_
 };
 
 static inline unsigned *     Gia_ManEraData( Gia_ManEra_t * p, int i )    { return p->pDataSim + i * p->nWordsSim;  }
-static inline Gia_ObjEra_t * Gia_ManEraState( Gia_ManEra_t * p, int i )   { return Vec_PtrEntry(p->vStates, i);  }
+static inline Gia_ObjEra_t * Gia_ManEraState( Gia_ManEra_t * p, int i )   { return (Gia_ObjEra_t *)Vec_PtrEntry(p->vStates, i);  }
 
 ////////////////////////////////////////////////////////////////////////
 ///                     FUNCTION DEFINITIONS                         ///
@@ -86,11 +89,11 @@ Gia_ManEra_t * Gia_ManEraCreate( Gia_Man_t * pAig )
     p->pMemory   = Mem_FixedStart( sizeof(Gia_ObjEra_t) + sizeof(unsigned) * p->nWordsDat );
     p->vStates   = Vec_PtrAlloc( 100000 );
     p->nBins     = Gia_PrimeCudd( 100000 );
-    p->pBins     = ABC_CALLOC( int, p->nBins );
+    p->pBins     = ABC_CALLOC( unsigned, p->nBins );
     Vec_PtrPush( p->vStates, NULL );
     // assign primary input values
     vTruths = Vec_PtrAllocTruthTables( Gia_ManPiNum(pAig) );
-    Vec_PtrForEachEntry( vTruths, pTruth, i )
+    Vec_PtrForEachEntry( unsigned *, vTruths, pTruth, i )
     {
         pSimInfo = Gia_ManEraData( p, Gia_ObjId(pAig, Gia_ManPi(pAig, i)) );
         memcpy( pSimInfo, pTruth, sizeof(unsigned) * p->nWordsSim );
@@ -192,12 +195,12 @@ int Gia_ManEraStateHash( unsigned * pState, int nWordsSim, int nTableSize )
   SeeAlso     []
 
 ***********************************************************************/
-static inline int * Gia_ManEraHashFind( Gia_ManEra_t * p, Gia_ObjEra_t * pState )
+static inline unsigned * Gia_ManEraHashFind( Gia_ManEra_t * p, Gia_ObjEra_t * pState )
 {
     Gia_ObjEra_t * pThis;
-    int * pPlace = p->pBins + Gia_ManEraStateHash( pState->pData, p->nWordsDat, p->nBins );
+    unsigned * pPlace = p->pBins + Gia_ManEraStateHash( pState->pData, p->nWordsDat, p->nBins );
     for ( pThis = (*pPlace)? Gia_ManEraState(p, *pPlace) : NULL; pThis; 
-          pPlace = &pThis->iNext, pThis = (*pPlace)? Gia_ManEraState(p, *pPlace) : NULL )
+          pPlace = (unsigned *)&pThis->iNext, pThis = (*pPlace)? Gia_ManEraState(p, *pPlace) : NULL )
               if ( !memcmp( pState->pData, pThis->pData, sizeof(unsigned) * p->nWordsDat ) )
                   return NULL;
     return pPlace;
@@ -217,14 +220,14 @@ static inline int * Gia_ManEraHashFind( Gia_ManEra_t * p, Gia_ObjEra_t * pState 
 void Gia_ManEraHashResize( Gia_ManEra_t * p )
 {
     Gia_ObjEra_t * pThis;
-    int * pBinsOld, * piPlace;
+    unsigned * pBinsOld, * piPlace;
     int nBinsOld, iNext, Counter, i;
     assert( p->pBins != NULL );
     // replace the table
     pBinsOld = p->pBins;
     nBinsOld = p->nBins;
     p->nBins = Gia_PrimeCudd( 3 * p->nBins ); 
-    p->pBins = ABC_CALLOC( int, p->nBins );
+    p->pBins = ABC_CALLOC( unsigned, p->nBins );
     // rehash the entries from the old table
     Counter = 0;
     for ( i = 0; i < nBinsOld; i++ )
@@ -415,9 +418,9 @@ int Gia_ManCountDepth( Gia_ManEra_t * p )
 {
     Gia_ObjEra_t * pState;
     int Counter = 0;
-    pState = Vec_PtrEntryLast( p->vStates );
+    pState = (Gia_ObjEra_t *)Vec_PtrEntryLast( p->vStates );
     if ( pState->iPrev == 0 && Vec_PtrSize(p->vStates) > 3 )
-        pState = Vec_PtrEntry( p->vStates, Vec_PtrSize(p->vStates) - 2 );
+        pState = (Gia_ObjEra_t *)Vec_PtrEntry( p->vStates, Vec_PtrSize(p->vStates) - 2 );
     for ( ; pState; pState = pState->iPrev ? Gia_ManEraState(p, pState->iPrev) : NULL )
         Counter++;
     return Counter;
@@ -437,8 +440,8 @@ int Gia_ManCountDepth( Gia_ManEra_t * p )
 int Gia_ManAnalyzeResult( Gia_ManEra_t * p, Gia_ObjEra_t * pState, int fMiter )
 {
     Gia_Obj_t * pObj;
-    unsigned * pSimInfo;
-    int i, k, iCond, nMints, * piPlace;
+    unsigned * pSimInfo, * piPlace;
+    int i, k, iCond, nMints;
     // check if the miter is asserted
     if ( fMiter )
     {
@@ -553,4 +556,6 @@ int Gia_ManCollectReachable( Gia_Man_t * pAig, int nStatesMax, int fMiter, int f
 ///                       END OF FILE                                ///
 ////////////////////////////////////////////////////////////////////////
 
+
+ABC_NAMESPACE_IMPL_END
 

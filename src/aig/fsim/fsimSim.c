@@ -21,6 +21,9 @@
 #include "fsimInt.h"
 #include "ssw.h"
 
+ABC_NAMESPACE_IMPL_START
+
+
 ////////////////////////////////////////////////////////////////////////
 ///                        DECLARATIONS                              ///
 ////////////////////////////////////////////////////////////////////////
@@ -559,4 +562,6 @@ int Fsim_ManSimulate( Aig_Man_t * pAig, Fsim_ParSim_t * pPars )
 ///                       END OF FILE                                ///
 ////////////////////////////////////////////////////////////////////////
 
+
+ABC_NAMESPACE_IMPL_END
 

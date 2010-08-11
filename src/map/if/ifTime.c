@@ -19,6 +19,10 @@
 ***********************************************************************/
 
 #include "if.h"
+#include "kit.h"
+
+ABC_NAMESPACE_IMPL_START
+
 
 ////////////////////////////////////////////////////////////////////////
 ///                        DECLARATIONS                              ///
@@ -244,7 +248,6 @@ Vec_Wrd_t * If_CutDelaySopAnds( If_Man_t * p, If_Cut_t * pCut, Vec_Int_t * vCove
 ***********************************************************************/
 Vec_Wrd_t * If_CutDelaySopArray( If_Man_t * p, If_Cut_t * pCut )
 {
-    extern int Kit_TruthIsop( unsigned * puTruth, int nVars, Vec_Int_t * vMemory, int fTryBoth );
     Vec_Int_t * vCover;
     Vec_Wrd_t * vAnds;
     int RetValue;
@@ -602,4 +605,6 @@ void If_CutRotatePins( If_Man_t * p, If_Cut_t * pCut )
 ///                       END OF FILE                                ///
 ////////////////////////////////////////////////////////////////////////
 
+
+ABC_NAMESPACE_IMPL_END
 

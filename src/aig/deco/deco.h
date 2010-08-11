@@ -21,6 +21,7 @@
 #ifndef __DEC_H__
 #define __DEC_H__
 
+
 ////////////////////////////////////////////////////////////////////////
 ///                          INCLUDES                                ///
 ////////////////////////////////////////////////////////////////////////
@@ -29,9 +30,10 @@
 ///                         PARAMETERS                               ///
 ////////////////////////////////////////////////////////////////////////
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+
+
+ABC_NAMESPACE_HEADER_START
+
 
 ////////////////////////////////////////////////////////////////////////
 ///                         BASIC TYPES                              ///
@@ -698,9 +700,11 @@ static inline Dec_Edge_t Dec_GraphAddNodeMux( Dec_Graph_t * pGraph, Dec_Edge_t e
     return eNode;
 }
 
-#ifdef __cplusplus
-}
-#endif
+
+
+ABC_NAMESPACE_HEADER_END
+
+
 
 #endif
 

@@ -18,19 +18,19 @@
 
 ***********************************************************************/
 
-#include "mainInt.h"
 #include "abc.h"
+#include "mainInt.h"
 #include "dec.h"
-#include "gia.h"
+
+
+ABC_NAMESPACE_IMPL_START
+
 
 ////////////////////////////////////////////////////////////////////////
 ///                        DECLARATIONS                              ///
 ////////////////////////////////////////////////////////////////////////
 
 static Abc_Frame_t * s_GlobalFrame = NULL;
-
-extern void * Aig_ManDupSimple( void * p );
-extern void Aig_ManStop( void * pAig );
 
 ////////////////////////////////////////////////////////////////////////
 ///                     FUNCTION DEFINITIONS                         ///
@@ -85,7 +85,7 @@ void        Abc_FrameSetFlag( char * pFlag, char * pValue )  { Cmd_FlagUpdateVal
   SeeAlso     []
 
 ***********************************************************************/
-bool Abc_FrameIsFlagEnabled( char * pFlag )
+int Abc_FrameIsFlagEnabled( char * pFlag )
 {
     char * pValue;
     // if flag is not defined, it is not enabled
@@ -158,14 +158,14 @@ void Abc_FrameDeallocate( Abc_Frame_t * p )
 //    undefine_cube_size();
     Rwt_ManGlobalStop();
 //    Ivy_TruthManStop();
-    if ( p->pLibVer ) Abc_LibFree( p->pLibVer, NULL );
-    if ( p->pManDec ) Dec_ManStop( p->pManDec );
+    if ( p->pLibVer ) Abc_LibFree( (Abc_Lib_t *)p->pLibVer, NULL );
+    if ( p->pManDec ) Dec_ManStop( (Dec_Man_t *)p->pManDec );
     if ( p->dd )      Extra_StopManager( p->dd );
     if ( p->vStore )  Vec_PtrFree( p->vStore );
-    if ( p->pSave1 )  Aig_ManStop( p->pSave1 );
-    if ( p->pSave2 )  Aig_ManStop( p->pSave2 );
-    if ( p->pSave3 )  Aig_ManStop( p->pSave3 );
-    if ( p->pSave4 )  Aig_ManStop( p->pSave4 );
+    if ( p->pSave1 )  Aig_ManStop( (Aig_Man_t *)p->pSave1 );
+    if ( p->pSave2 )  Aig_ManStop( (Aig_Man_t *)p->pSave2 );
+    if ( p->pSave3 )  Aig_ManStop( (Aig_Man_t *)p->pSave3 );
+    if ( p->pSave4 )  Aig_ManStop( (Aig_Man_t *)p->pSave4 );
     Abc_FrameDeleteAllNetworks( p );
     ABC_FREE( p->pCex );
     ABC_FREE( p );
@@ -217,7 +217,7 @@ void Abc_FrameClearVerifStatus( Abc_Frame_t * p )
   SeeAlso     []
 
 ***********************************************************************/
-bool Abc_FrameShowProgress( Abc_Frame_t * p )
+int Abc_FrameShowProgress( Abc_Frame_t * p )
 {
     return Abc_FrameIsFlagEnabled( "progressbar" );
 }
@@ -305,10 +305,10 @@ int Abc_FrameReadMode( Abc_Frame_t * p )
   SeeAlso     []
 
 ***********************************************************************/
-bool Abc_FrameSetMode( Abc_Frame_t * p, bool fNameMode )
+int Abc_FrameSetMode( Abc_Frame_t * p, int fNameMode )
 {
     char Buffer[2];
-    bool fNameModeOld;
+    int fNameModeOld;
     fNameModeOld = Abc_FrameReadMode( p );
     Buffer[0] = '0' + fNameMode;
     Buffer[1] = 0;
@@ -566,7 +566,7 @@ void Abc_FrameSetSave1( void * pAig )
 {
     Abc_Frame_t * pFrame = Abc_FrameGetGlobalFrame();
     if ( pFrame->pSave1 )
-        Aig_ManStop( pFrame->pSave1 );
+        Aig_ManStop( (Aig_Man_t *)pFrame->pSave1 );
     pFrame->pSave1 = pAig;
 }
 
@@ -585,7 +585,7 @@ void Abc_FrameSetSave2( void * pAig )
 {
     Abc_Frame_t * pFrame = Abc_FrameGetGlobalFrame();
     if ( pFrame->pSave2 )
-        Aig_ManStop( pFrame->pSave2 );
+        Aig_ManStop( (Aig_Man_t *)pFrame->pSave2 );
     pFrame->pSave2 = pAig;
 }
 
@@ -607,4 +607,6 @@ void * Abc_FrameReadSave2()  { void * pAig = Abc_FrameGetGlobalFrame()->pSave2; 
 ///                       END OF FILE                                ///
 ////////////////////////////////////////////////////////////////////////
 
+
+ABC_NAMESPACE_IMPL_END
 

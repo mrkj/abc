@@ -20,8 +20,12 @@
 
 #include <stdio.h>
 #include <string.h>
+
+#include "abc.h"
 #include "mainInt.h"
-#include "abc_global.h"
+
+ABC_NAMESPACE_IMPL_START
+
 
 #ifndef WIN32
 # include <sys/types.h>
@@ -200,3 +204,5 @@ void Libs_End(Abc_Frame_t * pAbc)
 ////////////////////////////////////////////////////////////////////////
 ///                       END OF FILE                                ///
 ////////////////////////////////////////////////////////////////////////
+ABC_NAMESPACE_IMPL_END
+

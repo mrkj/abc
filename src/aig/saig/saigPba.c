@@ -27,6 +27,9 @@
 #include "ioa.h"
 #include "fra.h"
 
+ABC_NAMESPACE_IMPL_START
+
+
 ////////////////////////////////////////////////////////////////////////
 ///                        DECLARATIONS                              ///
 ////////////////////////////////////////////////////////////////////////
@@ -79,9 +82,9 @@ Vec_Int_t * Saig_AbsSolverUnsatCore( sat_solver * pSat, int nConfMax, int fVerbo
     // derive the UNSAT core
     clk = clock();
     pManProof = Intp_ManAlloc();
-    vCore = Intp_ManUnsatCore( pManProof, pSatCnf, 0 );
+    vCore = (Vec_Int_t *)Intp_ManUnsatCore( pManProof, (Sto_Man_t *)pSatCnf, 0 );
     Intp_ManFree( pManProof );
-    Sto_ManFree( pSatCnf );
+    Sto_ManFree( (Sto_Man_t *)pSatCnf );
     if ( fVerbose )
     {
         printf( "SAT core contains %d clauses (out of %d).  ", Vec_IntSize(vCore), pSat->stats.clauses );
@@ -164,11 +167,11 @@ Vec_Str_t * Saig_AbsMarkVisited( Aig_Man_t * p, int nFramesMax )
 Aig_Obj_t * Saig_AbsCreateFrames_rec( Aig_Man_t * pFrame, Aig_Obj_t * pObj )
 {
     if ( pObj->pData )
-        return pObj->pData;
+        return (Aig_Obj_t *)pObj->pData;
     assert( Aig_ObjIsNode(pObj) );
     Saig_AbsCreateFrames_rec( pFrame, Aig_ObjFanin0(pObj) );
     Saig_AbsCreateFrames_rec( pFrame, Aig_ObjFanin1(pObj) );
-    return pObj->pData = Aig_And( pFrame, Aig_ObjChild0Copy(pObj), Aig_ObjChild1Copy(pObj) );
+    return (Aig_Obj_t *)(pObj->pData = Aig_And( pFrame, Aig_ObjChild0Copy(pObj), Aig_ObjChild1Copy(pObj) ));
 }
 
 /**Function*************************************************************
@@ -227,9 +230,9 @@ Vec_Ptr_t * Saig_AbsCreateFrames( Aig_Man_t * p, int nFramesMax, int fVerbose )
         Vec_PtrPush( vFrames, Cnf_DeriveSimple(pFrame, Aig_ManPoNum(pFrame)) );
         // set the new PIs to point to the corresponding registers
         Aig_ManCleanData( pFrame );
-        Vec_PtrForEachEntry( vLoObjs, pObj, i )
+        Vec_PtrForEachEntry( Aig_Obj_t *, vLoObjs, pObj, i )
             ((Aig_Obj_t *)pObj->pData)->pData = pObj;
-        Vec_PtrForEachEntry( vLiObjs, pObj, i )
+        Vec_PtrForEachEntry( Aig_Obj_t *, vLiObjs, pObj, i )
             ((Aig_Obj_t *)pObj->pData)->pData = pObj;
         if ( fVerbose )
             printf( "%3d : PI =%8d. PO =%8d. Flop =%8d. Node =%8d.\n", 
@@ -263,7 +266,7 @@ sat_solver * Saig_AbsCreateSolverDyn( Aig_Man_t * p, Vec_Ptr_t * vFrames )
     vPoLits = Vec_IntAlloc( 100 );
     // count the number of CNF variables
     nSatVars = 0;
-    Vec_PtrForEachEntry( vFrames, pCnf, f )
+    Vec_PtrForEachEntry( Cnf_Dat_t *, vFrames, pCnf, f )
         nSatVars += pCnf->nVars;
 
     // create the SAT solver
@@ -273,8 +276,8 @@ sat_solver * Saig_AbsCreateSolverDyn( Aig_Man_t * p, Vec_Ptr_t * vFrames )
 
     // add clauses for the timeframes
     nSatVars = 0;
-//    Vec_PtrForEachEntryReverse( vFrames, pCnf, f )
-    Vec_PtrForEachEntry( vFrames, pCnf, f )
+//    Vec_PtrForEachEntryReverse( Cnf_Dat_t *, vFrames, pCnf, f )
+    Vec_PtrForEachEntry( Cnf_Dat_t *, vFrames, pCnf, f )
     {
         // lift clauses of this CNF
         Cnf_DataLift( pCnf, nSatVars );
@@ -309,8 +312,8 @@ sat_solver * Saig_AbsCreateSolverDyn( Aig_Man_t * p, Vec_Ptr_t * vFrames )
     Vec_IntFree( vPoLits );
 
     // add connecting clauses
-    pCnfPrev = Vec_PtrEntry( vFrames, 0 );
-    Vec_PtrForEachEntryStart( vFrames, pCnf, f, 1 )
+    pCnfPrev = (Cnf_Dat_t *)Vec_PtrEntry( vFrames, 0 );
+    Vec_PtrForEachEntryStart( Cnf_Dat_t *, vFrames, pCnf, f, 1 )
     {
         nRegisters = pCnf->pMan->nAsserts;
         assert( nRegisters <= Aig_ManPoNum(pCnfPrev->pMan) );
@@ -335,7 +338,7 @@ sat_solver * Saig_AbsCreateSolverDyn( Aig_Man_t * p, Vec_Ptr_t * vFrames )
         pCnfPrev = pCnf;
     }
     // add unit clauses
-    pCnf = Vec_PtrEntry( vFrames, 0 );
+    pCnf = (Cnf_Dat_t *)Vec_PtrEntry( vFrames, 0 );
     nRegisters = pCnf->pMan->nAsserts;
     for ( i = 0; i < nRegisters; i++ )
     {
@@ -459,13 +462,13 @@ Vec_Int_t * Saig_AbsCollectRegistersDyn( Aig_Man_t * p, Vec_Ptr_t * vFrames, Vec
     int i, f, iClause, iReg, * piLit, nSatVars, nSatClauses;
     // count the number of CNF variables
     nSatVars = 0;
-    Vec_PtrForEachEntry( vFrames, pCnf, f )
+    Vec_PtrForEachEntry( Cnf_Dat_t *, vFrames, pCnf, f )
         nSatVars += pCnf->nVars;
     // mark register variables
     pVars = ABC_ALLOC( int, nSatVars );
     for ( i = 0; i < nSatVars; i++ )
         pVars[i] = -1;
-    Vec_PtrForEachEntry( vFrames, pCnf, f )
+    Vec_PtrForEachEntry( Cnf_Dat_t *, vFrames, pCnf, f )
     {
         Aig_ManForEachPi( pCnf->pMan, pObj, i )
         {
@@ -473,7 +476,7 @@ Vec_Int_t * Saig_AbsCollectRegistersDyn( Aig_Man_t * p, Vec_Ptr_t * vFrames, Vec
             assert( pCnf->pVarNums[pObj->Id] < nSatVars );
             if ( pObj->pData == NULL )
                 continue;
-            iReg = Aig_ObjPioNum(pObj->pData) - Saig_ManPiNum(p);
+            iReg = Aig_ObjPioNum((Aig_Obj_t *)pObj->pData) - Saig_ManPiNum(p);
             assert( iReg >= 0 && iReg < Aig_ManRegNum(p) );
             pVars[ pCnf->pVarNums[pObj->Id] ] = iReg;
         }
@@ -483,7 +486,7 @@ Vec_Int_t * Saig_AbsCollectRegistersDyn( Aig_Man_t * p, Vec_Ptr_t * vFrames, Vec
             assert( pCnf->pVarNums[pObj->Id] < nSatVars );
             if ( pObj->pData == NULL )
                 continue;
-            iReg = Aig_ObjPioNum(pObj->pData) - Saig_ManPoNum(p);
+            iReg = Aig_ObjPioNum((Aig_Obj_t *)pObj->pData) - Saig_ManPoNum(p);
             assert( iReg >= 0 && iReg < Aig_ManRegNum(p) );
             pVars[ pCnf->pVarNums[pObj->Id] ] = iReg;
         }
@@ -493,7 +496,7 @@ Vec_Int_t * Saig_AbsCollectRegistersDyn( Aig_Man_t * p, Vec_Ptr_t * vFrames, Vec
     Vec_IntForEachEntry( vCore, iClause, i )
     {
         nSatClauses = 0;
-        Vec_PtrForEachEntry( vFrames, pCnf, f )
+        Vec_PtrForEachEntry( Cnf_Dat_t *, vFrames, pCnf, f )
         {
             if ( iClause < nSatClauses + pCnf->nClauses )
                 break;
@@ -588,7 +591,7 @@ void Saig_AbsFreeCnfs( Vec_Ptr_t * vFrames )
 {
     Cnf_Dat_t * pCnf;
     int i;
-    Vec_PtrForEachEntry( vFrames, pCnf, i )
+    Vec_PtrForEachEntry( Cnf_Dat_t *, vFrames, pCnf, i )
     {
         Aig_ManStop( pCnf->pMan );
         Cnf_DataFree( pCnf );
@@ -625,7 +628,7 @@ void Saig_AbsExtendOneStep( Aig_Man_t * p, Vec_Int_t * vFlops )
     Aig_SupportNodes( p, (Aig_Obj_t **)Vec_PtrArray(vFlopPtrs), Vec_PtrSize(vFlopPtrs), vSupp );
     Vec_PtrFree( vFlopPtrs );
     // mark influencing flops
-    Vec_PtrForEachEntry( vSupp, pObj, i )
+    Vec_PtrForEachEntry( Aig_Obj_t *, vSupp, pObj, i )
         pObj->fMarkA = 1;
     Vec_PtrFree( vSupp );
     // reload flops
@@ -744,4 +747,6 @@ Aig_Man_t * Saig_ManProofAbstraction( Aig_Man_t * p, Gia_ParAbs_t * pPars )
 ///                       END OF FILE                                ///
 ////////////////////////////////////////////////////////////////////////
 
+
+ABC_NAMESPACE_IMPL_END
 

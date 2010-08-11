@@ -19,8 +19,11 @@
 ***********************************************************************/
 
 #include "saig.h"
+#include "fra.h"
 #include "cnf.h"
 #include "satStore.h"
+
+ABC_NAMESPACE_IMPL_START
 
 ////////////////////////////////////////////////////////////////////////
 ///                        DECLARATIONS                              ///
@@ -162,7 +165,12 @@ Aig_Man_t * Saig_ManFramesBmcLimit( Aig_Man_t * pAig, int nFrames, int nSizeMax 
     return pFrames;
 }
 
+ABC_NAMESPACE_IMPL_END
+
 #include "utilMem.h"
+
+ABC_NAMESPACE_IMPL_START
+
  
 /**Function*************************************************************
 
@@ -293,11 +301,11 @@ int Saig_ManBmcSimple( Aig_Man_t * pAig, int nFrames, int nSizeMax, int nConfLim
             }
             else if ( status == l_True )
             {
-                extern void * Fra_SmlCopyCounterExample( Aig_Man_t * pAig, Aig_Man_t * pFrames, int * pModel );
+//                extern void * Fra_SmlCopyCounterExample( Aig_Man_t * pAig, Aig_Man_t * pFrames, int * pModel );
                 Vec_Int_t * vCiIds = Cnf_DataCollectPiSatNums( pCnf, pFrames );
                 int * pModel = Sat_SolverGetModel( pSat, vCiIds->pArray, vCiIds->nSize );
                 pModel[Aig_ManPiNum(pFrames)] = pObj->Id;
-                pAig->pSeqModel = Fra_SmlCopyCounterExample( pAig, pFrames, pModel );
+                pAig->pSeqModel = (Abc_Cex_t *)Fra_SmlCopyCounterExample( pAig, pFrames, pModel );
                 ABC_FREE( pModel );
                 Vec_IntFree( vCiIds );
 
@@ -325,4 +333,6 @@ int Saig_ManBmcSimple( Aig_Man_t * pAig, int nFrames, int nSizeMax, int nConfLim
 ///                       END OF FILE                                ///
 ////////////////////////////////////////////////////////////////////////
 
+
+ABC_NAMESPACE_IMPL_END
 

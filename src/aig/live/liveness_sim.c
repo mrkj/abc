@@ -1,8 +1,31 @@
+/**CFile****************************************************************
+
+  FileName    [liveness_sim.c]
+
+  SystemName  [ABC: Logic synthesis and verification system.]
+
+  PackageName [Liveness property checking.]
+
+  Synopsis    [Main implementation module.]
+
+  Author      [Sayak Ray]
+  
+  Affiliation [UC Berkeley]
+
+  Date        [Ver. 1.0. Started - January 1, 2009.]
+
+  Revision    [$Id: liveness_sim.c,v 1.00 2009/01/01 00:00:00 alanmi Exp $]
+
+***********************************************************************/
+
 #include <stdio.h>
 #include "main.h"
 #include "aig.h"
 #include "saig.h"
 #include <string.h>
+
+ABC_NAMESPACE_IMPL_START
+
 
 #define PROPAGATE_NAMES
 //#define DUPLICATE_CKT_DEBUG
@@ -145,8 +168,8 @@ static char * retrieveLOName( Abc_Ntk_t *pNtkOld, Aig_Man_t *pAigOld, Aig_Man_t 
 		return "UNKNOWN";
 }
 
-Vec_Ptr_t *vecPis, *vecPiNames;
-Vec_Ptr_t *vecLos, *vecLoNames;
+extern Vec_Ptr_t *vecPis, *vecPiNames;
+extern Vec_Ptr_t *vecLos, *vecLoNames;
 
 
 static int Aig_ManPiCleanupBiere( Aig_Man_t * p )
@@ -280,7 +303,7 @@ static Aig_Man_t * LivenessToSafetyTransformationSim( Abc_Ntk_t * pNtk, Aig_Man_
 	// of the whole circuit, discuss with Sat/Alan for an alternative implementation
 	//********************************************************************
 #ifndef DUPLICATE_CKT_DEBUG
-	pObjSafetyPropertyOutput = Aig_ObjCreatePo( pNew, Aig_ObjFanin0(pObj)->pData );
+	pObjSafetyPropertyOutput = Aig_ObjCreatePo( pNew, (Aig_Obj_t *)Aig_ObjFanin0(pObj)->pData );
 #endif
 
 	//********************************************************************
@@ -301,7 +324,7 @@ static Aig_Man_t * LivenessToSafetyTransformationSim( Abc_Ntk_t * pNtk, Aig_Man_
     {
 		pMatch = Saig_ObjLoToLi( p, pObj );
         //Aig_ObjCreatePo( pNew, Aig_ObjChild0Copy(pMatch) );
-		Aig_ObjCreatePo( pNew, Aig_NotCond(Aig_ObjFanin0(pMatch)->pData, Aig_ObjFaninC0( pMatch ) ) );
+		Aig_ObjCreatePo( pNew, Aig_NotCond((Aig_Obj_t *)Aig_ObjFanin0(pMatch)->pData, Aig_ObjFaninC0( pMatch ) ) );
         nRegCount++;
 		liCopied++;
     }
@@ -326,12 +349,12 @@ static Aig_Man_t * LivenessToSafetyTransformationSim( Abc_Ntk_t * pNtk, Aig_Man_
 		Vec_PtrPush( vecLoNames, nodeName );
 #endif
 
-		pObjShadowLiDriver = Aig_Mux( pNew, pObjSavePi, pObj->pData, pObjShadowLo );
+		pObjShadowLiDriver = Aig_Mux( pNew, pObjSavePi, (Aig_Obj_t *)pObj->pData, pObjShadowLo );
 		pObjShadowLi = Aig_ObjCreatePo( pNew, pObjShadowLiDriver );
 		nRegCount++;
 		loCreated++; liCreated++;
 		
-		pObjXor = Aig_Exor( pNew, pObj->pData, pObjShadowLo );
+		pObjXor = Aig_Exor( pNew, (Aig_Obj_t *)pObj->pData, pObjShadowLo );
 		pObjXnor = Aig_Not( pObjXor );
 		if( pObjAndAcc == NULL )
 			pObjAndAcc = pObjXnor;
@@ -351,12 +374,12 @@ static Aig_Man_t * LivenessToSafetyTransformationSim( Abc_Ntk_t * pNtk, Aig_Man_
 		printf("\nCircuit without any liveness property\n");
 	else
 	{
-		Vec_PtrForEachEntry( vLive, pObj, i )
+		Vec_PtrForEachEntry( Aig_Obj_t *, vLive, pObj, i )
 		{
 			//assert( Aig_ObjIsNode( Aig_ObjChild0( pObj ) ) );
 			//Aig_ObjPrint( pNew, pObj );
 			liveLatch++;
-			pDriverImage = Aig_NotCond(Aig_Regular(Aig_ObjChild0( pObj ))->pData, Aig_ObjFaninC0(pObj));
+			pDriverImage = Aig_NotCond((Aig_Obj_t *)Aig_Regular(Aig_ObjChild0( pObj ))->pData, Aig_ObjFaninC0(pObj));
 			pObjShadowLo = Aig_ObjCreatePi( pNew );
 
 #ifdef PROPAGATE_NAMES
@@ -393,11 +416,11 @@ static Aig_Man_t * LivenessToSafetyTransformationSim( Abc_Ntk_t * pNtk, Aig_Man_
 		printf("\nCircuit without any fairness property\n");
 	else
 	{
-		Vec_PtrForEachEntry( vFair, pObj, i )
+		Vec_PtrForEachEntry( Aig_Obj_t *, vFair, pObj, i )
 		{
 			fairLatch++;
 			//assert( Aig_ObjIsNode( Aig_ObjChild0( pObj ) ) );
-			pDriverImage = Aig_NotCond(Aig_Regular(Aig_ObjChild0( pObj ))->pData, Aig_ObjFaninC0(pObj));
+			pDriverImage = Aig_NotCond((Aig_Obj_t *)Aig_Regular(Aig_ObjChild0( pObj ))->pData, Aig_ObjFaninC0(pObj));
 			pObjShadowLo = Aig_ObjCreatePi( pNew );
 
 #ifdef PROPAGATE_NAMES
@@ -556,7 +579,7 @@ static Aig_Man_t * LivenessToSafetyTransformationOneStepLoopSim( Abc_Ntk_t * pNt
 	// of the whole circuit, discuss with Sat/Alan for an alternative implementation
 	//********************************************************************
 
-	pObjSafetyPropertyOutput = Aig_ObjCreatePo( pNew, Aig_ObjFanin0(pObj)->pData );
+	pObjSafetyPropertyOutput = Aig_ObjCreatePo( pNew, (Aig_Obj_t *)Aig_ObjFanin0(pObj)->pData );
 
 	// create register inputs for the original registers
     nRegCount = 0;
@@ -565,7 +588,7 @@ static Aig_Man_t * LivenessToSafetyTransformationOneStepLoopSim( Abc_Ntk_t * pNt
     {
 		pMatch = Saig_ObjLoToLi( p, pObj );
         //Aig_ObjCreatePo( pNew, Aig_ObjChild0Copy(pMatch) );
-		Aig_ObjCreatePo( pNew, Aig_NotCond(Aig_ObjFanin0(pMatch)->pData, Aig_ObjFaninC0( pMatch ) ) );
+		Aig_ObjCreatePo( pNew, Aig_NotCond((Aig_Obj_t *)Aig_ObjFanin0(pMatch)->pData, Aig_ObjFaninC0( pMatch ) ) );
         nRegCount++;
 		liCopied++;
     }
@@ -588,7 +611,7 @@ static Aig_Man_t * LivenessToSafetyTransformationOneStepLoopSim( Abc_Ntk_t * pNt
 	{
 		pObjCorrespondingLi = Saig_ObjLoToLi( p, pObj );
 		
-		pObjXor = Aig_Exor( pNew, pObj->pData,  Aig_NotCond( Aig_ObjFanin0( pObjCorrespondingLi )->pData, Aig_ObjFaninC0( pObjCorrespondingLi ) ) );
+		pObjXor = Aig_Exor( pNew, (Aig_Obj_t *)pObj->pData,  Aig_NotCond( (Aig_Obj_t *)Aig_ObjFanin0( pObjCorrespondingLi )->pData, Aig_ObjFaninC0( pObjCorrespondingLi ) ) );
 		pObjXnor = Aig_Not( pObjXor );
 		
 		if( pObjAndAcc == NULL )
@@ -609,9 +632,9 @@ static Aig_Man_t * LivenessToSafetyTransformationOneStepLoopSim( Abc_Ntk_t * pNt
 		printf("\nCircuit without any liveness property\n");
 	else
 	{
-		Vec_PtrForEachEntry( vLive, pObj, i )
+		Vec_PtrForEachEntry( Aig_Obj_t *, vLive, pObj, i )
 		{
-			pDriverImage = Aig_NotCond(Aig_Regular(Aig_ObjChild0( pObj ))->pData, Aig_ObjFaninC0(pObj));
+			pDriverImage = Aig_NotCond((Aig_Obj_t *)Aig_Regular(Aig_ObjChild0( pObj ))->pData, Aig_ObjFaninC0(pObj));
 			if( pObjAndAcc == NULL )
 				pObjAndAcc = pDriverImage;
 			else
@@ -633,9 +656,9 @@ static Aig_Man_t * LivenessToSafetyTransformationOneStepLoopSim( Abc_Ntk_t * pNt
 		printf("\nCircuit without any fairness property\n");
 	else
 	{
-		Vec_PtrForEachEntry( vFair, pObj, i )
+		Vec_PtrForEachEntry( Aig_Obj_t *, vFair, pObj, i )
 		{
-			pDriverImage = Aig_NotCond(Aig_Regular(Aig_ObjChild0( pObj ))->pData, Aig_ObjFaninC0(pObj));
+			pDriverImage = Aig_NotCond((Aig_Obj_t *)Aig_Regular(Aig_ObjChild0( pObj ))->pData, Aig_ObjFaninC0(pObj));
 			if( pObjAndAcc == NULL )
 				pObjAndAcc = pDriverImage;
 			else
@@ -716,13 +739,13 @@ static void updateNewNetworkNameManager( Abc_Ntk_t *pNtk, Aig_Man_t *pAig, Vec_P
 	{
 		ntkObjId = Abc_NtkCi( pNtk, i )->Id;
 		//printf("Pi %d, Saved Name = %s, id = %d\n", i, Nm_ManStoreIdName( pNtk->pManName, ntkObjId, Aig_ObjType(pObj), Vec_PtrEntry(vPiNames, i), NULL ), ntkObjId);  
-		Nm_ManStoreIdName( pNtk->pManName, ntkObjId, Aig_ObjType(pObj), Vec_PtrEntry(vPiNames, i), NULL );
+		Nm_ManStoreIdName( pNtk->pManName, ntkObjId, Aig_ObjType(pObj), (char *)Vec_PtrEntry(vPiNames, i), NULL );
 	}
 	Saig_ManForEachLo( pAig, pObj, i )
 	{
 		ntkObjId = Abc_NtkCi( pNtk, Saig_ManPiNum( pAig ) + i )->Id;
 		//printf("Lo %d, Saved name = %s, id = %d\n", i, Nm_ManStoreIdName( pNtk->pManName, ntkObjId, Aig_ObjType(pObj), Vec_PtrEntry(vLoNames, i), NULL ), ntkObjId);  
-		Nm_ManStoreIdName( pNtk->pManName, ntkObjId, Aig_ObjType(pObj), Vec_PtrEntry(vLoNames, i), NULL );
+		Nm_ManStoreIdName( pNtk->pManName, ntkObjId, Aig_ObjType(pObj), (char *)Vec_PtrEntry(vLoNames, i), NULL );
 	}
 }
 
@@ -821,3 +844,5 @@ int Abc_CommandAbcLivenessToSafetySim( Abc_Frame_t * pAbc, int argc, char ** arg
 	return 0;
 
 }
+ABC_NAMESPACE_IMPL_END
+

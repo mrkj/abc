@@ -22,6 +22,9 @@
 #include "gia.h"
 #include "giaAig.h"
 
+ABC_NAMESPACE_IMPL_START
+
+
 ////////////////////////////////////////////////////////////////////////
 ///                        DECLARATIONS                              ///
 ////////////////////////////////////////////////////////////////////////
@@ -211,4 +214,6 @@ int Llb_ManModelCheckGia( Gia_Man_t * pGia, Gia_ParLlb_t * pPars )
 ///                       END OF FILE                                ///
 ////////////////////////////////////////////////////////////////////////
 
+
+ABC_NAMESPACE_IMPL_END
 

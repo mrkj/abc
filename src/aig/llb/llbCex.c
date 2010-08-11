@@ -20,6 +20,9 @@
 
 #include "llbInt.h"
 
+ABC_NAMESPACE_IMPL_START
+
+
 ////////////////////////////////////////////////////////////////////////
 ///                        DECLARATIONS                              ///
 ////////////////////////////////////////////////////////////////////////
@@ -48,4 +51,6 @@ Abc_Cex_t * Llb_ManDeriveCex( Llb_Man_t * p, DdNode * bInter, int iOutFail, int 
 ///                       END OF FILE                                ///
 ////////////////////////////////////////////////////////////////////////
 
+
+ABC_NAMESPACE_IMPL_END
 

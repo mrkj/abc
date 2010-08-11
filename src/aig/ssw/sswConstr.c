@@ -22,6 +22,9 @@
 #include "cnf.h"
 #include "bar.h"
 
+ABC_NAMESPACE_IMPL_START
+
+
 ////////////////////////////////////////////////////////////////////////
 ///                        DECLARATIONS                              ///
 ////////////////////////////////////////////////////////////////////////
@@ -109,7 +112,7 @@ int Ssw_ManSetConstrPhases( Aig_Man_t * p, int nFrames, Vec_Int_t ** pvInits )
     // create CNF
     pCnf = Cnf_Derive( pFrames, 0 );  
     // create SAT solver
-    pSat = Cnf_DataWriteIntoSolver( pCnf, 1, 0 );
+    pSat = (sat_solver *)Cnf_DataWriteIntoSolver( pCnf, 1, 0 );
     if ( pSat == NULL )
     {
         Cnf_DataFree( pCnf );
@@ -165,7 +168,7 @@ int Ssw_ManSetConstrPhases_( Aig_Man_t * p, int nFrames, Vec_Int_t ** pvInits )
     pCnf = Cnf_Derive( p, Aig_ManPoNum(p) );  
     p->nRegs = nRegs;  
     // create SAT solver
-    pSat = Cnf_DataWriteIntoSolver( pCnf, nFrames, 0 );
+    pSat = (sat_solver *)Cnf_DataWriteIntoSolver( pCnf, nFrames, 0 );
     assert( pSat->size == nFrames * pCnf->nVars );
     // collect constraint literals
     vLits = Vec_IntAlloc( 100 );
@@ -627,4 +630,6 @@ p->timeReduce += clock() - clk;
 ///                       END OF FILE                                ///
 ////////////////////////////////////////////////////////////////////////
 
+
+ABC_NAMESPACE_IMPL_END
 

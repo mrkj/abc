@@ -21,6 +21,7 @@
 #ifndef __NTL_H__
 #define __NTL_H__
 
+
 ////////////////////////////////////////////////////////////////////////
 ///                          INCLUDES                                ///
 ////////////////////////////////////////////////////////////////////////
@@ -33,15 +34,12 @@
 ///                         PARAMETERS                               ///
 ////////////////////////////////////////////////////////////////////////
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+ABC_NAMESPACE_HEADER_START
 
 ////////////////////////////////////////////////////////////////////////
 ///                         BASIC TYPES                              ///
 ////////////////////////////////////////////////////////////////////////
 
-typedef struct Ntl_Man_t_    Ntl_Man_t;
 typedef struct Ntl_Mod_t_    Ntl_Mod_t;
 typedef struct Ntl_Reg_t_    Ntl_Reg_t;
 typedef struct Ntl_Obj_t_    Ntl_Obj_t;
@@ -254,16 +252,16 @@ static inline int         Ntl_ObjIsSeqRoot( Ntl_Obj_t * p )       { return Ntl_O
 #define Ntl_ManForEachModel( p, pMod, i )                                       \
     for ( i = 0; (i < Vec_PtrSize(p->vModels)) && (((pMod) = (Ntl_Mod_t*)Vec_PtrEntry(p->vModels, i)), 1); i++ )
 #define Ntl_ManForEachCiNet( p, pNet, i )                                       \
-    Vec_PtrForEachEntry( p->vCis, pNet, i )
+    Vec_PtrForEachEntry( Ntl_Net_t *, p->vCis, pNet, i )
 #define Ntl_ManForEachCoNet( p, pNet, i )                                       \
-    Vec_PtrForEachEntry( p->vCos, pNet, i )
+    Vec_PtrForEachEntry( Ntl_Net_t *, p->vCos, pNet, i )
 
 #define Ntl_ModelForEachPi( pNwk, pObj, i )                                     \
     for ( i = 0; (i < Vec_PtrSize(pNwk->vPis)) && (((pObj) = (Ntl_Obj_t*)Vec_PtrEntry(pNwk->vPis, i)), 1); i++ )
 #define Ntl_ModelForEachPo( pNwk, pObj, i )                                     \
     for ( i = 0; (i < Vec_PtrSize(pNwk->vPos)) && (((pObj) = (Ntl_Obj_t*)Vec_PtrEntry(pNwk->vPos, i)), 1); i++ )
 #define Ntl_ModelForEachNet( pNwk, pNet, i )                                    \
-    Vec_PtrForEachEntry( pNwk->vNets, pNet, i )                                 \
+    Vec_PtrForEachEntry( Ntl_Net_t *, pNwk->vNets, pNet, i )                                 \
         if ( pNet == NULL ) {} else
 #define Ntl_ModelForEachObj( pNwk, pObj, i )                                    \
     for ( i = 0; (i < Vec_PtrSize(pNwk->vObjs)) && (((pObj) = (Ntl_Obj_t*)Vec_PtrEntry(pNwk->vObjs, i)), 1); i++ ) \
@@ -365,7 +363,7 @@ extern ABC_DLL Ntl_Obj_t *     Ntl_ModelCreateBox( Ntl_Mod_t * pModel, int nFani
 extern ABC_DLL Ntl_Obj_t *     Ntl_ModelDupObj( Ntl_Mod_t * pModel, Ntl_Obj_t * pOld );
 extern ABC_DLL Ntl_Obj_t *     Ntl_ModelCreatePiWithName( Ntl_Mod_t * pModel, char * pName );
 extern ABC_DLL char *          Ntl_ManStoreName( Ntl_Man_t * p, char * pName );
-extern ABC_DLL char *          Ntl_ManStoreSop( Aig_MmFlex_t * pMan, char * pSop );
+extern ABC_DLL char *          Ntl_ManStoreSop( Aig_MmFlex_t * pMan, const char * pSop );
 extern ABC_DLL char *          Ntl_ManStoreFileName( Ntl_Man_t * p, char * pFileName );
 extern ABC_DLL int             Ntl_ManObjWhichFanout( Ntl_Obj_t * pNode, Ntl_Net_t * pFanout );
 /*=== ntlSweep.c ==========================================================*/
@@ -414,9 +412,11 @@ extern ABC_DLL int             Ntl_ModelCheckNetsAreNotMarked( Ntl_Mod_t * pMode
 extern ABC_DLL void            Ntl_ModelClearNets( Ntl_Mod_t * pModel );
 extern ABC_DLL void            Ntl_ManRemoveUselessNets( Ntl_Man_t * p );
 
-#ifdef __cplusplus
-}
-#endif
+
+
+ABC_NAMESPACE_HEADER_END
+
+
 
 #endif
 

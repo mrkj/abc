@@ -21,6 +21,7 @@
 #ifndef __INT_H__
 #define __INT_H__
 
+
 /* 
     The interpolation algorithm implemented here was introduced in the paper:
     K. L. McMillan. Interpolation and SAT-based model checking. CAV’03, pp. 1-13.
@@ -34,9 +35,10 @@
 ///                         PARAMETERS                               ///
 ////////////////////////////////////////////////////////////////////////
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+
+
+ABC_NAMESPACE_HEADER_START
+
 
 ////////////////////////////////////////////////////////////////////////
 ///                         BASIC TYPES                              ///
@@ -77,9 +79,11 @@ extern void       Inter_ManSetDefaultParams( Inter_ManParams_t * p );
 extern int        Inter_ManPerformInterpolation( Aig_Man_t * pAig, Inter_ManParams_t * pPars, int * piFrame );
 
 
-#ifdef __cplusplus
-}
-#endif
+
+
+ABC_NAMESPACE_HEADER_END
+
+
 
 #endif
 

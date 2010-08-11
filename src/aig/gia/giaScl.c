@@ -20,6 +20,9 @@
 
 #include "gia.h"
 
+ABC_NAMESPACE_IMPL_START
+
+
 ////////////////////////////////////////////////////////////////////////
 ///                        DECLARATIONS                              ///
 ////////////////////////////////////////////////////////////////////////
@@ -215,7 +218,7 @@ Gia_Man_t * Gia_ManReduceEquiv( Gia_Man_t * p, int fVerbose )
 //        printf( "ReduceEquiv detected %d constant regs and %d equivalent regs.\n", Counter0, Counter );
     ABC_FREE( pMaps );
     if ( Counter0 || Counter )
-        pNew = Gia_ManDupDfsCiMap( p, pCi2Lit, NULL );
+        pNew = Gia_ManDupDfsCiMap( p, (int *)pCi2Lit, NULL );
     else
         pNew = p;
     ABC_FREE( pCi2Lit );
@@ -273,4 +276,6 @@ Gia_Man_t * Gia_ManSeqStructSweep( Gia_Man_t * p, int fConst, int fEquiv, int fV
 ///                       END OF FILE                                ///
 ////////////////////////////////////////////////////////////////////////
 
+
+ABC_NAMESPACE_IMPL_END
 

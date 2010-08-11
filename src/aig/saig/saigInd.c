@@ -22,6 +22,9 @@
 #include "cnf.h"
 #include "satSolver.h"
 
+ABC_NAMESPACE_IMPL_START
+
+
 ////////////////////////////////////////////////////////////////////////
 ///                        DECLARATIONS                              ///
 ////////////////////////////////////////////////////////////////////////
@@ -230,12 +233,12 @@ int Saig_ManInduction( Aig_Man_t * p, int nFramesMax, int nConfMax, int fUnique,
         Vec_IntClear( vTopVarNums );
         nOldSize = Vec_IntSize(vState);
         Vec_IntFillExtra( vState, nOldSize + Aig_ManRegNum(p), -1 );
-        Vec_PtrForEachEntry( vBot, pObjPi, i )
+        Vec_PtrForEachEntry( Aig_Obj_t *, vBot, pObjPi, i )
         {
             assert( Aig_ObjIsPi(pObjPi) );
             if ( Saig_ObjIsLo(p, pObjPi) )
             {
-                pObjPiCopy = pObjPi->pData;
+                pObjPiCopy = (Aig_Obj_t *)pObjPi->pData;
                 assert( pObjPiCopy != NULL );
                 Vec_PtrPush( vTop, Saig_ObjLoToLi(p, pObjPi) );
                 Vec_IntPush( vTopVarNums, pCnfPart->pVarNums[pObjPiCopy->Id] );
@@ -336,4 +339,6 @@ nextrun:
 ///                       END OF FILE                                ///
 ////////////////////////////////////////////////////////////////////////
 
+
+ABC_NAMESPACE_IMPL_END
 

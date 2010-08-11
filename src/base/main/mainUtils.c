@@ -18,6 +18,7 @@
 
 ***********************************************************************/
 
+#include "abc.h"
 #include "mainInt.h"
 
 #ifndef _WIN32
@@ -25,10 +26,14 @@
 #include <readline/history.h>
 #endif
 
+ABC_NAMESPACE_IMPL_START
+
+
 ////////////////////////////////////////////////////////////////////////
 ///                        DECLARATIONS                              ///
 ////////////////////////////////////////////////////////////////////////
-static char * DateReadFromDateString(char * datestr);
+
+static char * DateReadFromDateString( char * datestr );
 
 ////////////////////////////////////////////////////////////////////////
 ///                     FUNCTION DEFINITIONS                         ///
@@ -250,7 +255,7 @@ void Abc_UtilsSource( Abc_Frame_t * pAbc )
         // reset command history
         char * pName; 
         int i;
-        Vec_PtrForEachEntry( pAbc->aHistory, pName, i )
+        Vec_PtrForEachEntry( char *, pAbc->aHistory, pName, i )
             ABC_FREE( pName );
         pAbc->aHistory->nSize = 0;
     }
@@ -266,9 +271,7 @@ void Abc_UtilsSource( Abc_Frame_t * pAbc )
   SideEffects []
 
 ******************************************************************************/
-char *
-DateReadFromDateString(
-  char * datestr)
+char * DateReadFromDateString( char * datestr )
 {
   static char result[25];
   char        day[10];
@@ -306,4 +309,6 @@ DateReadFromDateString(
 ///                       END OF FILE                                ///
 ////////////////////////////////////////////////////////////////////////
 
+
+ABC_NAMESPACE_IMPL_END
 

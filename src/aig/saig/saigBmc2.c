@@ -23,6 +23,9 @@
 #include "satStore.h"
 #include "ssw.h"
 
+ABC_NAMESPACE_IMPL_START
+
+
 ////////////////////////////////////////////////////////////////////////
 ///                        DECLARATIONS                              ///
 ////////////////////////////////////////////////////////////////////////
@@ -63,7 +66,7 @@ struct Saig_Bmc_t_
 static inline int         Saig_BmcSatNum( Saig_Bmc_t * p, Aig_Obj_t * pObj )                                { return Vec_IntGetEntry( p->vObj2Var, pObj->Id );  }
 static inline void        Saig_BmcSetSatNum( Saig_Bmc_t * p, Aig_Obj_t * pObj, int Num )                    { Vec_IntSetEntry(p->vObj2Var, pObj->Id, Num);      }
 
-static inline Aig_Obj_t * Saig_BmcObjFrame( Saig_Bmc_t * p, Aig_Obj_t * pObj, int i )                       { return Vec_PtrGetEntry( p->vAig2Frm, p->nObjs*i+pObj->Id );     }
+static inline Aig_Obj_t * Saig_BmcObjFrame( Saig_Bmc_t * p, Aig_Obj_t * pObj, int i )                       { return (Aig_Obj_t *)Vec_PtrGetEntry( p->vAig2Frm, p->nObjs*i+pObj->Id );     }
 static inline void        Saig_BmcObjSetFrame( Saig_Bmc_t * p, Aig_Obj_t * pObj, int i, Aig_Obj_t * pNode ) { Vec_PtrSetEntry( p->vAig2Frm, p->nObjs*i+pObj->Id, pNode );     }
 
 static inline Aig_Obj_t * Saig_BmcObjChild0( Saig_Bmc_t * p, Aig_Obj_t * pObj, int i )                   { assert( !Aig_IsComplement(pObj) ); return Aig_NotCond(Saig_BmcObjFrame(p, Aig_ObjFanin0(pObj), i), Aig_ObjFaninC0(pObj));  }
@@ -97,13 +100,13 @@ static inline int Abs_ManSimInfoAnd( int Value0, int Value1 )
 
 static inline int Abs_ManSimInfoGet( Vec_Ptr_t * vSimInfo, Aig_Obj_t * pObj, int iFrame )
 {
-    unsigned * pInfo = Vec_PtrEntry( vSimInfo, iFrame );
+    unsigned * pInfo = (unsigned *)Vec_PtrEntry( vSimInfo, iFrame );
     return 3 & (pInfo[Aig_ObjId(pObj) >> 4] >> ((Aig_ObjId(pObj) & 15) << 1));
 }
 
 static inline void Abs_ManSimInfoSet( Vec_Ptr_t * vSimInfo, Aig_Obj_t * pObj, int iFrame, int Value )
 {
-    unsigned * pInfo = Vec_PtrEntry( vSimInfo, iFrame );
+    unsigned * pInfo = (unsigned *)Vec_PtrEntry( vSimInfo, iFrame );
     assert( Value >= ABS_ZER && Value <= ABS_UND );
     Value ^= Abs_ManSimInfoGet( vSimInfo, pObj, iFrame );
     pInfo[Aig_ObjId(pObj) >> 4] ^= (Value << ((Aig_ObjId(pObj) & 15) << 1));
@@ -231,7 +234,7 @@ void Abs_ManFreeAray( Vec_Ptr_t * p )
 {
     void * pTemp;
     int i;
-    Vec_PtrForEachEntry( p, pTemp, i )
+    Vec_PtrForEachEntry( void *, p, pTemp, i )
         ABC_FREE( pTemp );
     Vec_PtrFree( p );
 }
@@ -467,7 +470,7 @@ void Saig_BmcInterval( Saig_Bmc_t * p )
             Aig_ManCleanup( p->pFrm );
             // check if the node is gone
             Counter = 0;
-            Vec_PtrForEachEntry( p->vVisited, pObj, i )
+            Vec_PtrForEachEntry( Aig_Obj_t *, p->vVisited, pObj, i )
             {
                 iFrame = (int)(ABC_PTRINT_T)Vec_PtrEntry( p->vVisited, 1+i++ );
                 pRes = Saig_BmcObjFrame( p, pObj, iFrame );
@@ -496,17 +499,17 @@ void Saig_BmcInterval( Saig_Bmc_t * p )
 Aig_Obj_t * Saig_BmcIntervalToAig_rec( Saig_Bmc_t * p, Aig_Man_t * pNew, Aig_Obj_t * pObj )
 {
     if ( pObj->pData )
-        return pObj->pData;
+        return (Aig_Obj_t *)pObj->pData;
     Vec_PtrPush( p->vVisited, pObj );
     if ( Saig_BmcSatNum(p, pObj) || Aig_ObjIsPi(pObj) )
     {
         p->nStitchVars += !Aig_ObjIsPi(pObj);
-        return pObj->pData = Aig_ObjCreatePi(pNew);
+        return (Aig_Obj_t *)(pObj->pData = Aig_ObjCreatePi(pNew));
     }
     Saig_BmcIntervalToAig_rec( p, pNew, Aig_ObjFanin0(pObj) );
     Saig_BmcIntervalToAig_rec( p, pNew, Aig_ObjFanin1(pObj) );
     assert( pObj->pData == NULL );
-    return pObj->pData = Aig_And( pNew, Aig_ObjChild0Copy(pObj), Aig_ObjChild1Copy(pObj) );
+    return (Aig_Obj_t *)(pObj->pData = Aig_And( pNew, Aig_ObjChild0Copy(pObj), Aig_ObjChild1Copy(pObj) ));
 }
 
 /**Function*************************************************************
@@ -532,7 +535,7 @@ Aig_Man_t * Saig_BmcIntervalToAig( Saig_Bmc_t * p )
     Aig_ManConst1(p->pFrm)->pData = Aig_ManConst1(pNew);
     Vec_PtrClear( p->vVisited );
     Vec_PtrPush( p->vVisited, Aig_ManConst1(p->pFrm) );
-    Vec_PtrForEachEntry( p->vTargets, pObj, i )
+    Vec_PtrForEachEntry( Aig_Obj_t *, p->vTargets, pObj, i )
     {
 //        assert( !Aig_ObjIsConst1(Aig_Regular(pObj)) );
         pObjNew = Saig_BmcIntervalToAig_rec( p, pNew, Aig_Regular(pObj) );
@@ -557,10 +560,10 @@ void Saig_BmcLoadCnf( Saig_Bmc_t * p, Cnf_Dat_t * pCnf )
 {
     Aig_Obj_t * pObj, * pObjNew;
     int i, Lits[2], VarNumOld, VarNumNew;
-    Vec_PtrForEachEntry( p->vVisited, pObj, i )
+    Vec_PtrForEachEntry( Aig_Obj_t *, p->vVisited, pObj, i )
     {
         // get the new variable of this node
-        pObjNew     = pObj->pData;
+        pObjNew     = (Aig_Obj_t *)pObj->pData;
         pObj->pData = NULL;
         VarNumNew   = pCnf->pVarNums[ pObjNew->Id ];
         if ( VarNumNew == -1 )
@@ -683,7 +686,7 @@ int Saig_BmcSolveTargets( Saig_Bmc_t * p, int nStart, int * pnOutsSolved )
         RetValue = sat_solver_simplify(p->pSat);
         assert( RetValue != 0 );
     }
-    Vec_PtrForEachEntry( p->vTargets, pObj, i )
+    Vec_PtrForEachEntry( Aig_Obj_t *, p->vTargets, pObj, i )
     {
         if ( ((*pnOutsSolved)++ / Saig_ManPoNum(p->pAig)) < nStart )
             continue;
@@ -724,7 +727,7 @@ void Saig_BmcAddTargetsAsPos( Saig_Bmc_t * p )
 {
     Aig_Obj_t * pObj;
     int i;
-    Vec_PtrForEachEntry( p->vTargets, pObj, i )
+    Vec_PtrForEachEntry( Aig_Obj_t *, p->vTargets, pObj, i )
         Aig_ObjCreatePo( p->pFrm, pObj );
     Aig_ManPrintStats( p->pFrm );
     Aig_ManCleanup( p->pFrm );
@@ -748,7 +751,7 @@ int Saig_BmcPerform( Aig_Man_t * pAig, int nStart, int nFramesMax, int nNodesMax
     Aig_Man_t * pNew;
     Cnf_Dat_t * pCnf;
     int nOutsSolved = 0;
-    int Iter, RetValue, clk = clock(), clk2;
+    int Iter, RetValue, clk = clock(), clk2, clkTotal = clock();
     int Status = -1;
 /*
     Vec_Ptr_t * vSimInfo;
@@ -794,6 +797,15 @@ int Saig_BmcPerform( Aig_Man_t * pAig, int nStart, int nFramesMax, int nNodesMax
         }
         if ( RetValue != l_False )
             break;
+        // check the timeout
+        if ( nTimeOut && ((float)nTimeOut <= (float)(clock()-clkTotal)/(float)(CLOCKS_PER_SEC)) )
+        {
+            printf( "Reached timeout (%d seconds).\n",  nTimeOut );
+            Saig_BmcManStop( p );
+            if ( piFrames )
+                *piFrames = p->iFrameLast-1;
+            return Status;
+        }
     }
     if ( RetValue == l_True )
     {
@@ -836,4 +848,6 @@ int Saig_BmcPerform( Aig_Man_t * pAig, int nStart, int nFramesMax, int nNodesMax
 ///                       END OF FILE                                ///
 ////////////////////////////////////////////////////////////////////////
 
+
+ABC_NAMESPACE_IMPL_END
 

@@ -20,6 +20,9 @@
 
 #include "llbInt.h"
 
+ABC_NAMESPACE_IMPL_START
+
+
 ////////////////////////////////////////////////////////////////////////
 ///                        DECLARATIONS                              ///
 ////////////////////////////////////////////////////////////////////////
@@ -106,15 +109,15 @@ void Llb_AigCreateFlw( Aig_Man_t * p, Vec_Int_t ** pvMem, Vec_Ptr_t ** pvTops, V
         pFlwTop = Llb_FlwAlloc( vMem, vTops, i, Aig_ObjRefs(pObj) + 1 );
         Llb_FlwAddFanin( pFlwBot, pFlwTop );
         Llb_FlwAddFanin( pFlwTop, pFlwBot );
-        Llb_FlwAddFanin( pFlwBot, Vec_PtrEntry(vTops, Aig_ObjFaninId0(pObj)) );
-        Llb_FlwAddFanin( pFlwBot, Vec_PtrEntry(vTops, Aig_ObjFaninId1(pObj)) );
-        Llb_FlwAddFanin( Vec_PtrEntry(vTops, Aig_ObjFaninId0(pObj)), pFlwBot );
-        Llb_FlwAddFanin( Vec_PtrEntry(vTops, Aig_ObjFaninId1(pObj)), pFlwBot );
+        Llb_FlwAddFanin( pFlwBot, (Llb_Flw_t *)Vec_PtrEntry(vTops, Aig_ObjFaninId0(pObj)) );
+        Llb_FlwAddFanin( pFlwBot, (Llb_Flw_t *)Vec_PtrEntry(vTops, Aig_ObjFaninId1(pObj)) );
+        Llb_FlwAddFanin( (Llb_Flw_t *)Vec_PtrEntry(vTops, Aig_ObjFaninId0(pObj)), pFlwBot );
+        Llb_FlwAddFanin( (Llb_Flw_t *)Vec_PtrEntry(vTops, Aig_ObjFaninId1(pObj)), pFlwBot );
     }
     Aig_ManForEachObj( p, pObj, i )
     {
-        pFlwBot = Vec_PtrEntry( vBots, i );
-        pFlwTop = Vec_PtrEntry( vTops, i );
+        pFlwBot = (Llb_Flw_t *)Vec_PtrEntry( vBots, i );
+        pFlwTop = (Llb_Flw_t *)Vec_PtrEntry( vTops, i );
         assert( pFlwBot->nFanins == (unsigned)Aig_ObjIsPo(pObj) + 2 * Aig_ObjIsNode(pObj) );
         assert( pFlwTop->nFanins == (unsigned)Aig_ObjRefs(pObj) + 1 );
     }
@@ -138,7 +141,7 @@ void Llb_AigCleanMarks( Vec_Ptr_t * vFlw )
 {
     Llb_Flw_t * pFlw;
     int i;
-    Vec_PtrForEachEntry( vFlw, pFlw, i )
+    Vec_PtrForEachEntry( Llb_Flw_t *, vFlw, pFlw, i )
         pFlw->Mark = 0;
 }
 
@@ -157,7 +160,7 @@ void Llb_AigCleanFlow( Vec_Ptr_t * vFlw )
 {
     Llb_Flw_t * pFlw;
     int i;
-    Vec_PtrForEachEntry( vFlw, pFlw, i )
+    Vec_PtrForEachEntry( Llb_Flw_t *, vFlw, pFlw, i )
         pFlw->Flow = 0;
 }
 
@@ -180,10 +183,10 @@ Vec_Int_t * Llb_AigCollectCut( Vec_Ptr_t * vNodes, Vec_Ptr_t * vBots, Vec_Ptr_t 
     Aig_Obj_t * pObj;
     int i;
     vCut = Vec_IntAlloc( 100 );
-    Vec_PtrForEachEntry( vNodes, pObj, i )
+    Vec_PtrForEachEntry( Aig_Obj_t *, vNodes, pObj, i )
     {
-        pFlwBot = Vec_PtrEntry( vBots, i );
-        pFlwTop = Vec_PtrEntry( vTops, i );
+        pFlwBot = (Llb_Flw_t *)Vec_PtrEntry( vBots, i );
+        pFlwTop = (Llb_Flw_t *)Vec_PtrEntry( vTops, i );
         if ( pFlwBot->Mark && !pFlwTop->Mark )
             Vec_IntPush( vCut, i );
     }
@@ -249,7 +252,7 @@ int Llb_AigPushFlow( Vec_Ptr_t * vFlwBots, Vec_Ptr_t * vMarked, Vec_Ptr_t * vFlo
 {
     Llb_Flw_t * pFlw;
     int i, Counter = 0;
-    Vec_PtrForEachEntry( vFlwBots, pFlw, i )
+    Vec_PtrForEachEntry( Llb_Flw_t *, vFlwBots, pFlw, i )
     {
         pFlw->Mark = 1;
         if ( Llb_AigPushFlow_rec( pFlw->Fanins[0], pFlw, vMarked, vFlowed ) )
@@ -327,7 +330,7 @@ void Llb_AigMarkFlowTerminals( Vec_Ptr_t * vFlws, int fSource, int fSink )
 {
     Llb_Flw_t * pFlw;
     int i;
-    Vec_PtrForEachEntry( vFlws, pFlw, i )
+    Vec_PtrForEachEntry( Llb_Flw_t *, vFlws, pFlw, i )
     {
         pFlw->Source = fSource;
         pFlw->Sink   = fSink;
@@ -468,8 +471,8 @@ void Llb_ManCutInsert( Aig_Man_t * p, Vec_Ptr_t * vCuts, Vec_Int_t * vVols, int 
     int Vol1, Vol2;
     Vec_PtrInsert( vCuts, iEntry, vCutNew );
     Vec_IntInsert( vVols, iEntry, -1 );
-    vCut1 = Vec_PtrEntry( vCuts, iEntry );
-    vCut2 = Vec_PtrEntry( vCuts, iEntry+1 );
+    vCut1 = (Vec_Int_t *)Vec_PtrEntry( vCuts, iEntry );
+    vCut2 = (Vec_Int_t *)Vec_PtrEntry( vCuts, iEntry+1 );
     Vol1  = Llb_ManCountNodes( p, vCut1, vCutNew );
     Vol2  = Llb_ManCountNodes( p, vCutNew, vCut2 );
     Vec_IntWriteEntry( vVols, iEntry-1, Vol1 );
@@ -505,8 +508,8 @@ Vec_Ptr_t * Llb_ManComputePartitioning( Aig_Man_t * p, int nVolumeMin, int nVolu
     {
         Vec_Ptr_t * vNodes, * vFlwBots2, * vFlwTops2; 
         iEntry = Vec_IntFind( vVols, nMaxValue );  assert( iEntry >= 0 );
-        vCut1  = Vec_PtrEntry( vCuts, iEntry );
-        vCut2  = Vec_PtrEntry( vCuts, iEntry+1 );
+        vCut1  = (Vec_Int_t *)Vec_PtrEntry( vCuts, iEntry );
+        vCut2  = (Vec_Int_t *)Vec_PtrEntry( vCuts, iEntry+1 );
         // collect nodes
         vNodes = Llb_ManCollectNodes( p, vCut1, vCut1 );
         assert( Vec_PtrSize(vNodes) == nMaxValue );
@@ -556,7 +559,7 @@ Vec_Int_t * Llb_ManMarkPivotNodesFlow( Aig_Man_t * p, Vec_Ptr_t * vCuts )
         pObj->fMarkA = 1;
 
     // mark internal pivot nodes
-    Vec_PtrForEachEntry( vCuts, vCut, i )
+    Vec_PtrForEachEntry( Vec_Int_t *, vCuts, vCut, i )
         Aig_ManForEachNodeVec( p, vCut, pObj, k )
             pObj->fMarkA = 1;
 
@@ -588,10 +591,10 @@ void Llb_ManPartitionUsingFlow( Llb_Man_t * p, Vec_Ptr_t * vCuts )
 { 
     Vec_Int_t * vCut1, * vCut2;
     int i;
-    vCut1 = Vec_PtrEntry( vCuts, 0 );
-    Vec_PtrForEachEntryStart( vCuts, vCut1, i, 1 )
+    vCut1 = (Vec_Int_t *)Vec_PtrEntry( vCuts, 0 );
+    Vec_PtrForEachEntryStart( Vec_Int_t *, vCuts, vCut1, i, 1 )
     {
-        vCut2 = Vec_PtrEntry( vCuts, i );
+        vCut2 = (Vec_Int_t *)Vec_PtrEntry( vCuts, i );
         Llb_ManGroupCreateFromCuts( p, vCut1, vCut2 );
         vCut1 = vCut2;
     }
@@ -631,4 +634,6 @@ Llb_Man_t * Llb_ManStartFlow( Aig_Man_t * pAigGlo, Aig_Man_t * pAig, Gia_ParLlb_
 ///                       END OF FILE                                ///
 ////////////////////////////////////////////////////////////////////////
 
+
+ABC_NAMESPACE_IMPL_END
 

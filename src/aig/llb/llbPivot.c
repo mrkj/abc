@@ -20,6 +20,9 @@
 
 #include "llbInt.h"
 
+ABC_NAMESPACE_IMPL_START
+
+
 ////////////////////////////////////////////////////////////////////////
 ///                        DECLARATIONS                              ///
 ////////////////////////////////////////////////////////////////////////
@@ -246,4 +249,6 @@ Vec_Int_t * Llb_ManMarkPivotNodes( Aig_Man_t * p, int fUseInternal )
 ///                       END OF FILE                                ///
 ////////////////////////////////////////////////////////////////////////
 
+
+ABC_NAMESPACE_IMPL_END
 

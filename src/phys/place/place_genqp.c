@@ -17,6 +17,9 @@
 #include "place_qpsolver.h"
 #include "place_gordian.h"
 
+ABC_NAMESPACE_IMPL_START
+
+
 // --------------------------------------------------------------------
 // Global variables
 //
@@ -307,3 +310,5 @@ void solveQuadraticProblem(bool useCOG) {
 
   free(COG_rev);
 }
+ABC_NAMESPACE_IMPL_END
+

@@ -20,6 +20,9 @@
 
 #include "cecInt.h"
 
+ABC_NAMESPACE_IMPL_START
+
+
 ////////////////////////////////////////////////////////////////////////
 ///                        DECLARATIONS                              ///
 ////////////////////////////////////////////////////////////////////////
@@ -188,7 +191,7 @@ void Cec_AddClausesSuper( Cec_ManSat_t * p, Gia_Obj_t * pNode, Vec_Ptr_t * vSupe
     pLits = ABC_ALLOC( int, nLits );
     // suppose AND-gate is A & B = C
     // add !A => !C   or   A + !C
-    Vec_PtrForEachEntry( vSuper, pFanin, i )
+    Vec_PtrForEachEntry( Gia_Obj_t *, vSuper, pFanin, i )
     {
         pLits[0] = toLitCond(Cec_ObjSatNum(p,Gia_Regular(pFanin)), Gia_IsComplement(pFanin));
         pLits[1] = toLitCond(Cec_ObjSatNum(p,pNode), 1);
@@ -201,7 +204,7 @@ void Cec_AddClausesSuper( Cec_ManSat_t * p, Gia_Obj_t * pNode, Vec_Ptr_t * vSupe
         assert( RetValue );
     }
     // add A & B => C   or   !A + !B + C
-    Vec_PtrForEachEntry( vSuper, pFanin, i )
+    Vec_PtrForEachEntry( Gia_Obj_t *, vSuper, pFanin, i )
     {
         pLits[i] = toLitCond(Cec_ObjSatNum(p,Gia_Regular(pFanin)), !Gia_IsComplement(pFanin));
         if ( p->pPars->fPolarFlip )
@@ -320,7 +323,7 @@ void Cec_CnfNodeAddToSolver( Cec_ManSat_t * p, Gia_Obj_t * pObj )
     vFrontier = Vec_PtrAlloc( 100 );
     Cec_ObjAddToFrontier( p, pObj, vFrontier );
     // explore nodes in the frontier
-    Vec_PtrForEachEntry( vFrontier, pNode, i )
+    Vec_PtrForEachEntry( Gia_Obj_t *, vFrontier, pNode, i )
     {
         // create the supergate
         assert( Cec_ObjSatNum(p,pNode) );
@@ -331,14 +334,14 @@ void Cec_CnfNodeAddToSolver( Cec_ManSat_t * p, Gia_Obj_t * pObj )
             Vec_PtrPushUnique( p->vFanins, Gia_ObjFanin0( Gia_ObjFanin1(pNode) ) );
             Vec_PtrPushUnique( p->vFanins, Gia_ObjFanin1( Gia_ObjFanin0(pNode) ) );
             Vec_PtrPushUnique( p->vFanins, Gia_ObjFanin1( Gia_ObjFanin1(pNode) ) );
-            Vec_PtrForEachEntry( p->vFanins, pFanin, k )
+            Vec_PtrForEachEntry( Gia_Obj_t *, p->vFanins, pFanin, k )
                 Cec_ObjAddToFrontier( p, Gia_Regular(pFanin), vFrontier );
             Cec_AddClausesMux( p, pNode );
         }
         else
         {
             Cec_CollectSuper( pNode, fUseMuxes, p->vFanins );
-            Vec_PtrForEachEntry( p->vFanins, pFanin, k )
+            Vec_PtrForEachEntry( Gia_Obj_t *, p->vFanins, pFanin, k )
                 Cec_ObjAddToFrontier( p, Gia_Regular(pFanin), vFrontier );
             Cec_AddClausesSuper( p, pNode, p->vFanins );
         }
@@ -366,7 +369,7 @@ void Cec_ManSatSolverRecycle( Cec_ManSat_t * p )
     {
         Gia_Obj_t * pObj;
         int i;
-        Vec_PtrForEachEntry( p->vUsedNodes, pObj, i )
+        Vec_PtrForEachEntry( Gia_Obj_t *, p->vUsedNodes, pObj, i )
             Cec_ObjSetSatNum( p, pObj, 0 );
         Vec_PtrClear( p->vUsedNodes );
 //        memset( p->pSatVars, 0, sizeof(int) * Gia_ManObjNumMax(p->pAigTotal) );
@@ -764,7 +767,7 @@ void Cec_ManSatSolveSeq_rec( Cec_ManSat_t * pSat, Gia_Man_t * p, Gia_Obj_t * pOb
     Gia_ObjSetTravIdCurrent(p, pObj);
     if ( Gia_ObjIsCi(pObj) )
     {
-        unsigned * pInfo = Vec_PtrEntry( vInfo, nRegs + Gia_ObjCioId(pObj) );
+        unsigned * pInfo = (unsigned *)Vec_PtrEntry( vInfo, nRegs + Gia_ObjCioId(pObj) );
         if ( Cec_ObjSatVarValue( pSat, pObj ) != Gia_InfoHasBit( pInfo, iPat ) )
             Gia_InfoXorBit( pInfo, iPat );
         pSat->nCexLits++;
@@ -1014,4 +1017,6 @@ Vec_Int_t * Cec_ManSatSolveMiter( Gia_Man_t * pAig, Cec_ParSat_t * pPars, Vec_St
 ///                       END OF FILE                                ///
 ////////////////////////////////////////////////////////////////////////
 
+
+ABC_NAMESPACE_IMPL_END
 

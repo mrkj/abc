@@ -21,6 +21,7 @@
 #ifndef __AIG_H__
 #define __AIG_H__
 
+
 ////////////////////////////////////////////////////////////////////////
 ///                          INCLUDES                                ///
 ////////////////////////////////////////////////////////////////////////
@@ -37,9 +38,10 @@
 ///                         PARAMETERS                               ///
 ////////////////////////////////////////////////////////////////////////
 
-#ifdef __cplusplus
-extern "C" {
-#endif 
+
+
+ABC_NAMESPACE_HEADER_START
+ 
 
 ////////////////////////////////////////////////////////////////////////
 ///                         BASIC TYPES                              ///
@@ -397,22 +399,22 @@ static inline void Aig_ManRecycleMemory( Aig_Man_t * p, Aig_Obj_t * pEntry )
 
 // iterator over the primary inputs
 #define Aig_ManForEachPi( p, pObj, i )                                          \
-    Vec_PtrForEachEntry( p->vPis, pObj, i )
+    Vec_PtrForEachEntry( Aig_Obj_t *, p->vPis, pObj, i )
 // iterator over the primary outputs
 #define Aig_ManForEachPo( p, pObj, i )                                          \
-    Vec_PtrForEachEntry( p->vPos, pObj, i )
+    Vec_PtrForEachEntry( Aig_Obj_t *, p->vPos, pObj, i )
 // iterator over the assertions
 #define Aig_ManForEachAssert( p, pObj, i )                                      \
-    Vec_PtrForEachEntryStart( p->vPos, pObj, i, Aig_ManPoNum(p)-p->nAsserts )
+    Vec_PtrForEachEntryStart( Aig_Obj_t *, p->vPos, pObj, i, Aig_ManPoNum(p)-p->nAsserts )
 // iterator over all objects, including those currently not used
 #define Aig_ManForEachObj( p, pObj, i )                                         \
-    Vec_PtrForEachEntry( p->vObjs, pObj, i ) if ( (pObj) == NULL ) {} else
+    Vec_PtrForEachEntry( Aig_Obj_t *, p->vObjs, pObj, i ) if ( (pObj) == NULL ) {} else
 // iterator over all nodes
 #define Aig_ManForEachNode( p, pObj, i )                                        \
-    Vec_PtrForEachEntry( p->vObjs, pObj, i ) if ( (pObj) == NULL || !Aig_ObjIsNode(pObj) ) {} else
+    Vec_PtrForEachEntry( Aig_Obj_t *, p->vObjs, pObj, i ) if ( (pObj) == NULL || !Aig_ObjIsNode(pObj) ) {} else
 // iterator over all nodes
 #define Aig_ManForEachExor( p, pObj, i )                                        \
-    Vec_PtrForEachEntry( p->vObjs, pObj, i ) if ( (pObj) == NULL || !Aig_ObjIsExor(pObj) ) {} else
+    Vec_PtrForEachEntry( Aig_Obj_t *, p->vObjs, pObj, i ) if ( (pObj) == NULL || !Aig_ObjIsExor(pObj) ) {} else
 // iterator over the nodes whose IDs are stored in the array
 #define Aig_ManForEachNodeVec( p, vIds, pObj, i )                               \
     for ( i = 0; i < Vec_IntSize(vIds) && ((pObj) = Aig_ManObj(p, Vec_IntEntry(vIds,i))); i++ )
@@ -438,16 +440,16 @@ static inline int     Aig_ObjFanoutNext( Aig_Man_t * p, int iFan )   { assert(iF
 
 // iterator over the primary inputs
 #define Aig_ManForEachPiSeq( p, pObj, i )                                       \
-    Vec_PtrForEachEntryStop( p->vPis, pObj, i, Aig_ManPiNum(p)-Aig_ManRegNum(p) )
+    Vec_PtrForEachEntryStop( Aig_Obj_t *, p->vPis, pObj, i, Aig_ManPiNum(p)-Aig_ManRegNum(p) )
 // iterator over the latch outputs
 #define Aig_ManForEachLoSeq( p, pObj, i )                                       \
-    Vec_PtrForEachEntryStart( p->vPis, pObj, i, Aig_ManPiNum(p)-Aig_ManRegNum(p) )
+    Vec_PtrForEachEntryStart( Aig_Obj_t *, p->vPis, pObj, i, Aig_ManPiNum(p)-Aig_ManRegNum(p) )
 // iterator over the primary outputs
 #define Aig_ManForEachPoSeq( p, pObj, i )                                       \
-    Vec_PtrForEachEntryStop( p->vPos, pObj, i, Aig_ManPoNum(p)-Aig_ManRegNum(p) )
+    Vec_PtrForEachEntryStop( Aig_Obj_t *, p->vPos, pObj, i, Aig_ManPoNum(p)-Aig_ManRegNum(p) )
 // iterator over the latch inputs
 #define Aig_ManForEachLiSeq( p, pObj, i )                                       \
-    Vec_PtrForEachEntryStart( p->vPos, pObj, i, Aig_ManPoNum(p)-Aig_ManRegNum(p) )
+    Vec_PtrForEachEntryStart( Aig_Obj_t *, p->vPos, pObj, i, Aig_ManPoNum(p)-Aig_ManRegNum(p) )
 // iterator over the latch input and outputs
 #define Aig_ManForEachLiLoSeq( p, pObjLi, pObjLo, k )                           \
     for ( k = 0; (k < Aig_ManRegNum(p)) && (((pObjLi) = Aig_ManLi(p, k)), 1)    \
@@ -525,6 +527,7 @@ extern void            Aig_ManPrintStats( Aig_Man_t * p );
 extern void            Aig_ManReportImprovement( Aig_Man_t * p, Aig_Man_t * pNew );
 extern void            Aig_ManSetRegNum( Aig_Man_t * p, int nRegs );
 extern void            Aig_ManFlipFirstPo( Aig_Man_t * p );
+extern void *          Aig_ManReleaseData( Aig_Man_t * p );
 /*=== aigMem.c ==========================================================*/
 extern void            Aig_ManStartMemory( Aig_Man_t * p );
 extern void            Aig_ManStopMemory( Aig_Man_t * p );
@@ -694,9 +697,11 @@ extern char *          Aig_MmStepEntryFetch( Aig_MmStep_t * p, int nBytes );
 extern void            Aig_MmStepEntryRecycle( Aig_MmStep_t * p, char * pEntry, int nBytes );
 extern int             Aig_MmStepReadMemUsage( Aig_MmStep_t * p );
 
-#ifdef __cplusplus
-}
-#endif
+
+
+ABC_NAMESPACE_HEADER_END
+
+
 
 #endif
 

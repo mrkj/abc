@@ -20,6 +20,9 @@
 
 #include "if.h"
 
+ABC_NAMESPACE_IMPL_START
+
+
 ////////////////////////////////////////////////////////////////////////
 ///                        DECLARATIONS                              ///
 ////////////////////////////////////////////////////////////////////////
@@ -219,7 +222,7 @@ void If_ManComputeRequired( If_Man_t * p )
             }
         }
         // go through the nodes in the reverse topological order
-    //    Vec_PtrForEachEntry( p->vMapped, pObj, i )
+    //    Vec_PtrForEachEntry( If_Obj_t *, p->vMapped, pObj, i )
     //        If_CutPropagateRequired( p, If_ObjCutBest(pObj), pObj->Required );
         If_ManForEachObjReverse( p, pObj, i )
         {
@@ -605,11 +608,11 @@ Vec_Ptr_t * If_ManReverseOrder( If_Man_t * p )
     }
     vOrder = Vec_PtrAlloc( If_ManObjNum(p) );
     for ( i = p->nLevelMax; i >= 0; i-- )
-        for ( pObj = ppStore[i]; pObj; pObj = pObj->pCopy )
+        for ( pObj = ppStore[i]; pObj; pObj = (If_Obj_t *)pObj->pCopy )
             Vec_PtrPush( vOrder, pObj );
     ABC_FREE( ppStore );
     // print the order
-//    Vec_PtrForEachEntry( vOrder, pObj, i )
+//    Vec_PtrForEachEntry( If_Obj_t *, vOrder, pObj, i )
 //        Abc_Print( 1, "Obj %2d   Type %d  Level = %d\n", pObj->Id, pObj->Type, pObj->Level );
     return vOrder;
 }
@@ -770,4 +773,6 @@ int If_ManCountSpecialPos( If_Man_t * p )
 ///                       END OF FILE                                ///
 ////////////////////////////////////////////////////////////////////////
 
+
+ABC_NAMESPACE_IMPL_END
 

@@ -21,6 +21,9 @@
 #include "bbr.h"
 #include "ssw.h"
 
+ABC_NAMESPACE_IMPL_START
+
+
 ////////////////////////////////////////////////////////////////////////
 ///                        DECLARATIONS                              ///
 ////////////////////////////////////////////////////////////////////////
@@ -96,7 +99,7 @@ Abc_Cex_t * Aig_ManVerifyUsingBddsCountExample( Aig_Man_t * p, DdManager * dd,
     }
 
     // perform backward analysis
-    Vec_PtrForEachEntryReverse( vOnionRings, bRing, v )
+    Vec_PtrForEachEntryReverse( DdNode *, vOnionRings, bRing, v )
     { 
         // compute the next states
         bImage = Bbr_bddImageCompute( pTree, bState );           
@@ -165,4 +168,6 @@ Abc_Cex_t * Aig_ManVerifyUsingBddsCountExample( Aig_Man_t * p, DdManager * dd,
 ///                       END OF FILE                                ///
 ////////////////////////////////////////////////////////////////////////
 
+
+ABC_NAMESPACE_IMPL_END
 

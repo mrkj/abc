@@ -20,6 +20,9 @@
 
 #include "ioAbc.h"
 
+ABC_NAMESPACE_IMPL_START
+
+
 ////////////////////////////////////////////////////////////////////////
 ///                        DECLARATIONS                              ///
 ////////////////////////////////////////////////////////////////////////
@@ -49,7 +52,7 @@ static char *cleanUNSAFE( const char *s )
     return buffer;
 }
 
-static bool hasPrefix(const char *needle, const char *haystack)
+static int hasPrefix(const char *needle, const char *haystack)
 {
     return (strncmp(haystack, needle, strlen(needle)) == 0);
 }
@@ -257,4 +260,6 @@ int Io_WriteSmvCheckNames( Abc_Ntk_t * pNtk )
 ///                       END OF FILE                                ///
 ////////////////////////////////////////////////////////////////////////
 
+
+ABC_NAMESPACE_IMPL_END
 

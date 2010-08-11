@@ -20,6 +20,9 @@
 
 #include "llbInt.h"
 
+ABC_NAMESPACE_IMPL_START
+
+
 ////////////////////////////////////////////////////////////////////////
 ///                        DECLARATIONS                              ///
 ////////////////////////////////////////////////////////////////////////
@@ -121,11 +124,11 @@ Vec_Ptr_t * Llb_ManGroupCollect( Llb_Grp_t * pGroup )
     int i;
     vNodes = Vec_PtrAlloc( 100 );
     Aig_ManIncrementTravId( pGroup->pMan->pAig );
-    Vec_PtrForEachEntry( pGroup->vIns, pObj, i )
+    Vec_PtrForEachEntry( Aig_Obj_t *, pGroup->vIns, pObj, i )
         Aig_ObjSetTravIdCurrent( pGroup->pMan->pAig, pObj );
-    Vec_PtrForEachEntry( pGroup->vOuts, pObj, i )
+    Vec_PtrForEachEntry( Aig_Obj_t *, pGroup->vOuts, pObj, i )
         Aig_ObjSetTravIdPrevious( pGroup->pMan->pAig, pObj );
-    Vec_PtrForEachEntry( pGroup->vOuts, pObj, i )
+    Vec_PtrForEachEntry( Aig_Obj_t *, pGroup->vOuts, pObj, i )
         Llb_ManGroupCollect_rec( pGroup->pMan->pAig, pObj, vNodes );
     return vNodes;
 }
@@ -252,14 +255,14 @@ Llb_Grp_t * Llb_ManGroupsCombine( Llb_Grp_t * p1, Llb_Grp_t * p2 )
     int i;
     p = Llb_ManGroupAlloc( p1->pMan );
     // create inputs
-    Vec_PtrForEachEntry( p1->vIns, pObj, i )
+    Vec_PtrForEachEntry( Aig_Obj_t *, p1->vIns, pObj, i )
         Vec_PtrPush( p->vIns, pObj );
-    Vec_PtrForEachEntry( p2->vIns, pObj, i )
+    Vec_PtrForEachEntry( Aig_Obj_t *, p2->vIns, pObj, i )
         Vec_PtrPushUnique( p->vIns, pObj );
     // create outputs
-    Vec_PtrForEachEntry( p1->vOuts, pObj, i )
+    Vec_PtrForEachEntry( Aig_Obj_t *, p1->vOuts, pObj, i )
         Vec_PtrPush( p->vOuts, pObj );
-    Vec_PtrForEachEntry( p2->vOuts, pObj, i )
+    Vec_PtrForEachEntry( Aig_Obj_t *, p2->vOuts, pObj, i )
         Vec_PtrPushUnique( p->vOuts, pObj );
 
     // derive internal objects
@@ -386,22 +389,22 @@ void Llb_ManPrintSpan( Llb_Man_t * p )
     Llb_Grp_t * pGroup;
     Aig_Obj_t * pVar;
     int i, k, Span = 0, SpanMax = 0;
-    Vec_PtrForEachEntry( p->vGroups, pGroup, i )
+    Vec_PtrForEachEntry( Llb_Grp_t *, p->vGroups, pGroup, i )
     {
-        Vec_PtrForEachEntry( pGroup->vIns, pVar, k )
+        Vec_PtrForEachEntry( Aig_Obj_t *, pGroup->vIns, pVar, k )
             if ( Vec_IntEntry(p->vVarBegs, pVar->Id) == i )
                 Span++;
-        Vec_PtrForEachEntry( pGroup->vOuts, pVar, k )
+        Vec_PtrForEachEntry( Aig_Obj_t *, pGroup->vOuts, pVar, k )
             if ( Vec_IntEntry(p->vVarBegs, pVar->Id) == i )
                 Span++;
 
         SpanMax = ABC_MAX( SpanMax, Span );
 printf( "%d ", Span );
 
-        Vec_PtrForEachEntry( pGroup->vIns, pVar, k )
+        Vec_PtrForEachEntry( Aig_Obj_t *, pGroup->vIns, pVar, k )
             if ( Vec_IntEntry(p->vVarEnds, pVar->Id) == i )
                 Span--;
-        Vec_PtrForEachEntry( pGroup->vOuts, pVar, k )
+        Vec_PtrForEachEntry( Aig_Obj_t *, pGroup->vOuts, pVar, k )
             if ( Vec_IntEntry(p->vVarEnds, pVar->Id) == i )
                 Span--;
     }
@@ -422,13 +425,13 @@ printf( "Max = %d\n", SpanMax );
 ***********************************************************************/
 int Llb_ManGroupHasVar( Llb_Man_t * p, int iGroup, int iVar )
 {
-    Llb_Grp_t * pGroup = Vec_PtrEntry( p->vGroups, iGroup );
+    Llb_Grp_t * pGroup = (Llb_Grp_t *)Vec_PtrEntry( p->vGroups, iGroup );
     Aig_Obj_t * pObj;
     int i;
-    Vec_PtrForEachEntry( pGroup->vIns, pObj, i )
+    Vec_PtrForEachEntry( Aig_Obj_t *, pGroup->vIns, pObj, i )
         if ( pObj->Id == iVar )
             return 1;
-    Vec_PtrForEachEntry( pGroup->vOuts, pObj, i )
+    Vec_PtrForEachEntry( Aig_Obj_t *, pGroup->vOuts, pObj, i )
         if ( pObj->Id == iVar )
             return 1;
     return 0;
@@ -466,4 +469,6 @@ void Llb_ManPrintHisto( Llb_Man_t * p )
 ///                       END OF FILE                                ///
 ////////////////////////////////////////////////////////////////////////
 
+
+ABC_NAMESPACE_IMPL_END
 

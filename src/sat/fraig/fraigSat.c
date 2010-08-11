@@ -16,8 +16,12 @@
 
 ***********************************************************************/
 
+#include <math.h>
 #include "fraigInt.h"
-#include "math.h"
+#include "msatInt.h"
+
+ABC_NAMESPACE_IMPL_START
+
 
 ////////////////////////////////////////////////////////////////////////
 ///                        DECLARATIONS                              ///
@@ -35,8 +39,6 @@ static void Fraig_SupergateAddClausesMux( Fraig_Man_t * pMan, Fraig_Node_t * pNo
 //static void Fraig_DetectFanoutFreeCone( Fraig_Man_t * pMan, Fraig_Node_t * pNode );
 static void Fraig_DetectFanoutFreeConeMux( Fraig_Man_t * pMan, Fraig_Node_t * pNode );
 static void Fraig_SetActivity( Fraig_Man_t * pMan, Fraig_Node_t * pOld, Fraig_Node_t * pNew );
-
-extern void * Msat_ClauseVecReadEntry( void * p, int i );
 
 // The lesson learned seems to be that variable should be in reverse topological order
 // from the output of the miter. The ordering of adjacency lists is very important.
@@ -318,7 +320,7 @@ int Fraig_NodeIsEquivalent( Fraig_Man_t * p, Fraig_Node_t * pOld, Fraig_Node_t *
 //            nBTLimit /= 10;
         if ( nBTLimit <= 10 )
             return 0;
-        nBTLimit = (int)sqrt(nBTLimit);
+        nBTLimit = (int)sqrt((double)nBTLimit);
 //        fSwitch = 1;
     }
 
@@ -1452,4 +1454,6 @@ void Fraig_SetActivity( Fraig_Man_t * pMan, Fraig_Node_t * pOld, Fraig_Node_t * 
 ///                       END OF FILE                                ///
 ////////////////////////////////////////////////////////////////////////
 
+
+ABC_NAMESPACE_IMPL_END
 

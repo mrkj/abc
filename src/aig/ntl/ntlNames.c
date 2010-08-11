@@ -20,6 +20,9 @@
 
 #include "ntl.h"
 
+ABC_NAMESPACE_IMPL_START
+
+
 ////////////////////////////////////////////////////////////////////////
 ///                        DECLARATIONS                              ///
 ////////////////////////////////////////////////////////////////////////
@@ -76,7 +79,7 @@ Ntl_ManNam_t * Ntl_ManNamStart()
     p->pStore  = ABC_ALLOC( char, p->nStore );
     p->iHandle = 4;
     p->nBins   = Aig_PrimeCudd( 500000 );
-    p->pBins   = ABC_CALLOC( int, p->nBins );
+    p->pBins   = ABC_CALLOC( unsigned, p->nBins );
     p->vName   = Vec_StrAlloc( 1000 );
     return p;
 }
@@ -236,12 +239,12 @@ int Ntl_ManNamStrCompare_rec( Ntl_ManNam_t * p, char * pStr, int Length, Ntl_Obj
   SeeAlso     []
 
 ***********************************************************************/
-static inline int * Ntl_ManNamStrHashFind( Ntl_ManNam_t * p, char * pStr, int Length, int * pHandle )
+static inline unsigned * Ntl_ManNamStrHashFind( Ntl_ManNam_t * p, char * pStr, int Length, int * pHandle )
 {
     Ntl_ObjNam_t * pThis;
-    int * pPlace = p->pBins + Ntl_ManNamStrHash( pStr, Length, p->nBins );
+    unsigned * pPlace = p->pBins + Ntl_ManNamStrHash( pStr, Length, p->nBins );
     for ( pThis = (*pPlace)? Ntl_ManNamObj(p, *pPlace) : NULL; pThis; 
-          pPlace = &pThis->iNext, pThis = (*pPlace)? Ntl_ManNamObj(p, *pPlace) : NULL )
+          pPlace = (unsigned *)&pThis->iNext, pThis = (*pPlace)? Ntl_ManNamObj(p, *pPlace) : NULL )
               if ( !Ntl_ManNamStrCompare_rec( p, pStr, Length, pThis ) )
               {
                   *pHandle = Ntl_ManNamObjHandle( p, pThis );
@@ -265,14 +268,14 @@ static inline int * Ntl_ManNamStrHashFind( Ntl_ManNam_t * p, char * pStr, int Le
 void Ntl_ManNamStrHashResize( Ntl_ManNam_t * p )
 {
     Ntl_ObjNam_t * pThis;
-    int * pBinsOld, * piPlace;
+    unsigned * pBinsOld, * piPlace;
     int nBinsOld, iNext, iHandle, Counter, i;
     assert( p->pBins != NULL );
     // replace the table
     pBinsOld = p->pBins;
     nBinsOld = p->nBins;
     p->nBins = Aig_PrimeCudd( 3 * p->nBins ); 
-    p->pBins = ABC_CALLOC( int, p->nBins );
+    p->pBins = ABC_CALLOC( unsigned, p->nBins );
     // rehash the entries from the old table
     Counter = 0;
     for ( i = 0; i < nBinsOld; i++ )
@@ -302,11 +305,12 @@ void Ntl_ManNamStrHashResize( Ntl_ManNam_t * p )
   SeeAlso     []
 
 ***********************************************************************/
-int Ntl_ManNamStrGrow_rec( Ntl_ManNam_t * p, char * pStr, int Length, int * piPlace )
+int Ntl_ManNamStrGrow_rec( Ntl_ManNam_t * p, char * pStr, int Length, unsigned * piPlace )
 {
     Ntl_ObjNam_t * pThis;
     char * pStrNew;
-    int iHandle, Separ, LengthNew;
+    int Separ, LengthNew;
+    int iHandle;
     assert( Length > 0 );
     // find the separator symbol
     for ( Separ = Length - 2; Separ >= 0 && pStr[Separ] != '/'; Separ-- );
@@ -323,7 +327,7 @@ int Ntl_ManNamStrGrow_rec( Ntl_ManNam_t * p, char * pStr, int Length, int * piPl
         p->nStore *= 2;
         p->pStore = ABC_REALLOC( char, p->pStore, p->nStore );
         if ( OffSet >= 0 )
-            piPlace = (int *)(p->pStore + OffSet);
+            piPlace = (unsigned *)(p->pStore + OffSet);
     }
     // new entry is created
     p->nHandles++;
@@ -379,9 +383,10 @@ int Ntl_ManNamStrFind( Ntl_ManNam_t * p, char * pStr )
   SeeAlso     []
 
 ***********************************************************************/
-int Ntl_ManNamStrFindOrAdd( Ntl_ManNam_t * p, char * pStr )
+unsigned Ntl_ManNamStrFindOrAdd( Ntl_ManNam_t * p, char * pStr )
 {
-    int * piPlace, iHandle, Length = strlen(pStr);
+    unsigned * piPlace;
+    int iHandle, Length = strlen(pStr);
     assert( Length > 0 );
     piPlace = Ntl_ManNamStrHashFind( p, pStr, Length, &iHandle );
     if ( piPlace == NULL )
@@ -461,4 +466,6 @@ printf( "b" );
 ///                       END OF FILE                                ///
 ////////////////////////////////////////////////////////////////////////
 
+
+ABC_NAMESPACE_IMPL_END
 

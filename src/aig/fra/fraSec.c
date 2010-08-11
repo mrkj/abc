@@ -23,6 +23,10 @@
 #include "int.h"
 #include "ssw.h"
 #include "saig.h"
+#include "bbr.h"
+
+ABC_NAMESPACE_IMPL_START
+
 
 ////////////////////////////////////////////////////////////////////////
 ///                        DECLARATIONS                              ///
@@ -292,7 +296,7 @@ ABC_PRT( "Time", clock() - clk );
     // perform min-area retiming
     if ( pParSec->fRetimeRegs && pNew->nRegs )
     {
-    extern Aig_Man_t * Saig_ManRetimeMinArea( Aig_Man_t * p, int nMaxIters, int fForwardOnly, int fBackwardOnly, int fInitial, int fVerbose );
+//    extern Aig_Man_t * Saig_ManRetimeMinArea( Aig_Man_t * p, int nMaxIters, int fForwardOnly, int fBackwardOnly, int fInitial, int fVerbose );
 clk = clock();
     pNew->nTruePis = Aig_ManPiNum(pNew) - Aig_ManRegNum(pNew); 
     pNew->nTruePos = Aig_ManPoNum(pNew) - Aig_ManRegNum(pNew); 
@@ -382,7 +386,7 @@ ABC_PRT( "Time", clock() - clk );
 //        if ( pParSec->fRetimeFirst && pNew->nRegs )
         if ( pNew->nRegs )
         {
-        extern Aig_Man_t * Saig_ManRetimeMinArea( Aig_Man_t * p, int nMaxIters, int fForwardOnly, int fBackwardOnly, int fInitial, int fVerbose );
+//        extern Aig_Man_t * Saig_ManRetimeMinArea( Aig_Man_t * p, int nMaxIters, int fForwardOnly, int fBackwardOnly, int fInitial, int fVerbose );
 clk = clock();
         pNew->nTruePis = Aig_ManPiNum(pNew) - Aig_ManRegNum(pNew); 
         pNew->nTruePos = Aig_ManPoNum(pNew) - Aig_ManRegNum(pNew); 
@@ -563,8 +567,6 @@ ABC_PRT( "Time", clock() - clk );
     // try reachability analysis
     if ( pParSec->fReachability && RetValue == -1 && Aig_ManRegNum(pNew) > 0 && Aig_ManRegNum(pNew) < pParSec->nBddVarsMax )
     {
-        extern void Bbr_ManSetDefaultParams( Saig_ParBbr_t * pPars );
-        extern int Aig_ManVerifyUsingBdds( Aig_Man_t * p, Saig_ParBbr_t * pPars );
         Saig_ParBbr_t Pars, * pPars = &Pars;
         Bbr_ManSetDefaultParams( pPars );
         pPars->TimeLimit     = 0;
@@ -657,4 +659,6 @@ ABC_PRT( "Time", clock() - clkTotal );
 ///                       END OF FILE                                ///
 ////////////////////////////////////////////////////////////////////////
 
+
+ABC_NAMESPACE_IMPL_END
 

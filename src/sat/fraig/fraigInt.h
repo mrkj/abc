@@ -19,6 +19,7 @@
 #ifndef __FRAIG_INT_H__
 #define __FRAIG_INT_H__
 
+
 ////////////////////////////////////////////////////////////////////////
 ///                          INCLUDES                                ///
 ////////////////////////////////////////////////////////////////////////
@@ -32,6 +33,9 @@
 #include "abc_global.h"
 #include "fraig.h"
 #include "msat.h"
+
+ABC_NAMESPACE_HEADER_START
+
 
 ////////////////////////////////////////////////////////////////////////
 ///                         PARAMETERS                               ///
@@ -418,6 +422,10 @@ extern int                 Fraig_NodeIsTravIdCurrent( Fraig_Man_t * pMan, Fraig_
 extern int                 Fraig_NodeIsTravIdPrevious( Fraig_Man_t * pMan, Fraig_Node_t * pNode );
 /*=== fraigVec.c ===============================================================*/
 extern void                Fraig_NodeVecSortByRefCount( Fraig_NodeVec_t * p );
+
+
+
+ABC_NAMESPACE_HEADER_END
 
 #endif
 

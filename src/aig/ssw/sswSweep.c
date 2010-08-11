@@ -21,6 +21,9 @@
 #include "sswInt.h"
 #include "bar.h"
 
+ABC_NAMESPACE_IMPL_START
+
+
 ////////////////////////////////////////////////////////////////////////
 ///                        DECLARATIONS                              ///
 ////////////////////////////////////////////////////////////////////////
@@ -157,14 +160,14 @@ void Ssw_SmlAddPatternDyn( Ssw_Man_t * p )
     unsigned * pInfo;
     int i, nVarNum;
     // iterate through the PIs of the frames
-    Vec_PtrForEachEntry( p->pMSat->vUsedPis, pObj, i )
+    Vec_PtrForEachEntry( Aig_Obj_t *, p->pMSat->vUsedPis, pObj, i )
     {
         assert( Aig_ObjIsPi(pObj) );
         nVarNum = Ssw_ObjSatNum( p->pMSat, pObj );
         assert( nVarNum > 0 );
         if ( sat_solver_var_value( p->pMSat->pSat, nVarNum ) )
         {
-            pInfo = Vec_PtrEntry( p->vSimInfo, Aig_ObjPioNum(pObj) );
+            pInfo = (unsigned *)Vec_PtrEntry( p->vSimInfo, Aig_ObjPioNum(pObj) );
             Aig_InfoSetBit( pInfo, p->nPatterns );
         }
     }
@@ -384,4 +387,6 @@ p->timeReduce += clock() - clk;
 ///                       END OF FILE                                ///
 ////////////////////////////////////////////////////////////////////////
 
+
+ABC_NAMESPACE_IMPL_END
 

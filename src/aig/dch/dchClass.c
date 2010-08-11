@@ -20,6 +20,9 @@
 
 #include "dchInt.h"
 
+ABC_NAMESPACE_IMPL_START
+
+
 /*
     The candidate equivalence classes are stored as a vector of pointers 
     to the array of pointers to the nodes in each class.
@@ -456,20 +459,20 @@ int Dch_ClassesRefineOneClass( Dch_Cla_t * p, Aig_Obj_t * pReprOld, int fRecursi
         return 0;
 
     // get the new representative
-    pReprNew = Vec_PtrEntry( p->vClassNew, 0 );
+    pReprNew = (Aig_Obj_t *)Vec_PtrEntry( p->vClassNew, 0 );
     assert( Vec_PtrSize(p->vClassOld) > 0 );
     assert( Vec_PtrSize(p->vClassNew) > 0 );
 
     // create old class
     pClassOld = Dch_ObjRemoveClass( p, pReprOld );
-    Vec_PtrForEachEntry( p->vClassOld, pObj, i )
+    Vec_PtrForEachEntry( Aig_Obj_t *, p->vClassOld, pObj, i )
     {
         pClassOld[i] = pObj;
         Aig_ObjSetRepr( p->pAig, pObj, i? pReprOld : NULL );
     }
     // create new class
     pClassNew = pClassOld + i;
-    Vec_PtrForEachEntry( p->vClassNew, pObj, i )
+    Vec_PtrForEachEntry( Aig_Obj_t *, p->vClassNew, pObj, i )
     {
         pClassNew[i] = pObj;
         Aig_ObjSetRepr( p->pAig, pObj, i? pReprNew : NULL );
@@ -572,21 +575,21 @@ int Dch_ClassesRefineConst1Group( Dch_Cla_t * p, Vec_Ptr_t * vRoots, int fRecurs
         return 0;
     // collect the nodes to be refined
     Vec_PtrClear( p->vClassNew );
-    Vec_PtrForEachEntry( vRoots, pObj, i )
+    Vec_PtrForEachEntry( Aig_Obj_t *, vRoots, pObj, i )
         if ( !p->pFuncNodeIsConst( p->pManData, pObj ) )
             Vec_PtrPush( p->vClassNew, pObj );
     // check if there is a new class
     if ( Vec_PtrSize(p->vClassNew) == 0 )
         return 0;
     p->nCands1 -= Vec_PtrSize(p->vClassNew);
-    pReprNew = Vec_PtrEntry( p->vClassNew, 0 );
+    pReprNew = (Aig_Obj_t *)Vec_PtrEntry( p->vClassNew, 0 );
     Aig_ObjSetRepr( p->pAig, pReprNew, NULL );
     if ( Vec_PtrSize(p->vClassNew) == 1 )
         return 1;
     // create a new class composed of these nodes
     ppClassNew = p->pMemClassesFree;
     p->pMemClassesFree += Vec_PtrSize(p->vClassNew);
-    Vec_PtrForEachEntry( p->vClassNew, pObj, i )
+    Vec_PtrForEachEntry( Aig_Obj_t *, p->vClassNew, pObj, i )
     {
         ppClassNew[i] = pObj;
         Aig_ObjSetRepr( p->pAig, pObj, i? pReprNew : NULL );
@@ -603,4 +606,6 @@ int Dch_ClassesRefineConst1Group( Dch_Cla_t * p, Vec_Ptr_t * vRoots, int fRecurs
 ///                       END OF FILE                                ///
 ////////////////////////////////////////////////////////////////////////
 
+
+ABC_NAMESPACE_IMPL_END
 

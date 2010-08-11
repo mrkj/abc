@@ -19,6 +19,12 @@
 ***********************************************************************/
 
 #include "giaAig.h"
+#include "fra.h"
+#include "dch.h"
+#include "dar.h"
+
+ABC_NAMESPACE_IMPL_START
+
 
 ////////////////////////////////////////////////////////////////////////
 ///                        DECLARATIONS                              ///
@@ -494,7 +500,7 @@ void Gia_ManReprFromAigRepr( Aig_Man_t * pAig, Gia_Man_t * pGia )
 ***********************************************************************/
 Gia_Man_t * Gia_ManCompress2( Gia_Man_t * p, int fUpdateLevel, int fVerbose )
 {
-    extern Aig_Man_t * Dar_ManCompress2( Aig_Man_t * pAig, int fBalance, int fUpdateLevel, int fFanout, int fPower, int fVerbose );
+//    extern Aig_Man_t * Dar_ManCompress2( Aig_Man_t * pAig, int fBalance, int fUpdateLevel, int fFanout, int fPower, int fVerbose );
     Gia_Man_t * pGia;
     Aig_Man_t * pNew, * pTemp;
     pNew = Gia_ManToAig( p, 0 );
@@ -518,11 +524,10 @@ Gia_Man_t * Gia_ManCompress2( Gia_Man_t * p, int fUpdateLevel, int fVerbose )
 ***********************************************************************/
 Gia_Man_t * Gia_ManPerformDch( Gia_Man_t * p, void * pPars )
 {
-    extern Aig_Man_t * Dar_ManChoiceNew( Aig_Man_t * pAig, void * pPars );
     Gia_Man_t * pGia;
     Aig_Man_t * pNew;
     pNew = Gia_ManToAig( p, 0 );
-    pNew = Dar_ManChoiceNew( pNew, pPars );
+    pNew = Dar_ManChoiceNew( pNew, (Dch_Pars_t *)pPars );
     pGia = Gia_ManFromAig( pNew );
     Aig_ManStop( pNew );
     return pGia;
@@ -562,7 +567,7 @@ void Gia_ManSeqCleanupClasses( Gia_Man_t * p, int fConst, int fEquiv, int fVerbo
 ***********************************************************************/
 int Gia_ManSolveSat( Gia_Man_t * p )
 {
-    extern int Fra_FraigSat( Aig_Man_t * pMan, ABC_INT64_T nConfLimit, ABC_INT64_T nInsLimit, int fFlipBits, int fAndOuts, int fVerbose );
+//    extern int Fra_FraigSat( Aig_Man_t * pMan, ABC_INT64_T nConfLimit, ABC_INT64_T nInsLimit, int fFlipBits, int fAndOuts, int fVerbose );
     Aig_Man_t * pNew;
     int RetValue, clk = clock();
     pNew = Gia_ManToAig( p, 0 );
@@ -570,7 +575,7 @@ int Gia_ManSolveSat( Gia_Man_t * p )
     if ( RetValue == 0 )
     {
         Gia_Obj_t * pObj;
-        int i, * pInit = pNew->pData;
+        int i, * pInit = (int *)pNew->pData;
         Gia_ManConst0(p)->fMark0 = 0;
         Gia_ManForEachPi( p, pObj, i )
             pObj->fMark0 = pInit[i];
@@ -603,4 +608,6 @@ int Gia_ManSolveSat( Gia_Man_t * p )
 ///                       END OF FILE                                ///
 ////////////////////////////////////////////////////////////////////////
 
+
+ABC_NAMESPACE_IMPL_END
 

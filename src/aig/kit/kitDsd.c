@@ -20,6 +20,9 @@
 
 #include "kit.h"
 
+ABC_NAMESPACE_IMPL_START
+
+
 ////////////////////////////////////////////////////////////////////////
 ///                        DECLARATIONS                              ///
 ////////////////////////////////////////////////////////////////////////
@@ -333,7 +336,7 @@ unsigned * Kit_DsdTruthComputeNode_rec( Kit_DsdMan_t * p, Kit_DsdNtk_t * pNtk, i
 
     // get the node with this ID
     pObj = Kit_DsdNtkObj( pNtk, Id );
-    pTruthRes = Vec_PtrEntry( p->vTtNodes, Id );
+    pTruthRes = (unsigned *)Vec_PtrEntry( p->vTtNodes, Id );
 
     // special case: literal of an internal node
     if ( pObj == NULL )
@@ -434,7 +437,7 @@ unsigned * Kit_DsdTruthCompute( Kit_DsdMan_t * p, Kit_DsdNtk_t * pNtk )
     // assign elementary truth ables
     assert( pNtk->nVars <= p->nVars );
     for ( i = 0; i < (int)pNtk->nVars; i++ )
-        Kit_TruthCopy( Vec_PtrEntry(p->vTtNodes, i), Vec_PtrEntry(p->vTtElems, i), p->nVars );
+        Kit_TruthCopy( (unsigned *)Vec_PtrEntry(p->vTtNodes, i), (unsigned *)Vec_PtrEntry(p->vTtElems, i), p->nVars );
     // compute truth table for each node
     pTruthRes = Kit_DsdTruthComputeNode_rec( p, pNtk, Kit_DsdLit2Var(pNtk->Root) );
     // complement the truth table if needed
@@ -463,7 +466,7 @@ unsigned * Kit_DsdTruthComputeNodeOne_rec( Kit_DsdMan_t * p, Kit_DsdNtk_t * pNtk
 
     // get the node with this ID
     pObj = Kit_DsdNtkObj( pNtk, Id );
-    pTruthRes = Vec_PtrEntry( p->vTtNodes, Id );
+    pTruthRes = (unsigned *)Vec_PtrEntry( p->vTtNodes, Id );
 
     // special case: literal of an internal node
     if ( pObj == NULL )
@@ -597,7 +600,7 @@ unsigned * Kit_DsdTruthComputeOne( Kit_DsdMan_t * p, Kit_DsdNtk_t * pNtk, unsign
     // assign elementary truth tables
     assert( pNtk->nVars <= p->nVars );
     for ( i = 0; i < (int)pNtk->nVars; i++ )
-        Kit_TruthCopy( Vec_PtrEntry(p->vTtNodes, i), Vec_PtrEntry(p->vTtElems, i), p->nVars );
+        Kit_TruthCopy( (unsigned *)Vec_PtrEntry(p->vTtNodes, i), (unsigned *)Vec_PtrEntry(p->vTtElems, i), p->nVars );
     // compute truth table for each node
     pTruthRes = Kit_DsdTruthComputeNodeOne_rec( p, pNtk, Kit_DsdLit2Var(pNtk->Root), uSupp );
     // complement the truth table if needed
@@ -628,7 +631,7 @@ unsigned * Kit_DsdTruthComputeNodeTwo_rec( Kit_DsdMan_t * p, Kit_DsdNtk_t * pNtk
 
     // get the node with this ID
     pObj = Kit_DsdNtkObj( pNtk, Id );
-    pTruthRes = Vec_PtrEntry( p->vTtNodes, Id );
+    pTruthRes = (unsigned *)Vec_PtrEntry( p->vTtNodes, Id );
     if ( pObj == NULL )
     {
         assert( Id < pNtk->nVars );
@@ -812,7 +815,7 @@ unsigned * Kit_DsdTruthComputeTwo( Kit_DsdMan_t * p, Kit_DsdNtk_t * pNtk, unsign
     }
     // assign elementary truth tables
     for ( i = 0; i < (int)pNtk->nVars; i++ )
-        Kit_TruthCopy( Vec_PtrEntry(p->vTtNodes, i), Vec_PtrEntry(p->vTtElems, i), p->nVars );
+        Kit_TruthCopy( (unsigned *)Vec_PtrEntry(p->vTtNodes, i), (unsigned *)Vec_PtrEntry(p->vTtElems, i), p->nVars );
     // compute truth table for each node
     pTruthRes = Kit_DsdTruthComputeNodeTwo_rec( p, pNtk, Kit_DsdLit2Var(pNtk->Root), uSupp, iVar, pTruthDec );
     // complement the truth table if needed
@@ -1125,7 +1128,7 @@ int Kit_DsdExpandNode_rec( Kit_DsdNtk_t * pNew, Kit_DsdNtk_t * p, int iLit )
         return iLit;
     if ( pObj->Type == KIT_DSD_AND )
     {
-        Kit_DsdExpandCollectAnd_rec( p, Kit_DsdLitRegular(iLit), piLitsNew, &nLitsNew );
+        Kit_DsdExpandCollectAnd_rec( p, Kit_DsdLitRegular(iLit), piLitsNew, (int *)&nLitsNew );
         pObjNew = Kit_DsdObjAlloc( pNew, KIT_DSD_AND, nLitsNew );
         for ( i = 0; i < pObjNew->nFans; i++ )
             pObjNew->pFans[i] = Kit_DsdExpandNode_rec( pNew, p, piLitsNew[i] );
@@ -1134,7 +1137,7 @@ int Kit_DsdExpandNode_rec( Kit_DsdNtk_t * pNew, Kit_DsdNtk_t * p, int iLit )
     if ( pObj->Type == KIT_DSD_XOR )
     {
         int fCompl = Kit_DsdLitIsCompl(iLit);
-        Kit_DsdExpandCollectXor_rec( p, Kit_DsdLitRegular(iLit), piLitsNew, &nLitsNew );
+        Kit_DsdExpandCollectXor_rec( p, Kit_DsdLitRegular(iLit), piLitsNew, (int *)&nLitsNew );
         pObjNew = Kit_DsdObjAlloc( pNew, KIT_DSD_XOR, nLitsNew );
         for ( i = 0; i < pObjNew->nFans; i++ )
         {
@@ -2962,4 +2965,6 @@ char ** Kit_DsdNpn4ClassNames()
 ///                       END OF FILE                                ///
 ////////////////////////////////////////////////////////////////////////
 
+
+ABC_NAMESPACE_IMPL_END
 

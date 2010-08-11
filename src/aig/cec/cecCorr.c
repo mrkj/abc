@@ -20,6 +20,9 @@
 
 #include "cecInt.h"
 
+ABC_NAMESPACE_IMPL_START
+
+
 ////////////////////////////////////////////////////////////////////////
 ///                        DECLARATIONS                              ///
 ////////////////////////////////////////////////////////////////////////
@@ -292,13 +295,13 @@ void Cec_ManStartSimInfo( Vec_Ptr_t * vInfo, int nFlops )
     assert( nFlops <= Vec_PtrSize(vInfo) );
     for ( k = 0; k < nFlops; k++ )
     {
-        pInfo = Vec_PtrEntry( vInfo, k );
+        pInfo = (unsigned *)Vec_PtrEntry( vInfo, k );
         for ( w = 0; w < nWords; w++ )
             pInfo[w] = 0;
     }
     for ( k = nFlops; k < Vec_PtrSize(vInfo); k++ )
     {
-        pInfo = Vec_PtrEntry( vInfo, k );
+        pInfo = (unsigned *)Vec_PtrEntry( vInfo, k );
         for ( w = 0; w < nWords; w++ )
             pInfo[w] = Gia_ManRandom( 0 );
     }
@@ -327,7 +330,7 @@ void Gia_ManCorrRemapSimInfo( Gia_Man_t * p, Vec_Ptr_t * vInfo )
         pRepr = Gia_ObjReprObj( p, Gia_ObjId(p,pObj) );
         if ( pRepr == NULL || Gia_ObjFailed(p, Gia_ObjId(p,pObj)) )
             continue;
-        pInfoObj = Vec_PtrEntry( vInfo, i );
+        pInfoObj = (unsigned *)Vec_PtrEntry( vInfo, i );
         for ( w = 0; w < nWords; w++ )
             assert( pInfoObj[w] == 0 );
         // skip ROs with constant representatives
@@ -336,7 +339,7 @@ void Gia_ManCorrRemapSimInfo( Gia_Man_t * p, Vec_Ptr_t * vInfo )
         assert( Gia_ObjIsRo(p, pRepr) );
 //        Abc_Print( 1, "%d -> %d    ", i, Gia_ObjId(p, pRepr) );
         // transfer info from the representative
-        pInfoRepr = Vec_PtrEntry( vInfo, Gia_ObjCioId(pRepr) - Gia_ManPiNum(p) );
+        pInfoRepr = (unsigned *)Vec_PtrEntry( vInfo, Gia_ObjCioId(pRepr) - Gia_ManPiNum(p) );
         for ( w = 0; w < nWords; w++ )
             pInfoObj[w] = pInfoRepr[w];
     }
@@ -395,8 +398,8 @@ void Gia_ManCorrPerformRemapping( Vec_Int_t * vPairs, Vec_Ptr_t * vInfo )
     Vec_IntForEachEntry( vPairs, iRepr, i )
     {
         iObj = Vec_IntEntry( vPairs, ++i );
-        pInfoObj = Vec_PtrEntry( vInfo, iObj );
-        pInfoRepr = Vec_PtrEntry( vInfo, iRepr );
+        pInfoObj = (unsigned *)Vec_PtrEntry( vInfo, iObj );
+        pInfoRepr = (unsigned *)Vec_PtrEntry( vInfo, iRepr );
         for ( w = 0; w < nWords; w++ )
         {
             assert( pInfoObj[w] == 0 );
@@ -422,16 +425,16 @@ int Cec_ManLoadCounterExamplesTry( Vec_Ptr_t * vInfo, Vec_Ptr_t * vPres, int iBi
     int i;
     for ( i = 0; i < nLits; i++ )
     {
-        pInfo = Vec_PtrEntry(vInfo, Gia_Lit2Var(pLits[i]));
-        pPres = Vec_PtrEntry(vPres, Gia_Lit2Var(pLits[i]));
+        pInfo = (unsigned *)Vec_PtrEntry(vInfo, Gia_Lit2Var(pLits[i]));
+        pPres = (unsigned *)Vec_PtrEntry(vPres, Gia_Lit2Var(pLits[i]));
         if ( Gia_InfoHasBit( pPres, iBit ) && 
              Gia_InfoHasBit( pInfo, iBit ) == Gia_LitIsCompl(pLits[i]) )
              return 0;
     }
     for ( i = 0; i < nLits; i++ )
     {
-        pInfo = Vec_PtrEntry(vInfo, Gia_Lit2Var(pLits[i]));
-        pPres = Vec_PtrEntry(vPres, Gia_Lit2Var(pLits[i]));
+        pInfo = (unsigned *)Vec_PtrEntry(vInfo, Gia_Lit2Var(pLits[i]));
+        pPres = (unsigned *)Vec_PtrEntry(vPres, Gia_Lit2Var(pLits[i]));
         Gia_InfoSetBit( pPres, iBit );
         if ( Gia_InfoHasBit( pInfo, iBit ) == Gia_LitIsCompl(pLits[i]) )
             Gia_InfoXorBit( pInfo, iBit );
@@ -515,7 +518,7 @@ int Cec_ManLoadCounterExamples2( Vec_Ptr_t * vInfo, Vec_Int_t * vCexStore, int i
         for ( k = 0; k < nLits; k++ )
         {
             iLit = Vec_IntEntry( vCexStore, iStart++ );
-            pInfo = Vec_PtrEntry( vInfo, Gia_Lit2Var(iLit) );
+            pInfo = (unsigned *)Vec_PtrEntry( vInfo, Gia_Lit2Var(iLit) );
             if ( Gia_InfoHasBit( pInfo, iBit ) == Gia_LitIsCompl(iLit) )
                 Gia_InfoXorBit( pInfo, iBit );
         }
@@ -1065,7 +1068,7 @@ Gia_Man_t * Cec_ManLSCorrespondence( Gia_Man_t * pAig, Cec_ParCor_t * pPars )
     {
         // compute the cycles AIG
         pInitState = Cec_ManComputeInitState( pAig, pPars->nPrefix );
-        pTemp = Gia_ManDupFlip( pAig, pInitState );
+        pTemp = Gia_ManDupFlip( pAig, (int *)pInitState );
         ABC_FREE( pInitState );
         // compute classes of this AIG
         RetValue = Cec_ManLSCorrespondenceClasses( pTemp, pPars );
@@ -1128,4 +1131,6 @@ Gia_Man_t * Cec_ManLSCorrespondence( Gia_Man_t * pAig, Cec_ParCor_t * pPars )
 ///                       END OF FILE                                ///
 ////////////////////////////////////////////////////////////////////////
 
+
+ABC_NAMESPACE_IMPL_END
 

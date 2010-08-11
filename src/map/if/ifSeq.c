@@ -20,6 +20,9 @@
 
 #include "if.h"
 
+ABC_NAMESPACE_IMPL_START
+
+
 ////////////////////////////////////////////////////////////////////////
 ///                        DECLARATIONS                              ///
 ////////////////////////////////////////////////////////////////////////
@@ -99,7 +102,7 @@ Vec_Ptr_t * If_ManCollectLatches( If_Man_t * p )
     If_ManForEachLatchOutput( p, pObj, i )
         If_ManCollectLatches_rec( pObj, vLatches );
     // clean marks
-    Vec_PtrForEachEntry( vLatches, pObj, i )
+    Vec_PtrForEachEntry( If_Obj_t *, vLatches, pObj, i )
         pObj->fMark = 0;
     assert( Vec_PtrSize(vLatches) == p->pPars->nLatches );
     return vLatches;
@@ -127,7 +130,7 @@ int If_ManPerformMappingRoundSeq( If_Man_t * p, int nIter )
     if ( nIter == 1 )
     {
         // if some latches depend on PIs, update their values
-        Vec_PtrForEachEntry( p->vLatchOrder, pObj, i )
+        Vec_PtrForEachEntry( If_Obj_t *, p->vLatchOrder, pObj, i )
         {
             If_ObjSetLValue( pObj, If_ObjLValue(If_ObjFanin0(pObj)) - p->Period );
             If_ObjSetArrTime( pObj, If_ObjLValue(pObj) );
@@ -161,7 +164,7 @@ int If_ManPerformMappingRoundSeq( If_Man_t * p, int nIter )
 //Abc_Print( 1, "\n" );
 
     // propagate LValues over the registers
-    Vec_PtrForEachEntry( p->vLatchOrder, pObj, i )
+    Vec_PtrForEachEntry( If_Obj_t *, p->vLatchOrder, pObj, i )
     {
         If_ObjSetLValue( pObj, If_ObjLValue(If_ObjFanin0(pObj)) - p->Period );
         If_ObjSetArrTime( pObj, If_ObjLValue(pObj) );
@@ -393,4 +396,6 @@ int If_ManPerformMappingSeq( If_Man_t * p )
 ///                       END OF FILE                                ///
 ////////////////////////////////////////////////////////////////////////
 
+
+ABC_NAMESPACE_IMPL_END
 

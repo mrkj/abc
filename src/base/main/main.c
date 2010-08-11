@@ -17,12 +17,16 @@
   Revision    [$Id: main.c,v 1.00 2005/06/20 00:00:00 alanmi Exp $]
 
 ***********************************************************************/
- 
+
+#include "abc.h"
 #include "mainInt.h"
 
 #ifdef ABC_PYTHON_EMBED
 #include <Python.h>
+
 #endif /* ABC_PYTHON_EMBED */
+
+ABC_NAMESPACE_IMPL_START
 
 // this line should be included in the library project
 //#define ABC_LIB
@@ -33,7 +37,7 @@
 ///                        DECLARATIONS                              ///
 ////////////////////////////////////////////////////////////////////////
  
-static int TypeCheck( Abc_Frame_t * pAbc, char * s);
+static int TypeCheck( Abc_Frame_t * pAbc, const char * s);
 
 ////////////////////////////////////////////////////////////////////////
 ///                     FUNCTION DEFINITIONS                         ///
@@ -52,17 +56,14 @@ static int TypeCheck( Abc_Frame_t * pAbc, char * s);
   SeeAlso     []
 
 ***********************************************************************/
-#if defined(ABC_USE_BINARY)
-int main_( int argc, char * argv[] )
-#else
-int main( int argc, char * argv[] )
-#endif
+int Abc_RealMain( int argc, char * argv[] )
 {
     Abc_Frame_t * pAbc;
     char sCommandUsr[500], sCommandTmp[100], sReadCmd[20], sWriteCmd[20], c;
-    char * sCommand, * sOutFile, * sInFile;
+    const char * sOutFile, * sInFile;
+    char * sCommand;
     int  fStatus = 0;
-    bool fBatch, fInitSource, fInitRead, fFinalWrite;
+    int fBatch, fInitSource, fInitRead, fFinalWrite;
 
     // added to detect memory leaks:
 #if defined(_DEBUG) && defined(_MSC_VER) 
@@ -276,7 +277,7 @@ usage:
   SideEffects []
 
 ******************************************************************************/
-static int TypeCheck( Abc_Frame_t * pAbc, char * s )
+static int TypeCheck( Abc_Frame_t * pAbc, const char * s )
 {
     if (strcmp(s, "blif") == 0)
         return 1;
@@ -300,3 +301,13 @@ static int TypeCheck( Abc_Frame_t * pAbc, char * s )
 ////////////////////////////////////////////////////////////////////////
 
 
+ABC_NAMESPACE_IMPL_END
+
+#if defined(ABC_USE_BINARY)
+int main_( int argc, char * argv[] )
+#else
+int main( int argc, char * argv[] )
+#endif
+{
+  return ABC_NAMESPACE_PREFIX Abc_RealMain(argc, argv);
+}

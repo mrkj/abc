@@ -19,8 +19,11 @@
 ***********************************************************************/
 
 #include "saig.h"
+#include "fra.h"
 #include "cnf.h"
 #include "satStore.h"
+
+ABC_NAMESPACE_IMPL_START
 
 ////////////////////////////////////////////////////////////////////////
 ///                        DECLARATIONS                              ///
@@ -207,7 +210,7 @@ void Saig_ManBmcTerSimTest( Aig_Man_t * p )
     unsigned * pInfo;
     int i;
     vInfos = Saig_ManBmcTerSim( p );
-    Vec_PtrForEachEntry( vInfos, pInfo, i )
+    Vec_PtrForEachEntry( unsigned *, vInfos, pInfo, i )
         printf( "%d=%d ", i, Saig_ManBmcTerSimCount01(p, pInfo) );
     printf( "\n" );
     Vec_PtrFreeFree( vInfos );
@@ -257,7 +260,7 @@ Vec_Ptr_t * Saig_ManBmcDfsNodes( Aig_Man_t * p, Vec_Ptr_t * vRoots )
     Aig_Obj_t * pObj;
     int i;
     vNodes = Vec_PtrAlloc( 100 );
-    Vec_PtrForEachEntry( vRoots, pObj, i )
+    Vec_PtrForEachEntry( Aig_Obj_t *, vRoots, pObj, i )
         Saig_ManBmcDfs_rec( p, Aig_ObjFanin0(pObj), vNodes );
     return vNodes;
 }
@@ -295,7 +298,7 @@ Vec_Vec_t * Saig_ManBmcSections( Aig_Man_t * p )
         Vec_PtrPush( vSects, vCone );
         // get the next set of roots
         Vec_PtrClear( vRoots );
-        Vec_PtrForEachEntry( vCone, pObj, i )
+        Vec_PtrForEachEntry( Aig_Obj_t *, vCone, pObj, i )
         {
             if ( !Saig_ObjIsLo(p, pObj) )
                 continue;
@@ -408,7 +411,7 @@ int Saig_ManBmcCountRefed( Aig_Man_t * p, Vec_Ptr_t * vSuper )
 {
     Aig_Obj_t * pObj;
     int i, Counter = 0;
-    Vec_PtrForEachEntry( vSuper, pObj, i )
+    Vec_PtrForEachEntry( Aig_Obj_t *, vSuper, pObj, i )
     {
         assert( !Aig_IsComplement(pObj) );
         Counter += (Aig_ObjRefs(pObj) > 1);
@@ -667,7 +670,7 @@ static inline int Saig_ManBmcLiteral( Gia_ManBmc_t * p, Aig_Obj_t * pObj, int iF
     assert( !Aig_ObjIsNode(pObj) || Saig_ManBmcMapping(p, pObj) );
     ObjNum  = Vec_IntEntry( p->vId2Num, Aig_ObjId(pObj) );
     assert( ObjNum >= 0 );
-    vFrame  = Vec_PtrEntry( p->vId2Var, iFrame );
+    vFrame  = (Vec_Int_t *)Vec_PtrEntry( p->vId2Var, iFrame );
     assert( vFrame != NULL );
     return Vec_IntEntry( vFrame, ObjNum );
 }
@@ -689,7 +692,7 @@ static inline int Saig_ManBmcSetLiteral( Gia_ManBmc_t * p, Aig_Obj_t * pObj, int
     int ObjNum;
     assert( !Aig_ObjIsNode(pObj) || Saig_ManBmcMapping(p, pObj) );
     ObjNum  = Vec_IntEntry( p->vId2Num, Aig_ObjId(pObj) );
-    vFrame  = Vec_PtrEntry( p->vId2Var, iFrame );
+    vFrame  = (Vec_Int_t *)Vec_PtrEntry( p->vId2Var, iFrame );
     Vec_IntWriteEntry( vFrame, ObjNum, iLit );
     if ( iLit == ABC_INFINITY || iLit == ABC_INFINITY+1 )
     {
@@ -1134,7 +1137,7 @@ clkOther += clock() - clk2;
             }
             else if ( status == l_True )
             {
-                extern void * Fra_SmlSimpleCounterExample( Aig_Man_t * p, int * pModel, int iFrame, int iPo );
+//                extern void * Fra_SmlSimpleCounterExample( Aig_Man_t * p, int * pModel, int iFrame, int iPo );
                 int * pModel = Sat_SolverGetModel( p->pSat, Vec_IntArray(p->vPiVars), Vec_IntSize(p->vPiVars) );
                 Abc_Cex_t * pCex = Fra_SmlSimpleCounterExample( pAig, pModel, f, i );
                 ABC_FREE( pModel );
@@ -1219,4 +1222,6 @@ clkOther += clock() - clk2;
 ///                       END OF FILE                                ///
 ////////////////////////////////////////////////////////////////////////
 
+
+ABC_NAMESPACE_IMPL_END
 

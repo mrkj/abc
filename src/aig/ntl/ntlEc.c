@@ -19,6 +19,10 @@
 ***********************************************************************/
 
 #include "ntl.h"
+#include "saig.h"
+
+ABC_NAMESPACE_IMPL_START
+
 
 ////////////////////////////////////////////////////////////////////////
 ///                        DECLARATIONS                              ///
@@ -301,7 +305,7 @@ void Ntl_ManPrepareCec( char * pFileName1, char * pFileName2, Aig_Man_t ** ppAig
 ***********************************************************************/
 Aig_Man_t * Ntl_ManPrepareSec( char * pFileName1, char * pFileName2 )
 {
-    extern Aig_Man_t * Saig_ManCreateMiter( Aig_Man_t * p1, Aig_Man_t * p2, int Oper );
+//    extern Aig_Man_t * Saig_ManCreateMiter( Aig_Man_t * p1, Aig_Man_t * p2, int Oper );
 
     Aig_Man_t * pAig1, * pAig2, * pAig;
     Ntl_Man_t * pMan1, * pMan2;
@@ -365,4 +369,6 @@ Aig_Man_t * Ntl_ManPrepareSec( char * pFileName1, char * pFileName2 )
 ///                       END OF FILE                                ///
 ////////////////////////////////////////////////////////////////////////
 
+
+ABC_NAMESPACE_IMPL_END
 

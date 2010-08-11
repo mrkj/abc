@@ -21,6 +21,8 @@
 #include "ioAbc.h"
 #include "mainInt.h"
 
+ABC_NAMESPACE_IMPL_START
+
 ////////////////////////////////////////////////////////////////////////
 ///                        DECLARATIONS                              ///
 ////////////////////////////////////////////////////////////////////////
@@ -66,6 +68,8 @@ static int IoCommandWriteSortCnf( Abc_Frame_t * pAbc, int argc, char **argv );
 static int IoCommandWriteTruth  ( Abc_Frame_t * pAbc, int argc, char **argv );
 static int IoCommandWriteStatus ( Abc_Frame_t * pAbc, int argc, char **argv );
 static int IoCommandWriteSmv    ( Abc_Frame_t * pAbc, int argc, char **argv );
+
+extern void Abc_FrameCopyLTLDataBase( Abc_Frame_t *pAbc, Abc_Ntk_t * pNtk );
 
 extern int glo_fMapped;
 
@@ -140,7 +144,7 @@ void Io_Init( Abc_Frame_t * pAbc )
   SeeAlso     []
 
 ***********************************************************************/
-void Io_End()
+void Io_End( Abc_Frame_t * pAbc )
 {
 }
 
@@ -195,6 +199,7 @@ int IoCommandRead( Abc_Frame_t * pAbc, int argc, char ** argv )
         return 1;
     // replace the current network
     Abc_FrameReplaceCurrentNetwork( pAbc, pNtk );
+	Abc_FrameCopyLTLDataBase( pAbc, pNtk );
     Abc_FrameClearVerifStatus( pAbc );
     return 0;
 
@@ -1072,7 +1077,7 @@ int IoCommandReadVer( Abc_Frame_t * pAbc, int argc, char ** argv )
     fclose( pFile );
 
     // set the new network
-    pDesign = Ver_ParseFile( pFileName, Abc_FrameReadLibVer(), fCheck, 1 );
+    pDesign = Ver_ParseFile( pFileName, (Abc_Lib_t *)Abc_FrameReadLibVer(), fCheck, 1 );
     if ( pDesign == NULL )
     {
         fprintf( pAbc->Err, "Reading network from the verilog file has failed.\n" );
@@ -1089,7 +1094,7 @@ int IoCommandReadVer( Abc_Frame_t * pAbc, int argc, char ** argv )
     }
 
     // derive the AIG network from this design
-    pNtkNew = Abc_LibDeriveAig( pNtk, Abc_FrameReadLibVer() );
+    pNtkNew = Abc_LibDeriveAig( pNtk, (Abc_Lib_t *)Abc_FrameReadLibVer() );
     Abc_NtkDelete( pNtk );
     if ( pNtkNew == NULL )
     {
@@ -1173,7 +1178,7 @@ int IoCommandReadVerLib( Abc_Frame_t * pAbc, int argc, char ** argv )
     printf( "The library contains %d gates.\n", st_count(pLibrary->tModules) );
     // free old library
     if ( Abc_FrameReadLibVer() )
-        Abc_LibFree( Abc_FrameReadLibVer(), NULL );
+        Abc_LibFree( (Abc_Lib_t *)Abc_FrameReadLibVer(), NULL );
     // read new library
     Abc_FrameSetLibVer( pLibrary );
     Abc_FrameClearVerifStatus( pAbc );
@@ -1895,7 +1900,12 @@ usage:
     return 1;
 }
 
+ABC_NAMESPACE_IMPL_END
+
 #include "fra.h"
+
+ABC_NAMESPACE_IMPL_START
+
 
 /**Function*************************************************************
 
@@ -2008,7 +2018,7 @@ int IoCommandWriteCounter( Abc_Frame_t * pAbc, int argc, char **argv )
         }
         if ( fNames )
         {
-            char *cycle_ctr = forceSeq?"@0":"";
+            const char *cycle_ctr = forceSeq?"@0":"";
             Abc_NtkForEachPi( pNtk, pObj, i )
 //                fprintf( pFile, "%s=%c\n", Abc_ObjName(pObj), '0'+(pNtk->pModel[i]==1) );
                 fprintf( pFile, "%s%s=%c\n", Abc_ObjName(pObj), cycle_ctr, '0'+(pNtk->pModel[i]==1) );
@@ -2326,7 +2336,7 @@ int IoCommandWriteVerLib( Abc_Frame_t * pAbc, int argc, char **argv )
     // get the input file name
     pFileName = argv[globalUtilOptind];
     // derive the netlist
-    pLibrary = Abc_FrameReadLibVer();
+    pLibrary = (Abc_Lib_t *)Abc_FrameReadLibVer();
     if ( pLibrary == NULL )
     {
         fprintf( pAbc->Out, "Verilog library is not specified.\n" );
@@ -2487,7 +2497,7 @@ int IoCommandWriteTruth( Abc_Frame_t * pAbc, int argc, char **argv )
     // convert to logic
     Abc_NtkToAig( pNtk );
     vTruth = Vec_IntAlloc( 0 );
-    pTruth = Hop_ManConvertAigToTruth( pNtk->pManFunc, pNode->pData, Abc_ObjFaninNum(pNode), vTruth, fReverse );
+    pTruth = Hop_ManConvertAigToTruth( (Hop_Man_t *)pNtk->pManFunc, (Hop_Obj_t *)pNode->pData, Abc_ObjFaninNum(pNode), vTruth, fReverse );
     pFile = fopen( pFileName, "w" );
     if ( pFile == NULL )
     {
@@ -2605,4 +2615,6 @@ usage:
 ///                       END OF FILE                                ///
 ////////////////////////////////////////////////////////////////////////
 
+
+ABC_NAMESPACE_IMPL_END
 

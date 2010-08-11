@@ -26,6 +26,9 @@
 #include "cec.h"
 #include "giaAig.h"
 
+ABC_NAMESPACE_IMPL_START
+
+
 ////////////////////////////////////////////////////////////////////////
 ///                        DECLARATIONS                              ///
 ////////////////////////////////////////////////////////////////////////
@@ -446,4 +449,6 @@ Abc_Ntk_t * Abc_NtkTestScorr( char * pFileNameIn, char * pFileNameOut, int nStep
 ///                       END OF FILE                                ///
 ////////////////////////////////////////////////////////////////////////
 
+
+ABC_NAMESPACE_IMPL_END
 

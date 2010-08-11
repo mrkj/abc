@@ -20,6 +20,9 @@
 
 #include "extra.h"
 
+ABC_NAMESPACE_IMPL_START
+
+
 /*---------------------------------------------------------------------------*/
 /* Constant declarations                                                     */
 /*---------------------------------------------------------------------------*/
@@ -565,7 +568,7 @@ char * Extra_MmStepEntryFetch( Extra_MmStep_t * p, int nBytes )
             p->pLargeChunks = ABC_REALLOC( void *, p->pLargeChunks, p->nLargeChunksAlloc );
         }
         p->pLargeChunks[ p->nLargeChunks++ ] = ABC_ALLOC( char, nBytes );
-        return p->pLargeChunks[ p->nLargeChunks - 1 ];
+        return (char *)p->pLargeChunks[ p->nLargeChunks - 1 ];
     }
     return Extra_MmFixedEntryFetch( p->pMap[nBytes] );
 }
@@ -620,4 +623,6 @@ int Extra_MmStepReadMemUsage( Extra_MmStep_t * p )
 /*---------------------------------------------------------------------------*/
 /* Definition of static functions                                            */
 /*---------------------------------------------------------------------------*/
+
+ABC_NAMESPACE_IMPL_END
 

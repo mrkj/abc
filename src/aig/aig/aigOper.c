@@ -20,6 +20,9 @@
 
 #include "aig.h"
 
+ABC_NAMESPACE_IMPL_START
+
+
 ////////////////////////////////////////////////////////////////////////
 ///                        DECLARATIONS                              ///
 ////////////////////////////////////////////////////////////////////////
@@ -431,7 +434,7 @@ Aig_Obj_t * Aig_Miter( Aig_Man_t * p, Vec_Ptr_t * vPairs )
     assert( vPairs->nSize > 0 );
     assert( vPairs->nSize % 2 == 0 );
     for ( i = 0; i < vPairs->nSize; i += 2 )
-        vPairs->pArray[i/2] = Aig_Not( Aig_Exor( p, vPairs->pArray[i], vPairs->pArray[i+1] ) );
+        vPairs->pArray[i/2] = Aig_Not( Aig_Exor( p, (Aig_Obj_t *)vPairs->pArray[i], (Aig_Obj_t *)vPairs->pArray[i+1] ) );
     vPairs->nSize = vPairs->nSize/2;
     return Aig_Not( Aig_Multi_rec( p, (Aig_Obj_t **)vPairs->pArray, vPairs->nSize, AIG_OBJ_AND ) );
 }
@@ -453,7 +456,7 @@ Aig_Obj_t * Aig_MiterTwo( Aig_Man_t * p, Vec_Ptr_t * vNodes1, Vec_Ptr_t * vNodes
     assert( vNodes1->nSize > 0 && vNodes1->nSize > 0 );
     assert( vNodes1->nSize == vNodes2->nSize );
     for ( i = 0; i < vNodes1->nSize; i++ )
-        vNodes1->pArray[i] = Aig_Not( Aig_Exor( p, vNodes1->pArray[i], vNodes2->pArray[i] ) );
+        vNodes1->pArray[i] = Aig_Not( Aig_Exor( p, (Aig_Obj_t *)vNodes1->pArray[i], (Aig_Obj_t *)vNodes2->pArray[i] ) );
     return Aig_Not( Aig_Multi_rec( p, (Aig_Obj_t **)vNodes1->pArray, vNodes1->nSize, AIG_OBJ_AND ) );
 }
 
@@ -554,7 +557,7 @@ void Aig_MuxTest()
         else if ( rand() % 3 == 0 || i < nPIs )
             pCtrl = Aig_IthVar( p, rand() % nPIs );
         else
-            pCtrl = Vec_PtrEntry(vNodes, rand() % i);
+            pCtrl = (Aig_Obj_t *)Vec_PtrEntry(vNodes, rand() % i);
         if ( rand() % 2 == 0 )
             pCtrl = Aig_Not( pCtrl );
 
@@ -565,7 +568,7 @@ void Aig_MuxTest()
         else if ( rand() % 3 == 0 || i < nPIs )
             pFanin1 = Aig_IthVar( p, rand() % nPIs );
         else
-            pFanin1 = Vec_PtrEntry(vNodes, rand() % i);
+            pFanin1 = (Aig_Obj_t *)Vec_PtrEntry(vNodes, rand() % i);
         if ( rand() % 2 == 0 )
             pFanin1 = Aig_Not( pFanin1 );
 
@@ -576,14 +579,14 @@ void Aig_MuxTest()
         else if ( rand() % 3 == 0 || i < nPIs )
             pFanin0 = Aig_IthVar( p, rand() % nPIs );
         else
-            pFanin0 = Vec_PtrEntry(vNodes, rand() % i);
+            pFanin0 = (Aig_Obj_t *)Vec_PtrEntry(vNodes, rand() % i);
         if ( rand() % 2 == 0 )
             pFanin0 = Aig_Not( pFanin0 );
 
         pObj = Aig_Mux( p, pCtrl, pFanin1, pFanin0 );
         Vec_PtrPush( vNodes, pObj );
     }
-    Vec_PtrForEachEntry( vNodes, pObj, i )
+    Vec_PtrForEachEntry( Aig_Obj_t *, vNodes, pObj, i )
         Aig_ObjCreatePo( p, pObj );
     Vec_PtrFree( vNodes );
 
@@ -598,4 +601,6 @@ void Aig_MuxTest()
 ///                       END OF FILE                                ///
 ////////////////////////////////////////////////////////////////////////
 
+
+ABC_NAMESPACE_IMPL_END
 

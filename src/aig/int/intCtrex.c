@@ -21,6 +21,9 @@
 #include "intInt.h"
 #include "ssw.h"
 
+ABC_NAMESPACE_IMPL_START
+
+
 ////////////////////////////////////////////////////////////////////////
 ///                        DECLARATIONS                              ///
 ////////////////////////////////////////////////////////////////////////
@@ -107,7 +110,7 @@ void * Inter_ManGetCounterExample( Aig_Man_t * pAig, int nFrames, int fVerbose )
     vCiIds = Cnf_DataCollectPiSatNums( pCnf, pFrames );
     Aig_ManStop( pFrames );
     // convert into SAT solver
-    pSat = Cnf_DataWriteIntoSolver( pCnf, 1, 0 );
+    pSat = (sat_solver *)Cnf_DataWriteIntoSolver( pCnf, 1, 0 );
     Cnf_DataFree( pCnf );
     if ( pSat == NULL )
     {
@@ -159,4 +162,6 @@ void * Inter_ManGetCounterExample( Aig_Man_t * pAig, int nFrames, int fVerbose )
 ///                       END OF FILE                                ///
 ////////////////////////////////////////////////////////////////////////
 
+
+ABC_NAMESPACE_IMPL_END
 

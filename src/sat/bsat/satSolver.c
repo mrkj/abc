@@ -25,7 +25,21 @@ OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWA
 #include <math.h>
 
 #include "satSolver.h"
+#include "satStore.h"
 
+ABC_NAMESPACE_IMPL_START
+/*
+extern int Sto_ManAddClause( void * p, lit * pBeg, lit * pEnd );
+extern int Sto_ManAddClause( void * p, lit * pBeg, lit * pEnd );
+extern int Sto_ManAddClause( void * p, lit * pBeg, lit * pEnd );
+extern int Sto_ManAddClause( void * p, lit * pBeg, lit * pEnd );
+extern void * Sto_ManAlloc();
+extern void Sto_ManDumpClauses( void * p, char * pFileName );
+extern void Sto_ManFree( void * p );
+extern int Sto_ManChangeLastClause( void * p );
+extern void Sto_ManMarkRoots( void * p );
+extern void Sto_ManMarkClausesA( void * p );
+*/
 //#define SAT_USE_SYSTEM_MEMORY_MANAGEMENT
 
 //=================================================================================================
@@ -91,7 +105,7 @@ static inline void  clause_setactivity(clause* c, float a) { *((float*)&c->lits[
 // Encode literals in clause pointers:
 
 static inline clause* clause_from_lit (lit l)     { return (clause*)((ABC_PTRUINT_T)l + (ABC_PTRUINT_T)l + 1); }
-static inline bool    clause_is_lit   (clause* c) { return ((ABC_PTRUINT_T)c & 1);                              }
+static inline int     clause_is_lit   (clause* c) { return ((ABC_PTRUINT_T)c & 1);                              }
 static inline lit     clause_read_lit (clause* c) { return (lit)((ABC_PTRUINT_T)c >> 1);                        }
 
 //=================================================================================================
@@ -412,7 +426,7 @@ void sat_solver_setnvars(sat_solver* s,int n)
 }
 
 
-static inline bool enqueue(sat_solver* s, lit l, clause* from)
+static inline int enqueue(sat_solver* s, lit l, clause* from)
 {
     lbool* values = s->assigns;
     int    v      = lit_var(l);
@@ -503,8 +517,7 @@ static void sat_solver_record(sat_solver* s, veci* cls)
     // add clause to internal storage
     if ( s->pStore )
     {
-        extern int Sto_ManAddClause( void * p, lit * pBeg, lit * pEnd );
-        int RetValue = Sto_ManAddClause( s->pStore, begin, end );
+        int RetValue = Sto_ManAddClause( (Sto_Man_t *)s->pStore, begin, end );
         assert( RetValue );
     }
     ///////////////////////////////////
@@ -537,7 +550,7 @@ static double sat_solver_progress(sat_solver* s)
 //=================================================================================================
 // Major methods:
 
-static bool sat_solver_lit_removable(sat_solver* s, lit l, int minl)
+static int sat_solver_lit_removable(sat_solver* s, lit l, int minl)
 {
     lbool*   tags    = s->tags;
     clause** reasons = s->reasons;
@@ -1164,7 +1177,7 @@ void sat_solver_delete(sat_solver* s)
 }
 
 
-bool sat_solver_addclause(sat_solver* s, lit* begin, lit* end)
+int sat_solver_addclause(sat_solver* s, lit* begin, lit* end)
 {
     lit *i,*j;
     int maxvar;
@@ -1197,8 +1210,7 @@ bool sat_solver_addclause(sat_solver* s, lit* begin, lit* end)
     // add clause to internal storage
     if ( s->pStore )
     {
-        extern int Sto_ManAddClause( void * p, lit * pBeg, lit * pEnd );
-        int RetValue = Sto_ManAddClause( s->pStore, begin, end );
+        int RetValue = Sto_ManAddClause( (Sto_Man_t *)s->pStore, begin, end );
         assert( RetValue );
     }
     ///////////////////////////////////
@@ -1236,7 +1248,7 @@ bool sat_solver_addclause(sat_solver* s, lit* begin, lit* end)
 }
 
 
-bool sat_solver_simplify(sat_solver* s)
+int sat_solver_simplify(sat_solver* s)
 {
     clause** reasons;
     int type;
@@ -1306,8 +1318,7 @@ int sat_solver_solve(sat_solver* s, lit* begin, lit* end, ABC_INT64_T nConfLimit
     {
         if ( s->pStore )
         {
-            extern int Sto_ManAddClause( void * p, lit * pBeg, lit * pEnd );
-            int RetValue = Sto_ManAddClause( s->pStore, NULL, NULL );
+            int RetValue = Sto_ManAddClause( (Sto_Man_t *)s->pStore, NULL, NULL );
             assert( RetValue );
         }
         return l_False;
@@ -1399,8 +1410,7 @@ int sat_solver_solve(sat_solver* s, lit* begin, lit* end, ABC_INT64_T nConfLimit
     ////////////////////////////////////////////////
     if ( status == l_False && s->pStore )
     {
-        extern int Sto_ManAddClause( void * p, lit * pBeg, lit * pEnd );
-        int RetValue = Sto_ManAddClause( s->pStore, NULL, NULL );
+        int RetValue = Sto_ManAddClause( (Sto_Man_t *)s->pStore, NULL, NULL );
         assert( RetValue );
     }
     ////////////////////////////////////////////////
@@ -1430,41 +1440,35 @@ int sat_solver_nconflicts(sat_solver* s)
 
 void sat_solver_store_alloc( sat_solver * s )
 {
-    extern void * Sto_ManAlloc();
     assert( s->pStore == NULL );
     s->pStore = Sto_ManAlloc();
 }
 
 void sat_solver_store_write( sat_solver * s, char * pFileName )
 {
-    extern void Sto_ManDumpClauses( void * p, char * pFileName );
-    if ( s->pStore ) Sto_ManDumpClauses( s->pStore, pFileName );
+    if ( s->pStore ) Sto_ManDumpClauses( (Sto_Man_t *)s->pStore, pFileName );
 }
 
 void sat_solver_store_free( sat_solver * s )
 {
-    extern void Sto_ManFree( void * p );
-    if ( s->pStore ) Sto_ManFree( s->pStore );
+    if ( s->pStore ) Sto_ManFree( (Sto_Man_t *)s->pStore );
     s->pStore = NULL;
 }
 
 int sat_solver_store_change_last( sat_solver * s )
 {
-    extern int Sto_ManChangeLastClause( void * p );
-    if ( s->pStore ) return Sto_ManChangeLastClause( s->pStore );
+    if ( s->pStore ) return Sto_ManChangeLastClause( (Sto_Man_t *)s->pStore );
     return -1;
 }
  
 void sat_solver_store_mark_roots( sat_solver * s )
 {
-    extern void Sto_ManMarkRoots( void * p );
-    if ( s->pStore ) Sto_ManMarkRoots( s->pStore );
+    if ( s->pStore ) Sto_ManMarkRoots( (Sto_Man_t *)s->pStore );
 }
 
 void sat_solver_store_mark_clauses_a( sat_solver * s )
 {
-    extern void Sto_ManMarkClausesA( void * p );
-    if ( s->pStore ) Sto_ManMarkClausesA( s->pStore );
+    if ( s->pStore ) Sto_ManMarkClausesA( (Sto_Man_t *)s->pStore );
 }
 
 void * sat_solver_store_release( sat_solver * s )
@@ -1529,3 +1533,5 @@ void sat_solver_sort(void** array, int size, int(*comp)(const void *, const void
 //    for ( i = 1; i < size; i++ )
 //        assert(comp(array[i-1], array[i])<0);
 }
+ABC_NAMESPACE_IMPL_END
+

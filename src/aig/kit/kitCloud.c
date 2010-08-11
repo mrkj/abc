@@ -20,6 +20,9 @@
 
 #include "kit.h"
 
+ABC_NAMESPACE_IMPL_START
+
+
 ////////////////////////////////////////////////////////////////////////
 ///                        DECLARATIONS                              ///
 ////////////////////////////////////////////////////////////////////////
@@ -229,15 +232,15 @@ unsigned * Kit_CloudToTruth( Vec_Int_t * vNodes, int nVars, Vec_Ptr_t * vStore, 
     Kit_Mux_t Mux;
     int i, Entry;
     assert( Vec_IntSize(vNodes) <= Vec_PtrSize(vStore) );
-    pThis = Vec_PtrEntry( vStore, 0 );
+    pThis = (unsigned *)Vec_PtrEntry( vStore, 0 );
     Kit_TruthFill( pThis, nVars );
     Vec_IntForEachEntryStart( vNodes, Entry, i, 1 )
     {
         Mux = Kit_Int2Mux(Entry);
         assert( (int)Mux.e < i && (int)Mux.t < i && (int)Mux.v < nVars );          
-        pFan0 = Vec_PtrEntry( vStore, Mux.e );
-        pFan1 = Vec_PtrEntry( vStore, Mux.t );
-        pThis = Vec_PtrEntry( vStore, i );
+        pFan0 = (unsigned *)Vec_PtrEntry( vStore, Mux.e );
+        pFan1 = (unsigned *)Vec_PtrEntry( vStore, Mux.t );
+        pThis = (unsigned *)Vec_PtrEntry( vStore, i );
         Kit_TruthMuxVarPhase( pThis, pFan0, pFan1, nVars, fInv? Mux.v : nVars-1-Mux.v, Mux.c );
     } 
     // complement the result
@@ -277,14 +280,14 @@ unsigned * Kit_TruthCompose( CloudManager * dd, unsigned * pTruth, int nVars,
 //        printf( "Failed!\n" );
     // compute truth table from the BDD
     assert( Vec_IntSize(vNodes) <= Vec_PtrSize(vStore) );
-    pThis = Vec_PtrEntry( vStore, 0 );
+    pThis = (unsigned *)Vec_PtrEntry( vStore, 0 );
     Kit_TruthFill( pThis, nVarsAll );
     Vec_IntForEachEntryStart( vNodes, Entry, i, 1 )
     {
         Mux = Kit_Int2Mux(Entry);
-        pFan0 = Vec_PtrEntry( vStore, Mux.e );
-        pFan1 = Vec_PtrEntry( vStore, Mux.t );
-        pThis = Vec_PtrEntry( vStore, i );
+        pFan0 = (unsigned *)Vec_PtrEntry( vStore, Mux.e );
+        pFan1 = (unsigned *)Vec_PtrEntry( vStore, Mux.t );
+        pThis = (unsigned *)Vec_PtrEntry( vStore, i );
         Kit_TruthMuxPhase( pThis, pFan0, pFan1, pInputs[nVars-1-Mux.v], nVarsAll, Mux.c );
     }
     // complement the result
@@ -370,4 +373,6 @@ void Kit_TruthCofSupports( Vec_Int_t * vBddDir, Vec_Int_t * vBddInv, int nVars, 
 ///                       END OF FILE                                ///
 ////////////////////////////////////////////////////////////////////////
 
+
+ABC_NAMESPACE_IMPL_END
 

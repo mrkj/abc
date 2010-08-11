@@ -21,6 +21,7 @@
 #ifndef __SKY_H__
 #define __SKY_H__
 
+
 ////////////////////////////////////////////////////////////////////////
 ///                          INCLUDES                                ///
 ////////////////////////////////////////////////////////////////////////
@@ -29,9 +30,10 @@
 ///                         PARAMETERS                               ///
 ////////////////////////////////////////////////////////////////////////
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+
+
+ABC_NAMESPACE_HEADER_START
+
 
 ////////////////////////////////////////////////////////////////////////
 ///                         BASIC TYPES                              ///
@@ -193,7 +195,7 @@ extern ABC_DLL Sky_Man_t *     Sky_ManUnmap( Sky_Man_t * p );
 extern ABC_DLL Sky_Man_t *     Sky_ManShortNames( Sky_Man_t * p );
 /*=== skyMan.c ===================================================================*/
 extern ABC_DLL void            Sky_ManFree( Sky_Man_t * p );
-extern ABC_DLL void            Sky_ManFreeP( void ** p );
+extern ABC_DLL void            Sky_ManFreeP( Sky_Man_t ** p );
 extern ABC_DLL Sky_Man_t *     Sky_ManDup( Sky_Man_t * p, Sky_Mod_t*(*pFuncModDup)(Sky_Man_t*,Sky_Mod_t*,int) );
 extern ABC_DLL Sky_Mod_t *     Sky_ManReadRoot( Sky_Man_t * p );
 /*=== skyName.c ==================================================================*/
@@ -271,9 +273,11 @@ extern ABC_DLL Sky_Man_t *     Rsn_ManResynthesize( Sky_Man_t * p, Sky_RsnPar_t 
 extern ABC_DLL void            Rme_ManSetDefaultParams( Sky_Man_t * pSky, Sky_RmePar_t * p );
 extern ABC_DLL Sky_Man_t *     Rme_ManRetime( Sky_Man_t * p, Sky_RmePar_t * pPars );
 
-#ifdef __cplusplus
-}
-#endif
+
+
+ABC_NAMESPACE_HEADER_END
+
+
 
 #endif
 

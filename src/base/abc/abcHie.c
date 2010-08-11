@@ -20,6 +20,9 @@
 
 #include "abc.h"
 
+ABC_NAMESPACE_IMPL_START
+
+
 ////////////////////////////////////////////////////////////////////////
 ///                        DECLARATIONS                              ///
 ////////////////////////////////////////////////////////////////////////
@@ -143,7 +146,7 @@ void Abc_NtkFlattenLogicHierarchy2_rec( Abc_Ntk_t * pNtkNew, Abc_Ntk_t * pNtk, i
     {
         if ( Abc_ObjIsLatch(pObj) )
             continue;
-        pNtkModel = pObj->pData;
+        pNtkModel = (Abc_Ntk_t *)pObj->pData;
         // check the match between the number of actual and formal parameters
         assert( Abc_ObjFaninNum(pObj) == Abc_NtkPiNum(pNtkModel) );
         assert( Abc_ObjFanoutNum(pObj) == Abc_NtkPoNum(pNtkModel) );
@@ -369,7 +372,7 @@ void Abc_NtkFlattenLogicHierarchy_rec( Abc_Ntk_t * pNtkNew, Abc_Ntk_t * pNtk, in
     {
         if ( Abc_ObjIsLatch(pObj) )
             continue;
-        pNtkModel = pObj->pData;
+        pNtkModel = (Abc_Ntk_t *)pObj->pData;
         // check the match between the number of actual and formal parameters
         assert( Abc_ObjFaninNum(pObj) == Abc_NtkPiNum(pNtkModel) );
         assert( Abc_ObjFanoutNum(pObj) == Abc_NtkPoNum(pNtkModel) );
@@ -733,4 +736,6 @@ Abc_Ntk_t * Abc_NtkInsertNewLogic( Abc_Ntk_t * pNtkH, Abc_Ntk_t * pNtkL )
 ///                       END OF FILE                                ///
 ////////////////////////////////////////////////////////////////////////
 
+
+ABC_NAMESPACE_IMPL_END
 

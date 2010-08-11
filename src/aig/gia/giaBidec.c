@@ -21,6 +21,9 @@
 #include "gia.h"
 #include "bdc.h"
 
+ABC_NAMESPACE_IMPL_START
+
+
 ////////////////////////////////////////////////////////////////////////
 ///                        DECLARATIONS                              ///
 ////////////////////////////////////////////////////////////////////////
@@ -50,7 +53,7 @@ unsigned * Gia_ManConvertAigToTruth_rec( Gia_Man_t * p, Gia_Obj_t * pObj, Vec_In
     int i;
     assert( !Gia_IsComplement(pObj) );
     if ( Vec_IntGetEntry(p->vTruths, Gia_ObjId(p, pObj)) != -1 )
-        return Vec_IntEntryP( vTruth, nWords * Vec_IntGetEntry(p->vTruths, Gia_ObjId(p, pObj)) );
+        return (unsigned *)Vec_IntEntryP( vTruth, nWords * Vec_IntGetEntry(p->vTruths, Gia_ObjId(p, pObj)) );
     // compute the truth tables of the fanins
     pTruth0 = Gia_ManConvertAigToTruth_rec( p, Gia_ObjFanin0(pObj), vTruth, nWords, vVisited );
     pTruth1 = Gia_ManConvertAigToTruth_rec( p, Gia_ObjFanin1(pObj), vTruth, nWords, vVisited );
@@ -131,7 +134,7 @@ unsigned * Gia_ManConvertAigToTruth( Gia_Man_t * p, Gia_Obj_t * pRoot, Vec_Int_t
         pTruth = Vec_IntFetch( vTruth, nWords );
         // assign elementary variable
         if ( vTtElems )
-            Gia_ManTruthCopy( pTruth, Vec_PtrEntry(vTtElems, i), nVars );
+            Gia_ManTruthCopy( pTruth, (unsigned *)Vec_PtrEntry(vTtElems, i), nVars );
         else
             Gia_ManTruthCopy( pTruth, uTruths[i], nVars );
         // save the visited node
@@ -300,4 +303,6 @@ Gia_Man_t * Gia_ManPerformBidec( Gia_Man_t * p, int fVerbose )
 ///                       END OF FILE                                ///
 ////////////////////////////////////////////////////////////////////////
 
+
+ABC_NAMESPACE_IMPL_END
 

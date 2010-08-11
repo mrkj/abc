@@ -25,6 +25,7 @@
 #define _CUDDINT
 
 
+
 /*---------------------------------------------------------------------------*/
 /* Nested includes                                                           */
 /*---------------------------------------------------------------------------*/
@@ -45,6 +46,9 @@
 #include <math.h>
 #include "cudd.h"
 #include "st.h"
+
+ABC_NAMESPACE_HEADER_START
+
 
 #if defined(__GNUC__)
 # define DD_INLINE __inline__
@@ -1129,6 +1133,12 @@ EXTERN int cuddZddSymmSifting ARGS((DdManager *table, int lower, int upper));
 EXTERN int cuddZddSymmSiftingConv ARGS((DdManager *table, int lower, int upper));
 EXTERN int cuddZddP ARGS((DdManager *zdd, DdNode *f));
 
+EXTERN void (*MMoutOfMemory)(long);
+
 /**AutomaticEnd***************************************************************/
+
+
+
+ABC_NAMESPACE_HEADER_END
 
 #endif /* _CUDDINT */

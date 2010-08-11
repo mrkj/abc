@@ -21,6 +21,9 @@
 #include "aig.h"
 #include "kit.h"
 
+ABC_NAMESPACE_IMPL_START
+
+
 ////////////////////////////////////////////////////////////////////////
 ///                        DECLARATIONS                              ///
 ////////////////////////////////////////////////////////////////////////
@@ -117,7 +120,7 @@ int Aig_ManFindConeOverlap( Aig_Man_t * p, Vec_Ptr_t * vImplics, Aig_Obj_t * pNo
     assert( !Aig_IsComplement(pNode) );
     assert( !Aig_ObjIsConst1(pNode) );
     Aig_ManIncrementTravId( p );
-    Vec_PtrForEachEntry( vImplics, pTemp, i )
+    Vec_PtrForEachEntry( Aig_Obj_t *, vImplics, pTemp, i )
         Aig_ObjSetTravIdCurrent( p, Aig_Regular(pTemp) );
     Aig_ManIncrementTravId( p );
     return Aig_ManFindConeOverlap_rec( p, pNode );
@@ -137,13 +140,13 @@ int Aig_ManFindConeOverlap( Aig_Man_t * p, Vec_Ptr_t * vImplics, Aig_Obj_t * pNo
 Aig_Obj_t * Aig_ManDeriveNewCone_rec( Aig_Man_t * p, Aig_Obj_t * pNode )
 {
     if ( Aig_ObjIsTravIdCurrent( p, pNode ) )
-        return pNode->pData;
+        return (Aig_Obj_t *)pNode->pData;
     Aig_ObjSetTravIdCurrent( p, pNode );
     if ( Aig_ObjIsPi(pNode) )
-        return pNode->pData = pNode;
+        return (Aig_Obj_t *)(pNode->pData = pNode);
     Aig_ManDeriveNewCone_rec( p, Aig_ObjFanin0(pNode) );
     Aig_ManDeriveNewCone_rec( p, Aig_ObjFanin1(pNode) );
-    return pNode->pData = Aig_And( p, Aig_ObjChild0Copy(pNode), Aig_ObjChild1Copy(pNode) );
+    return (Aig_Obj_t *)(pNode->pData = Aig_And( p, Aig_ObjChild0Copy(pNode), Aig_ObjChild1Copy(pNode) ));
 }
 
 /**Function*************************************************************
@@ -164,7 +167,7 @@ Aig_Obj_t * Aig_ManDeriveNewCone( Aig_Man_t * p, Vec_Ptr_t * vImplics, Aig_Obj_t
     assert( !Aig_IsComplement(pNode) );
     assert( !Aig_ObjIsConst1(pNode) );
     Aig_ManIncrementTravId( p );
-    Vec_PtrForEachEntry( vImplics, pTemp, i )
+    Vec_PtrForEachEntry( Aig_Obj_t *, vImplics, pTemp, i )
     {
         Aig_ObjSetTravIdCurrent( p, Aig_Regular(pTemp) );
         Aig_Regular(pTemp)->pData = Aig_NotCond( Aig_ManConst1(p), Aig_IsComplement(pTemp) );
@@ -289,33 +292,33 @@ Vec_Ptr_t * Aig_SuppMinPerform( Aig_Man_t * p, Vec_Ptr_t * vOrGate, Vec_Ptr_t * 
     int i, nWords = Aig_TruthWordNum( Vec_PtrSize(vSupp) );
     // assign support nodes
     vTrSupp = Vec_PtrAllocTruthTables( Vec_PtrSize(vSupp) );
-    Vec_PtrForEachEntry( vSupp, pObj, i )
+    Vec_PtrForEachEntry( Aig_Obj_t *, vSupp, pObj, i )
     {
         printf( "%d %d\n", Aig_ObjId(pObj), i );
         pObj->pData = Vec_PtrEntry( vTrSupp, i );
     }
     // compute internal nodes
     vTrNode = Vec_PtrAllocSimInfo( Vec_PtrSize(vNodes) + 5, nWords );
-    Vec_PtrForEachEntry( vNodes, pObj, i )
+    Vec_PtrForEachEntry( Aig_Obj_t *, vNodes, pObj, i )
     {
-        pObj->pData = uFunc = Vec_PtrEntry( vTrNode, i );
-        uFunc0 = Aig_ObjFanin0(pObj)->pData;
-        uFunc1 = Aig_ObjFanin1(pObj)->pData;
+        pObj->pData = uFunc = (unsigned *)Vec_PtrEntry( vTrNode, i );
+        uFunc0 = (unsigned *)Aig_ObjFanin0(pObj)->pData;
+        uFunc1 = (unsigned *)Aig_ObjFanin1(pObj)->pData;
         Kit_TruthAndPhase( uFunc, uFunc0, uFunc1, Vec_PtrSize(vSupp), Aig_ObjFaninC0(pObj), Aig_ObjFaninC1(pObj) );
     }
     // uFunc contains the result of computation
     // compute care set
-    uCare = Vec_PtrEntry( vTrNode, Vec_PtrSize(vNodes) );
+    uCare = (unsigned *)Vec_PtrEntry( vTrNode, Vec_PtrSize(vNodes) );
     Kit_TruthClear( uCare, Vec_PtrSize(vSupp) );
-    Vec_PtrForEachEntry( vOrGate, pObj, i )
+    Vec_PtrForEachEntry( Aig_Obj_t *, vOrGate, pObj, i )
     {
         printf( "%d %d %d - or gate\n", Aig_ObjId(Aig_Regular(pObj)), Aig_IsComplement(pObj), i );
-        Kit_TruthOrPhase( uCare, uCare, Aig_Regular(pObj)->pData, Vec_PtrSize(vSupp), 0, Aig_IsComplement(pObj) );
+        Kit_TruthOrPhase( uCare, uCare, (unsigned *)Aig_Regular(pObj)->pData, Vec_PtrSize(vSupp), 0, Aig_IsComplement(pObj) );
     }
     // try cofactoring each variable in both polarities
     vCofs = Vec_PtrAlloc( 10 );
-    uCof  = Vec_PtrEntry( vTrNode, Vec_PtrSize(vNodes)+1 );
-    Vec_PtrForEachEntry( vSupp, pObj, i )
+    uCof  = (unsigned *)Vec_PtrEntry( vTrNode, Vec_PtrSize(vNodes)+1 );
+    Vec_PtrForEachEntry( Aig_Obj_t *, vSupp, pObj, i )
     {
         // consider negative cofactor
         Kit_TruthCofactor0New( uCof, uFunc, Vec_PtrSize(vSupp), i );
@@ -357,17 +360,17 @@ Aig_Obj_t * Aig_SuppMinReconstruct( Aig_Man_t * p, Vec_Ptr_t * vCofs, Vec_Ptr_t 
     Aig_Obj_t * pObj;
     int i;
     // set the value of the support variables
-    Vec_PtrForEachEntry( vSupp, pObj, i )
+    Vec_PtrForEachEntry( Aig_Obj_t *, vSupp, pObj, i )
         assert( !Aig_IsComplement(pObj) );
-    Vec_PtrForEachEntry( vSupp, pObj, i )
+    Vec_PtrForEachEntry( Aig_Obj_t *, vSupp, pObj, i )
         pObj->pData = pObj;
     // set the value of the cofactoring variables
-    Vec_PtrForEachEntry( vCofs, pObj, i )
+    Vec_PtrForEachEntry( Aig_Obj_t *, vCofs, pObj, i )
         Aig_Regular(pObj)->pData = Aig_NotCond( Aig_ManConst1(p), Aig_IsComplement(pObj) );
     // reconstruct the node
-    Vec_PtrForEachEntry( vNodes, pObj, i )
+    Vec_PtrForEachEntry( Aig_Obj_t *, vNodes, pObj, i )
         pObj->pData = Aig_And( p, Aig_ObjChild0Copy(pObj), Aig_ObjChild1Copy(pObj) );
-    return pObj->pData;
+    return (Aig_Obj_t *)pObj->pData;
 }
 
 /**Function*************************************************************
@@ -386,9 +389,9 @@ int Aig_SuppMinGateIsInSupport( Aig_Man_t * p, Vec_Ptr_t * vOrGate, Vec_Ptr_t * 
     Aig_Obj_t * pObj;
     int i;
     Aig_ManIncrementTravId( p );
-    Vec_PtrForEachEntry( vSupp, pObj, i )
+    Vec_PtrForEachEntry( Aig_Obj_t *, vSupp, pObj, i )
         Aig_ObjSetTravIdCurrent( p, pObj );
-    Vec_PtrForEachEntry( vOrGate, pObj, i )
+    Vec_PtrForEachEntry( Aig_Obj_t *, vOrGate, pObj, i )
         if ( !Aig_ObjIsTravIdCurrent( p, Aig_Regular(pObj) ) )
             return 0;
     return 1;
@@ -412,7 +415,7 @@ Vec_Ptr_t * Aig_SuppMinCollectSupport( Aig_Man_t * p, Vec_Ptr_t * vNodes )
     Aig_Obj_t * pObj, * pFanin;
     int i;
     vSupp = Vec_PtrAlloc( 4 );
-    Vec_PtrForEachEntry( vNodes, pObj, i )
+    Vec_PtrForEachEntry( Aig_Obj_t *, vNodes, pObj, i )
     {
         assert( Aig_ObjIsTravIdCurrent(p, pObj) );
         assert( Aig_ObjIsNode(pObj) );
@@ -526,10 +529,10 @@ int Aig_SuppMinHighlightCone( Aig_Man_t * p, Aig_Obj_t * pRoot, Vec_Ptr_t * vOrG
     assert( !Aig_IsComplement(pRoot) );
     Aig_ManIncrementTravId( p );
     Aig_ManIncrementTravId( p );
-    Vec_PtrForEachEntry( vOrGate, pLeaf, i )
+    Vec_PtrForEachEntry( Aig_Obj_t *, vOrGate, pLeaf, i )
         Aig_ObjSetTravIdCurrent( p, Aig_Regular(pLeaf) );
     RetValue = Aig_SuppMinHighlightCone_rec( p, pRoot );
-    Vec_PtrForEachEntry( vOrGate, pLeaf, i )
+    Vec_PtrForEachEntry( Aig_Obj_t *, vOrGate, pLeaf, i )
         Aig_ObjSetTravIdPrevious( p, Aig_Regular(pLeaf) );
     return RetValue;
 }
@@ -709,3 +712,5 @@ void Aig_ManSupportMinimizationTest()
 ////////////////////////////////////////////////////////////////////////
 ///                       END OF FILE                                ///
 ////////////////////////////////////////////////////////////////////////
+ABC_NAMESPACE_IMPL_END
+

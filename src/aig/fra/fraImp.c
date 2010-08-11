@@ -20,6 +20,9 @@
 
 #include "fra.h"
 
+ABC_NAMESPACE_IMPL_START
+
+
 ////////////////////////////////////////////////////////////////////////
 ///                        DECLARATIONS                              ///
 ////////////////////////////////////////////////////////////////////////
@@ -211,12 +214,12 @@ Vec_Ptr_t * Fra_SmlSortUsingOnes( Fra_Sml_t * p, int fLatchCorr )
         // skip nodes participating in the classes
 //        if ( Fra_ClassObjRepr(pObj) )
 //            continue;
-        pMemory = Vec_PtrEntry( vNodes, pnBits[i] );
+        pMemory = (int *)Vec_PtrEntry( vNodes, pnBits[i] );
         pMemory[ pnNodes[pnBits[i]]++ ] = i;
     }
     // add 0s in the end
     nTotal = 0;
-    Vec_PtrForEachEntry( vNodes, pMemory, i )
+    Vec_PtrForEachEntry( int *, vNodes, pMemory, i )
     {
         pMemory[ pnNodes[i]++ ] = 0;
         nTotal += pnNodes[i];
@@ -335,8 +338,8 @@ Vec_Int_t * Fra_ImpDerive( Fra_Man_t * p, int nImpMaxLimit, int nImpUseLimit, in
     // count the total number of implications
     for ( k = nSimWords * 32; k > 0; k-- )
     for ( i = k - 1; i > 0; i-- )
-    for ( pNodesI = Vec_PtrEntry( vNodes, i ); *pNodesI; pNodesI++ )
-    for ( pNodesK = Vec_PtrEntry( vNodes, k ); *pNodesK; pNodesK++ )
+    for ( pNodesI = (int *)Vec_PtrEntry( vNodes, i ); *pNodesI; pNodesI++ )
+    for ( pNodesK = (int *)Vec_PtrEntry( vNodes, k ); *pNodesK; pNodesK++ )
         nImpsTotal++;
 
     // compute implications and their costs
@@ -347,8 +350,8 @@ Vec_Int_t * Fra_ImpDerive( Fra_Man_t * p, int nImpMaxLimit, int nImpUseLimit, in
         {
             // HERE WE ARE MISSING SOME POTENTIAL IMPLICATIONS (with complement!)
 
-            for ( pNodesI = Vec_PtrEntry( vNodes, i ); *pNodesI; pNodesI++ )
-            for ( pNodesK = Vec_PtrEntry( vNodes, k ); *pNodesK; pNodesK++ )
+            for ( pNodesI = (int *)Vec_PtrEntry( vNodes, i ); *pNodesI; pNodesI++ )
+            for ( pNodesK = (int *)Vec_PtrEntry( vNodes, k ); *pNodesK; pNodesK++ )
             {
                 nImpsTried++;
                 if ( !Sml_NodeCheckImp(pSeq, *pNodesI, *pNodesK) )
@@ -712,8 +715,8 @@ void Fra_ImpRecordInManager( Fra_Man_t * p, Aig_Man_t * pNew )
         pRight = Aig_ManObj( p->pManAig, Fra_ImpRight(Imp) );
         // record the implication: L' + R
         pMiter = Aig_Or( pNew, 
-            Aig_NotCond(pLeft->pData, !pLeft->fPhase), 
-            Aig_NotCond(pRight->pData, pRight->fPhase) ); 
+            Aig_NotCond((Aig_Obj_t *)pLeft->pData, !pLeft->fPhase), 
+            Aig_NotCond((Aig_Obj_t *)pRight->pData, pRight->fPhase) ); 
         Aig_ObjCreatePo( pNew, pMiter );
     }
     pNew->nAsserts = Aig_ManPoNum(pNew) - nPosOld;
@@ -723,4 +726,6 @@ void Fra_ImpRecordInManager( Fra_Man_t * p, Aig_Man_t * pNew )
 ///                       END OF FILE                                ///
 ////////////////////////////////////////////////////////////////////////
 
+
+ABC_NAMESPACE_IMPL_END
 

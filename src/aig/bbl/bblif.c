@@ -24,7 +24,11 @@
 #include <assert.h>
 #include <time.h>
 
+#include "abc_global.h"
 #include "bblif.h"
+
+ABC_NAMESPACE_IMPL_START
+
 
 ////////////////////////////////////////////////////////////////////////
 ///                        DECLARATIONS                              ///
@@ -1509,4 +1513,6 @@ void Bbl_ManSimpleDemo()
 ///                       END OF FILE                                ///
 ////////////////////////////////////////////////////////////////////////
 
+
+ABC_NAMESPACE_IMPL_END
 

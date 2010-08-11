@@ -21,6 +21,9 @@
 #include "abc.h"
 //#include "reo.h"
 
+ABC_NAMESPACE_IMPL_START
+
+
 ////////////////////////////////////////////////////////////////////////
 ///                        DECLARATIONS                              ///
 ////////////////////////////////////////////////////////////////////////
@@ -120,7 +123,7 @@ Abc_Ntk_t * Abc_NtkFromGlobalBdds( Abc_Ntk_t * pNtk )
     // start the new network
     pNtkNew = Abc_NtkStartFrom( pNtk, ABC_NTK_LOGIC, ABC_FUNC_BDD );
     // make sure the new manager has the same number of inputs
-    Cudd_bddIthVar( pNtkNew->pManFunc, dd->size-1 );
+    Cudd_bddIthVar( (DdManager *)pNtkNew->pManFunc, dd->size-1 );
     // process the POs
     pProgress = Extra_ProgressBarStart( stdout, Abc_NtkCoNum(pNtk) );
     Abc_NtkForEachCo( pNtk, pNode, i )
@@ -169,7 +172,7 @@ Abc_Obj_t * Abc_NodeFromGlobalBdds( Abc_Ntk_t * pNtkNew, DdManager * dd, DdNode 
     Abc_NtkForEachCi( pNtkNew, pTemp, i )
         Abc_ObjAddFanin( pNodeNew, Abc_NtkCi(pNtkNew, dd->invperm[i]) );
     // transfer the function
-    pNodeNew->pData = Extra_TransferLevelByLevel( dd, pNtkNew->pManFunc, bFunc );  Cudd_Ref( pNodeNew->pData );
+    pNodeNew->pData = Extra_TransferLevelByLevel( dd, (DdManager *)pNtkNew->pManFunc, bFunc );  Cudd_Ref( (DdNode *)pNodeNew->pData );
     return pNodeNew;
 }
 
@@ -178,4 +181,6 @@ Abc_Obj_t * Abc_NodeFromGlobalBdds( Abc_Ntk_t * pNtkNew, DdManager * dd, DdNode 
 ///                       END OF FILE                                ///
 ////////////////////////////////////////////////////////////////////////
 
+
+ABC_NAMESPACE_IMPL_END
 

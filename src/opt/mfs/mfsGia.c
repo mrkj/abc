@@ -21,6 +21,9 @@
 #include "mfsInt.h"
 #include "giaAig.h"
 
+ABC_NAMESPACE_IMPL_START
+
+
 ////////////////////////////////////////////////////////////////////////
 ///                        DECLARATIONS                              ///
 ////////////////////////////////////////////////////////////////////////
@@ -270,7 +273,7 @@ int Abc_NtkMfsTryResubOnceGia( Mfs_Man_t * p, int * pCands, int nCands )
             // store the counter-example
             Vec_IntForEachEntry( p->vProjVars, iVar, i )
             {
-                pData = Vec_PtrEntry( p->vDivCexes, i );
+                pData = (unsigned *)Vec_PtrEntry( p->vDivCexes, i );
                 iOut = iVar - 2 * p->pCnf->nVars;
 //                if ( !Gia_ManPo( p->pGia, 4 + iOut )->fMark1 ) // remove 0s!!!
                 if ( Gia_ManPo( p->pGia, 4 + iOut )->fMark1 ) // remove 0s!!!  - rememeber complemented attribute
@@ -291,4 +294,6 @@ int Abc_NtkMfsTryResubOnceGia( Mfs_Man_t * p, int * pCands, int nCands )
 ///                       END OF FILE                                ///
 ////////////////////////////////////////////////////////////////////////
 
+
+ABC_NAMESPACE_IMPL_END
 

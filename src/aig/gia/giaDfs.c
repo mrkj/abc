@@ -20,6 +20,9 @@
 
 #include "gia.h"
 
+ABC_NAMESPACE_IMPL_START
+
+
 ////////////////////////////////////////////////////////////////////////
 ///                        DECLARATIONS                              ///
 ////////////////////////////////////////////////////////////////////////
@@ -380,7 +383,7 @@ Vec_Int_t * Gia_ManOrderReverse( Gia_Man_t * p )
     // put the nodes in the reverse topological order
     vResult = Vec_IntAlloc( Gia_ManObjNum(p) );
     Vec_VecForEachLevelReverse( vLevels, vLevel, i )
-        Vec_PtrForEachEntry( vLevel, pObj, k )
+        Vec_PtrForEachEntry( Gia_Obj_t *, vLevel, pObj, k )
             Vec_IntPush( vResult, Gia_ObjId(p, pObj) );
     Vec_VecFree( vLevels );
     return vResult;
@@ -390,4 +393,6 @@ Vec_Int_t * Gia_ManOrderReverse( Gia_Man_t * p )
 ///                       END OF FILE                                ///
 ////////////////////////////////////////////////////////////////////////
 
+
+ABC_NAMESPACE_IMPL_END
 

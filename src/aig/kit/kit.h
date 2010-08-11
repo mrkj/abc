@@ -21,6 +21,7 @@
 #ifndef __KIT_H__
 #define __KIT_H__
 
+
 ////////////////////////////////////////////////////////////////////////
 ///                          INCLUDES                                ///
 ////////////////////////////////////////////////////////////////////////
@@ -38,9 +39,10 @@
 ///                         PARAMETERS                               ///
 ////////////////////////////////////////////////////////////////////////
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+
+
+ABC_NAMESPACE_HEADER_START
+
 
 ////////////////////////////////////////////////////////////////////////
 ///                         BASIC TYPES                              ///
@@ -637,9 +639,11 @@ extern unsigned        Kit_TruthSemiCanonicize( unsigned * pInOut, unsigned * pA
 extern char *          Kit_TruthDumpToFile( unsigned * pTruth, int nVars, int nFile );
 extern void            Kit_TruthPrintProfile( unsigned * pTruth, int nVars );
 
-#ifdef __cplusplus
-}
-#endif
+
+
+ABC_NAMESPACE_HEADER_END
+
+
 
 #endif
 

@@ -27,6 +27,9 @@
 #include "satStore.h"
 #include "vec.h"
 
+ABC_NAMESPACE_IMPL_START
+
+
 ////////////////////////////////////////////////////////////////////////
 ///                        DECLARATIONS                              ///
 ////////////////////////////////////////////////////////////////////////
@@ -583,7 +586,7 @@ int Intp_ManProofTraceOne( Intp_Man_t * p, Sto_Cls_t * pConflict, Sto_Cls_t * pF
 
 //        Vec_PtrPush( pFinal->pAntis, pReason );
 //        Vec_IntPush( p->vAnties, pReason->Id );
-        Vec_IntPush( Vec_PtrEntryLast(p->vAntClas), pReason->Id );
+        Vec_IntPush( (Vec_Int_t *)Vec_PtrEntryLast(p->vAntClas), pReason->Id );
     }
 
     // unmark all seen variables
@@ -874,7 +877,7 @@ void Intp_ManUnsatCoreVerify( Sto_Man_t * pCnf, Vec_Int_t * vCore )
 //    sat_solver_setnvars( pSat, nSatVars );
     Vec_IntForEachEntry( vCore, iClause, i )
     {
-        pClause = Vec_PtrEntry( vClauses, iClause );
+        pClause = (Sto_Cls_t *)Vec_PtrEntry( vClauses, iClause );
         if ( !sat_solver_addclause( pSat, pClause->pLits, pClause->pLits+pClause->nLits ) )
         {
             printf( "The core verification problem is trivially UNSAT.\n" );
@@ -933,7 +936,7 @@ void Intp_ManUnsatCore_rec( Vec_Ptr_t * vAntClas, int iThis, Vec_Int_t * vCore, 
 //    iStop = Vec_IntEntry( vBreaks, iThis+1 );
 //    assert( iStop != -1 );
 //    for ( i = iStart; i < iStop; i++ )
-    vAnt = Vec_PtrEntry( vAntClas, iThis - nRoots );
+    vAnt = (Vec_Int_t *)Vec_PtrEntry( vAntClas, iThis - nRoots );
     Vec_IntForEachEntry( vAnt, Entry, i )
 //        Intp_ManUnsatCore_rec( vAntClas, Vec_IntEntry(vAnties, i), vCore, nRoots, vVisited );
         Intp_ManUnsatCore_rec( vAntClas, Entry, vCore, nRoots, vVisited );
@@ -1042,4 +1045,6 @@ p->timeTotal += clock() - clkTotal;
 ///                       END OF FILE                                ///
 ////////////////////////////////////////////////////////////////////////
 
+
+ABC_NAMESPACE_IMPL_END
 

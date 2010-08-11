@@ -21,6 +21,9 @@
 
 #include "gia.h"
 
+ABC_NAMESPACE_IMPL_START
+
+
 ////////////////////////////////////////////////////////////////////////
 ///                        DECLARATIONS                              ///
 ////////////////////////////////////////////////////////////////////////
@@ -41,7 +44,7 @@
   SeeAlso     []
 
 ***********************************************************************/
-unsigned Gia_ReadAigerDecode( char ** ppPos )
+unsigned Gia_ReadAigerDecode( unsigned char ** ppPos )
 {
     unsigned x = 0, i = 0;
     unsigned char ch;
@@ -61,7 +64,7 @@ unsigned Gia_ReadAigerDecode( char ** ppPos )
   SeeAlso     []
 
 ***********************************************************************/
-Vec_Int_t * Gia_WriteDecodeLiterals( char ** ppPos, int nEntries )
+Vec_Int_t * Gia_WriteDecodeLiterals( unsigned char ** ppPos, int nEntries )
 {
     Vec_Int_t * vLits;
     int Lit, LitPrev, Diff, i;
@@ -179,7 +182,7 @@ int Gia_ReadInt( unsigned char * pPos )
   SeeAlso     []
 
 ***********************************************************************/
-unsigned Gia_ReadDiffValue( char ** ppPos, int iPrev )
+unsigned Gia_ReadDiffValue( unsigned char ** ppPos, int iPrev )
 {
     int Item = Gia_ReadAigerDecode( ppPos );
     if ( Item & 1 )
@@ -347,7 +350,8 @@ Gia_Man_t * Gia_ReadAiger( char * pFileName, int fCheck )
     Vec_Int_t * vNodes, * vDrivers;//, * vTerms;
     int iObj, iNode0, iNode1;
     int nTotal, nInputs, nOutputs, nLatches, nAnds, nFileSize, i;//, iTerm, nDigits;
-    char * pContents, * pDrivers, * pSymbols, * pCur, * pName;//, * pType;
+    unsigned char * pDrivers, * pSymbols, * pCur;//, * pType;
+    char * pContents, * pName;
     unsigned uLit0, uLit1, uLit;
 
     // read the file into the buffer
@@ -367,17 +371,17 @@ Gia_Man_t * Gia_ReadAiger( char * pFileName, int fCheck )
     }
 
     // read the file type
-    pCur = pContents;         while ( *pCur++ != ' ' );
+    pCur = (unsigned char *)pContents;  while ( *pCur++ != ' ' );
     // read the number of objects
-    nTotal = atoi( pCur );    while ( *pCur++ != ' ' );
+    nTotal = atoi( (char *)pCur );    while ( *pCur++ != ' ' );
     // read the number of inputs
-    nInputs = atoi( pCur );   while ( *pCur++ != ' ' );
+    nInputs = atoi( (char *)pCur );   while ( *pCur++ != ' ' );
     // read the number of latches
-    nLatches = atoi( pCur );  while ( *pCur++ != ' ' );
+    nLatches = atoi( (char *)pCur );  while ( *pCur++ != ' ' );
     // read the number of outputs
-    nOutputs = atoi( pCur );  while ( *pCur++ != ' ' );
+    nOutputs = atoi( (char *)pCur );  while ( *pCur++ != ' ' );
     // read the number of nodes
-    nAnds = atoi( pCur );     while ( *pCur++ != '\n' );  
+    nAnds = atoi( (char *)pCur );     while ( *pCur++ != '\n' );  
     // check the parameters
     if ( nTotal != nInputs + nLatches + nAnds )
     {
@@ -441,14 +445,14 @@ Gia_Man_t * Gia_ReadAiger( char * pFileName, int fCheck )
         pCur = pDrivers;
         for ( i = 0; i < nLatches; i++ )
         {
-            uLit0 = atoi( pCur );  while ( *pCur++ != '\n' );
+            uLit0 = atoi( (char *)pCur );  while ( *pCur++ != '\n' );
             iNode0 = Gia_LitNotCond( Vec_IntEntry(vNodes, uLit0 >> 1), (uLit0 & 1) );
             Vec_IntPush( vDrivers, iNode0 );
         }
         // read the PO driver literals
         for ( i = 0; i < nOutputs; i++ )
         {
-            uLit0 = atoi( pCur );  while ( *pCur++ != '\n' );
+            uLit0 = atoi( (char *)pCur );  while ( *pCur++ != '\n' );
             iNode0 = Gia_LitNotCond( Vec_IntEntry(vNodes, uLit0 >> 1), (uLit0 & 1) );
             Vec_IntPush( vDrivers, iNode0 );
         }
@@ -485,7 +489,7 @@ Gia_Man_t * Gia_ReadAiger( char * pFileName, int fCheck )
 
     // check if there are other types of information to read
     pCur = pSymbols;
-    if ( pCur + 1 < pContents + nFileSize && *pCur == 'c' )
+    if ( (char *)pCur + 1 < pContents + nFileSize && *pCur == 'c' )
     {
         pCur++;
         if ( *pCur == 'e' )
@@ -531,7 +535,7 @@ Gia_Man_t * Gia_ReadAiger( char * pFileName, int fCheck )
             pCur++;
             // read model name
             ABC_FREE( pNew->pName );
-            pNew->pName = Gia_UtilStrsav( pCur );
+            pNew->pName = Gia_UtilStrsav( (char *)pCur );
         }
     }
 
@@ -692,7 +696,7 @@ unsigned char * Gia_WriteEquivClasses( Gia_Man_t * p, int * pEquivSize )
         Gia_ClassForEachObj( p, iRepr, iNode )
             nItems++;
     }
-    pBuffer = ABC_ALLOC( char, sizeof(int) * (nItems + 1) );
+    pBuffer = ABC_ALLOC( unsigned char, sizeof(int) * (nItems + 1) );
     // write constant class
     iPos = Gia_WriteAigerEncode( pBuffer, 4, Gia_Var2Lit(0, 1) );
 //printf( "\nRepr = %d ", 0 );
@@ -736,7 +740,7 @@ unsigned char * Gia_WriteEquivClasses( Gia_Man_t * p, int * pEquivSize )
   SeeAlso     []
 
 ***********************************************************************/
-int Gia_WriteDiffValue( char * pPos, int iPos, int iPrev, int iThis )
+int Gia_WriteDiffValue( unsigned char * pPos, int iPos, int iPrev, int iThis )
 {
     if ( iPrev < iThis )
         return Gia_WriteAigerEncode( pPos, iPos, Gia_Var2Lit(iThis - iPrev, 1) );
@@ -763,7 +767,7 @@ unsigned char * Gia_WriteMapping( Gia_Man_t * p, int * pMapSize )
     nItems = 0;
     Gia_ManForEachLut( p, i )
         nItems += 2 + Gia_ObjLutSize( p, i );
-    pBuffer = ABC_ALLOC( char, sizeof(int) * (nItems + 1) );
+    pBuffer = ABC_ALLOC( unsigned char, sizeof(int) * (nItems + 1) );
     // write non-constant classes
     iPrev = 0;
     Gia_ManForEachLut( p, i )
@@ -897,7 +901,7 @@ void Gia_WriteAiger( Gia_Man_t * pInit, char * pFileName, int fWriteSymbols, int
     // write flop classes
     if ( p->vFlopClasses )
     {
-        char Buffer[10];
+        unsigned char Buffer[10];
         int nSize = 4*Gia_ManRegNum(p);
         Gia_WriteInt( Buffer, nSize );
         fprintf( pFile, "f" );
@@ -916,7 +920,7 @@ void Gia_WriteAiger( Gia_Man_t * pInit, char * pFileName, int fWriteSymbols, int
     // write placement
     if ( p->pPlacement )
     {
-        char Buffer[10];
+        unsigned char Buffer[10];
         int nSize = 4*Gia_ManObjNum(p);
         Gia_WriteInt( Buffer, nSize );
         fprintf( pFile, "p" );
@@ -926,7 +930,7 @@ void Gia_WriteAiger( Gia_Man_t * pInit, char * pFileName, int fWriteSymbols, int
     // write flop classes
     if ( p->pSwitching )
     {
-        char Buffer[10];
+        unsigned char Buffer[10];
         int nSize = Gia_ManObjNum(p);
         Gia_WriteInt( Buffer, nSize );
         fprintf( pFile, "s" );
@@ -936,7 +940,7 @@ void Gia_WriteAiger( Gia_Man_t * pInit, char * pFileName, int fWriteSymbols, int
     // write constraints
     if ( p->nConstrs )
     {
-        char Buffer[10];
+        unsigned char Buffer[10];
         Gia_WriteInt( Buffer, p->nConstrs );
         fprintf( pFile, "c" );
         fwrite( Buffer, 1, 4, pFile );
@@ -973,4 +977,6 @@ void Gia_DumpAiger( Gia_Man_t * p, char * pFilePrefix, int iFileNum, int nFileNu
 ///                       END OF FILE                                ///
 ////////////////////////////////////////////////////////////////////////
 
+
+ABC_NAMESPACE_IMPL_END
 

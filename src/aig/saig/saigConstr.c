@@ -24,6 +24,9 @@
 #include "kit.h"
 #include "ioa.h"
 
+ABC_NAMESPACE_IMPL_START
+
+
 
 ////////////////////////////////////////////////////////////////////////
 ///                        DECLARATIONS                              ///
@@ -68,12 +71,12 @@ Aig_Man_t * Saig_ManDupUnfoldConstrs( Aig_Man_t * pAig )
         pObj->pData = Aig_And( pAigNew, Aig_ObjChild0Copy(pObj), Aig_ObjChild1Copy(pObj) );
     // AND the outputs
     pMiter = Aig_ManConst1( pAigNew );
-    Vec_PtrForEachEntry( vOuts, pObj, i )
+    Vec_PtrForEachEntry( Aig_Obj_t *, vOuts, pObj, i )
         pMiter = Aig_And( pAigNew, pMiter, Aig_Not(Aig_ObjRealCopy(pObj)) );
     Aig_ObjCreatePo( pAigNew, pMiter );
     // add constraints
     pAigNew->nConstrs = Vec_PtrSize(vCons);
-    Vec_PtrForEachEntry( vCons, pObj, i )
+    Vec_PtrForEachEntry( Aig_Obj_t *, vCons, pObj, i )
         Aig_ObjCreatePo( pAigNew, Aig_ObjRealCopy(pObj) );
     // transfer to register outputs
     Saig_ManForEachLi( pAig, pObj, i )
@@ -243,11 +246,11 @@ Vec_Ptr_t * Saig_ManDetectConstrCheckCont( Vec_Ptr_t * vSuper, Vec_Ptr_t * vSupe
     Vec_Ptr_t * vUnique;
     Aig_Obj_t * pObj, * pObj2;
     int i;
-    Vec_PtrForEachEntry( vSuper2, pObj2, i )
+    Vec_PtrForEachEntry( Aig_Obj_t *, vSuper2, pObj2, i )
         if ( Vec_PtrFind( vSuper, pObj2 ) == -1 )
             return 0;
     vUnique = Vec_PtrAlloc( 100 );
-    Vec_PtrForEachEntry( vSuper, pObj, i )
+    Vec_PtrForEachEntry( Aig_Obj_t *, vSuper, pObj, i )
         if ( Vec_PtrFind( vSuper2, pObj ) == -1 )
             Vec_PtrPush( vUnique, pObj );
     return vUnique;
@@ -285,7 +288,7 @@ int Saig_ManDetectConstr( Aig_Man_t * p, Vec_Ptr_t ** pvOuts, Vec_Ptr_t ** pvCon
     vSuper = Saig_DetectConstrCollectSuper( pObj );
     assert( Vec_PtrSize(vSuper) >= 2 );
     nFlops = 0;
-    Vec_PtrForEachEntry( vSuper, pObj, i )
+    Vec_PtrForEachEntry( Aig_Obj_t *, vSuper, pObj, i )
         nFlops += Saig_ObjIsLo( p, Aig_Regular(pObj) );
     if ( nFlops == 0 )
     {
@@ -295,7 +298,7 @@ int Saig_ManDetectConstr( Aig_Man_t * p, Vec_Ptr_t ** pvOuts, Vec_Ptr_t ** pvCon
     }
     // try flops 
     vUnique = NULL;
-    Vec_PtrForEachEntry( vSuper, pObj, i )
+    Vec_PtrForEachEntry( Aig_Obj_t *, vSuper, pObj, i )
     {
         pFlop = Aig_Regular( pObj );
         if ( !Saig_ObjIsLo(p, pFlop) )
@@ -376,4 +379,6 @@ int Saig_ManDetectConstrTest( Aig_Man_t * p )
 ///                       END OF FILE                                ///
 ////////////////////////////////////////////////////////////////////////
 
+
+ABC_NAMESPACE_IMPL_END
 

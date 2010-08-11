@@ -20,6 +20,9 @@
 
 #include "intInt.h"
 
+ABC_NAMESPACE_IMPL_START
+
+
 ////////////////////////////////////////////////////////////////////////
 ///                        DECLARATIONS                              ///
 ////////////////////////////////////////////////////////////////////////
@@ -194,7 +197,7 @@ p->timeCnf += clock() - clk;
                         printf( "Found a real counterexample in frame %d.\n", p->nFrames );
                     p->timeTotal = clock() - clkTotal;
                     *piFrame = p->nFrames;
-                    pAig->pSeqModel = Inter_ManGetCounterExample( pAig, p->nFrames+1, pPars->fVerbose );
+                    pAig->pSeqModel = (Abc_Cex_t *)Inter_ManGetCounterExample( pAig, p->nFrames+1, pPars->fVerbose );
                     Inter_ManStop( p );
                     return 0;
                 }
@@ -300,4 +303,6 @@ p->timeCnf += clock() - clk;
 ///                       END OF FILE                                ///
 ////////////////////////////////////////////////////////////////////////
 
+
+ABC_NAMESPACE_IMPL_END
 

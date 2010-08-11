@@ -19,7 +19,11 @@
 ***********************************************************************/
 
 #include "cecInt.h"
+#include "fra.h"
 #include "giaAig.h"
+
+ABC_NAMESPACE_IMPL_START
+
 
 ////////////////////////////////////////////////////////////////////////
 ///                        DECLARATIONS                              ///
@@ -67,7 +71,7 @@ void Cec_ManTransformPattern( Gia_Man_t * p, int iOut, int * pValues )
 ***********************************************************************/
 int Cec_ManVerifyOld( Gia_Man_t * pMiter, int fVerbose, int * piOutFail )
 {
-    extern int Fra_FraigCec( Aig_Man_t ** ppAig, int nConfLimit, int fVerbose );
+//    extern int Fra_FraigCec( Aig_Man_t ** ppAig, int nConfLimit, int fVerbose );
     extern int Ssw_SecCexResimulate( Aig_Man_t * p, int * pModel, int * pnOutputs );
     Gia_Man_t * pTemp = Gia_ManTransformMiter( pMiter );
     Aig_Man_t * pMiterCec = Gia_ManToAig( pTemp, 0 );
@@ -91,7 +95,7 @@ Abc_PrintTime( 1, "Time", clock() - clkTotal );
             Abc_Print( 1, "Counter-example is not available.\n" );
         else
         {
-            iOut = Ssw_SecCexResimulate( pMiterCec, pMiterCec->pData, &nOuts );
+            iOut = Ssw_SecCexResimulate( pMiterCec, (int *)pMiterCec->pData, &nOuts );
             if ( iOut == -1 )
                 Abc_Print( 1, "Counter-example verification has failed.\n" );
             else 
@@ -105,7 +109,7 @@ Abc_PrintTime( 1, "Time", clock() - clkTotal );
                 if ( piOutFail )
                     *piOutFail = iOut;
             }
-            Cec_ManTransformPattern( pMiter, iOut, pMiterCec->pData );
+            Cec_ManTransformPattern( pMiter, iOut, (int *)pMiterCec->pData );
         }
     }
     else
@@ -364,4 +368,6 @@ Aig_Man_t * Cec_FraigCombinational( Aig_Man_t * pAig, int nConfs, int fVerbose )
 ///                       END OF FILE                                ///
 ////////////////////////////////////////////////////////////////////////
 
+
+ABC_NAMESPACE_IMPL_END
 

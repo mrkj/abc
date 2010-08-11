@@ -20,6 +20,10 @@
 
 #include "gia.h"
 #include "giaAig.h"
+#include "saig.h"
+
+ABC_NAMESPACE_IMPL_START
+
 
 ////////////////////////////////////////////////////////////////////////
 ///                        DECLARATIONS                              ///
@@ -136,7 +140,7 @@ Gia_Man_t * Gia_ManDupFf2In( Gia_Man_t * p, int nFlopsOld )
 ***********************************************************************/
 Gia_Man_t * Gia_ManReparm( Gia_Man_t * p, int fVerbose )
 {
-    extern Aig_Man_t * Saig_ManRetimeMinArea( Aig_Man_t * p, int nMaxIters, int fForwardOnly, int fBackwardOnly, int fInitial, int fVerbose );
+//    extern Aig_Man_t * Saig_ManRetimeMinArea( Aig_Man_t * p, int nMaxIters, int fForwardOnly, int fBackwardOnly, int fInitial, int fVerbose );
     Aig_Man_t * pMan, * pTemp;
     Gia_Man_t * pNew, * pTmp;
     int nFlopsOld = Gia_ManRegNum(p);
@@ -192,4 +196,6 @@ Gia_Man_t * Gia_ManReparm( Gia_Man_t * p, int fVerbose )
 ///                       END OF FILE                                ///
 ////////////////////////////////////////////////////////////////////////
 
+
+ABC_NAMESPACE_IMPL_END
 

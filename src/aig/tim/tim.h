@@ -21,6 +21,7 @@
 #ifndef __TIM_H__
 #define __TIM_H__
 
+
 ////////////////////////////////////////////////////////////////////////
 ///                          INCLUDES                                ///
 ////////////////////////////////////////////////////////////////////////
@@ -29,9 +30,10 @@
 ///                         PARAMETERS                               ///
 ////////////////////////////////////////////////////////////////////////
 
-#ifdef __cplusplus
-extern "C" {
-#endif 
+
+
+ABC_NAMESPACE_HEADER_START
+ 
 
 ////////////////////////////////////////////////////////////////////////
 ///                         BASIC TYPES                              ///
@@ -94,9 +96,11 @@ extern int             Tim_ManBoxInputNum( Tim_Man_t * p, int iBox );
 extern int             Tim_ManBoxOutputNum( Tim_Man_t * p, int iBox );
 extern void            Tim_ManChangeForAdders( Tim_Man_t * p );
 
-#ifdef __cplusplus
-}
-#endif
+
+
+ABC_NAMESPACE_HEADER_END
+
+
 
 #endif
 

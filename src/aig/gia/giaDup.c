@@ -20,6 +20,9 @@
 
 #include "gia.h"
 
+ABC_NAMESPACE_IMPL_START
+
+
 ////////////////////////////////////////////////////////////////////////
 ///                        DECLARATIONS                              ///
 ////////////////////////////////////////////////////////////////////////
@@ -368,13 +371,13 @@ Gia_Man_t * Gia_ManDupFlip( Gia_Man_t * p, int * pInitState )
         {
             pObj->Value = Gia_ManAppendCi( pNew );
             if ( Gia_ObjCioId(pObj) >= Gia_ManPiNum(p) )
-                pObj->Value = Gia_LitNotCond( pObj->Value, Gia_InfoHasBit(pInitState, Gia_ObjCioId(pObj) - Gia_ManPiNum(p)) );
+                pObj->Value = Gia_LitNotCond( pObj->Value, Gia_InfoHasBit((unsigned *)pInitState, Gia_ObjCioId(pObj) - Gia_ManPiNum(p)) );
         }
         else if ( Gia_ObjIsCo(pObj) )
         {
             pObj->Value = Gia_ObjFanin0Copy(pObj);
             if ( Gia_ObjCioId(pObj) >= Gia_ManPoNum(p) )
-                pObj->Value = Gia_LitNotCond( pObj->Value, Gia_InfoHasBit(pInitState, Gia_ObjCioId(pObj) - Gia_ManPoNum(p)) );
+                pObj->Value = Gia_LitNotCond( pObj->Value, Gia_InfoHasBit((unsigned *)pInitState, Gia_ObjCioId(pObj) - Gia_ManPoNum(p)) );
             pObj->Value = Gia_ManAppendCo( pNew, pObj->Value );
         }
     }
@@ -1424,8 +1427,8 @@ Gia_Man_t * Gia_ManChoiceMiter( Vec_Ptr_t * vGias )
     int i, k, iNode, nNodes;
     // make sure they have equal parameters
     assert( Vec_PtrSize(vGias) > 0 );
-    pGia0 = Vec_PtrEntry( vGias, 0 );
-    Vec_PtrForEachEntry( vGias, pGia, i )
+    pGia0 = (Gia_Man_t *)Vec_PtrEntry( vGias, 0 );
+    Vec_PtrForEachEntry( Gia_Man_t *, vGias, pGia, i )
     {
         assert( Gia_ManCiNum(pGia)  == Gia_ManCiNum(pGia0) );
         assert( Gia_ManCoNum(pGia)  == Gia_ManCoNum(pGia0) );
@@ -1440,14 +1443,14 @@ Gia_Man_t * Gia_ManChoiceMiter( Vec_Ptr_t * vGias )
     for ( k = 0; k < Gia_ManCiNum(pGia0); k++ )
     {
         iNode = Gia_ManAppendCi(pNew);
-        Vec_PtrForEachEntry( vGias, pGia, i )
+        Vec_PtrForEachEntry( Gia_Man_t *, vGias, pGia, i )
             Gia_ManCi( pGia, k )->Value = iNode; 
     }
     // create internal nodes
     Gia_ManHashAlloc( pNew );
     for ( k = 0; k < Gia_ManCoNum(pGia0); k++ )
     {
-        Vec_PtrForEachEntry( vGias, pGia, i )
+        Vec_PtrForEachEntry( Gia_Man_t *, vGias, pGia, i )
             Gia_ManChoiceMiter_rec( pNew, pGia, Gia_ManCo( pGia, k ) );
     }
     Gia_ManHashStop( pNew );
@@ -1463,4 +1466,6 @@ Gia_Man_t * Gia_ManChoiceMiter( Vec_Ptr_t * vGias )
 ///                       END OF FILE                                ///
 ////////////////////////////////////////////////////////////////////////
 
+
+ABC_NAMESPACE_IMPL_END
 

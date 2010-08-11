@@ -21,11 +21,15 @@
 #ifndef __VEC_PTR_H__
 #define __VEC_PTR_H__
 
+
 ////////////////////////////////////////////////////////////////////////
 ///                          INCLUDES                                ///
 ////////////////////////////////////////////////////////////////////////
 
 #include <stdio.h>
+
+ABC_NAMESPACE_HEADER_START
+
 
 ////////////////////////////////////////////////////////////////////////
 ///                         PARAMETERS                               ///
@@ -48,16 +52,16 @@ struct Vec_Ptr_t_
 ////////////////////////////////////////////////////////////////////////
 
 // iterators through entries
-#define Vec_PtrForEachEntry( vVec, pEntry, i )                                               \
-    for ( i = 0; (i < Vec_PtrSize(vVec)) && (((pEntry) = Vec_PtrEntry(vVec, i)), 1); i++ )
-#define Vec_PtrForEachEntryStart( vVec, pEntry, i, Start )                                   \
-    for ( i = Start; (i < Vec_PtrSize(vVec)) && (((pEntry) = Vec_PtrEntry(vVec, i)), 1); i++ )
-#define Vec_PtrForEachEntryStop( vVec, pEntry, i, Stop )                                     \
-    for ( i = 0; (i < Stop) && (((pEntry) = Vec_PtrEntry(vVec, i)), 1); i++ )
-#define Vec_PtrForEachEntryStartStop( vVec, pEntry, i, Start, Stop )                         \
-    for ( i = Start; (i < Stop) && (((pEntry) = Vec_PtrEntry(vVec, i)), 1); i++ )
-#define Vec_PtrForEachEntryReverse( vVec, pEntry, i )                                        \
-    for ( i = Vec_PtrSize(vVec) - 1; (i >= 0) && (((pEntry) = Vec_PtrEntry(vVec, i)), 1); i-- )
+#define Vec_PtrForEachEntry( Type, vVec, pEntry, i )                                               \
+    for ( i = 0; (i < Vec_PtrSize(vVec)) && (((pEntry) = (Type)Vec_PtrEntry(vVec, i)), 1); i++ )
+#define Vec_PtrForEachEntryStart( Type, vVec, pEntry, i, Start )                                   \
+    for ( i = Start; (i < Vec_PtrSize(vVec)) && (((pEntry) = (Type)Vec_PtrEntry(vVec, i)), 1); i++ )
+#define Vec_PtrForEachEntryStop( Type, vVec, pEntry, i, Stop )                                     \
+    for ( i = 0; (i < Stop) && (((pEntry) = (Type)Vec_PtrEntry(vVec, i)), 1); i++ )
+#define Vec_PtrForEachEntryStartStop( Type, vVec, pEntry, i, Start, Stop )                         \
+    for ( i = Start; (i < Stop) && (((pEntry) = (Type)Vec_PtrEntry(vVec, i)), 1); i++ )
+#define Vec_PtrForEachEntryReverse( Type, vVec, pEntry, i )                                        \
+    for ( i = Vec_PtrSize(vVec) - 1; (i >= 0) && (((pEntry) = (Type)Vec_PtrEntry(vVec, i)), 1); i-- )
 
 ////////////////////////////////////////////////////////////////////////
 ///                     FUNCTION DEFINITIONS                         ///
@@ -498,7 +502,7 @@ static inline void Vec_PtrFreeFree( Vec_Ptr_t * p )
     void * pTemp;
     int i;
     if ( p == NULL ) return;
-    Vec_PtrForEachEntry( p, pTemp, i )
+    Vec_PtrForEachEntry( void *, p, pTemp, i )
         ABC_FREE( pTemp );
     Vec_PtrFree( p );
 }
@@ -971,6 +975,10 @@ static inline Vec_Ptr_t * Vec_PtrAllocTruthTables( int nVars )
     }
     return p;
 }
+
+
+
+ABC_NAMESPACE_HEADER_END
 
 #endif
 

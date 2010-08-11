@@ -19,6 +19,10 @@
 ***********************************************************************/
 
 #include "amapInt.h"
+#include "main.h"
+
+ABC_NAMESPACE_IMPL_START
+
 
 ////////////////////////////////////////////////////////////////////////
 ///                        DECLARATIONS                              ///
@@ -64,12 +68,12 @@ void Amap_ManSetDefaultParams( Amap_Par_t * p )
 ***********************************************************************/
 Vec_Ptr_t * Amap_ManTest( Aig_Man_t * pAig, Amap_Par_t * pPars )
 {
-    extern void * Abc_FrameReadLibGen2();
+//    extern void * Abc_FrameReadLibGen2();
     Vec_Ptr_t * vRes;
     Amap_Man_t * p;
     Amap_Lib_t * pLib;
     int clkTotal = clock();
-    pLib = Abc_FrameReadLibGen2();
+    pLib = (Amap_Lib_t *)Abc_FrameReadLibGen2();
     if ( pLib == NULL )
     {
         printf( "Library is not available.\n" );
@@ -100,4 +104,6 @@ ABC_PRT( "Total runtime", clock() - clkTotal );
 ///                       END OF FILE                                ///
 ////////////////////////////////////////////////////////////////////////
 
+
+ABC_NAMESPACE_IMPL_END
 

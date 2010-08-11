@@ -21,6 +21,9 @@
 #include "aig.h"
 #include "tim.h"
 
+ABC_NAMESPACE_IMPL_START
+
+
 ////////////////////////////////////////////////////////////////////////
 ///                        DECLARATIONS                              ///
 ////////////////////////////////////////////////////////////////////////
@@ -118,14 +121,14 @@ Aig_Obj_t * Aig_ManDup_rec( Aig_Man_t * pNew, Aig_Man_t * p, Aig_Obj_t * pObj )
 {
     Aig_Obj_t * pObjNew;
     if ( pObj->pData )
-        return pObj->pData;
+        return (Aig_Obj_t *)pObj->pData;
     Aig_ManDup_rec( pNew, p, Aig_ObjFanin0(pObj) );
     if ( Aig_ObjIsBuf(pObj) )
-        return pObj->pData = Aig_ObjChild0Copy(pObj);
+        return (Aig_Obj_t *)(pObj->pData = Aig_ObjChild0Copy(pObj));
     Aig_ManDup_rec( pNew, p, Aig_ObjFanin1(pObj) );
     pObjNew = Aig_Oper( pNew, Aig_ObjChild0Copy(pObj), Aig_ObjChild1Copy(pObj), Aig_ObjType(pObj) );
     Aig_Regular(pObjNew)->pHaig = pObj->pHaig;
-    return pObj->pData = pObjNew;
+    return (Aig_Obj_t *)(pObj->pData = pObjNew);
 }
 
 /**Function*************************************************************
@@ -157,7 +160,7 @@ Aig_Man_t * Aig_ManExtractMiter( Aig_Man_t * p, Aig_Obj_t * pNode1, Aig_Obj_t * 
     Aig_ManDup_rec( pNew, p, pNode1 );   
     Aig_ManDup_rec( pNew, p, pNode2 );   
     // construct the EXOR
-    pObj = Aig_Exor( pNew, pNode1->pData, pNode2->pData ); 
+    pObj = Aig_Exor( pNew, (Aig_Obj_t *)pNode1->pData, (Aig_Obj_t *)pNode2->pData ); 
     pObj = Aig_NotCond( pObj, Aig_Regular(pObj)->fPhase ^ Aig_IsComplement(pObj) );
     // add the PO
     Aig_ObjCreatePo( pNew, pObj );
@@ -263,7 +266,7 @@ int Aig_ManCleanup( Aig_Man_t * p )
         if ( Aig_ObjIsNode(pNode) && Aig_ObjRefs(pNode) == 0 )
             Vec_PtrPush( vObjs, pNode );
     // recursively remove dangling nodes
-    Vec_PtrForEachEntry( vObjs, pNode, i )
+    Vec_PtrForEachEntry( Aig_Obj_t *, vObjs, pNode, i )
         Aig_ObjDelete_rec( p, pNode, 1 );
     Vec_PtrFree( vObjs );
     return nNodesOld - Aig_ManNodeNum(p);
@@ -305,7 +308,7 @@ int Aig_ManPiCleanup( Aig_Man_t * p )
 {
     Aig_Obj_t * pObj;
     int i, k = 0, nPisOld = Aig_ManPiNum(p);
-    Vec_PtrForEachEntry( p->vPis, pObj, i )
+    Vec_PtrForEachEntry( Aig_Obj_t *, p->vPis, pObj, i )
     {
         if ( i >= Aig_ManPiNum(p) - Aig_ManRegNum(p) )
             Vec_PtrWriteEntry( p->vPis, k++, pObj );
@@ -336,7 +339,7 @@ int Aig_ManPoCleanup( Aig_Man_t * p )
 {
     Aig_Obj_t * pObj;
     int i, k = 0, nPosOld = Aig_ManPoNum(p);
-    Vec_PtrForEachEntry( p->vPos, pObj, i )
+    Vec_PtrForEachEntry( Aig_Obj_t *, p->vPos, pObj, i )
     {
         if ( i >= Aig_ManPoNum(p) - Aig_ManRegNum(p) )
             Vec_PtrWriteEntry( p->vPos, k++, pObj );
@@ -470,9 +473,28 @@ void Aig_ManFlipFirstPo( Aig_Man_t * p )
     Aig_ObjChild0Flip( Aig_ManPo(p, 0) ); 
 }
 
+/**Function*************************************************************
+
+  Synopsis    []
+
+  Description []
+               
+  SideEffects []
+
+  SeeAlso     []
+
+***********************************************************************/
+void * Aig_ManReleaseData( Aig_Man_t * p )
+{ 
+    void * pD = p->pData; 
+    p->pData = NULL; 
+    return pD;
+}
 
 ////////////////////////////////////////////////////////////////////////
 ///                       END OF FILE                                ///
 ////////////////////////////////////////////////////////////////////////
 
+
+ABC_NAMESPACE_IMPL_END
 

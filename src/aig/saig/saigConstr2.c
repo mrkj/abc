@@ -24,6 +24,9 @@
 #include "kit.h"
 #include "bar.h"
 
+ABC_NAMESPACE_IMPL_START
+
+
 
 ////////////////////////////////////////////////////////////////////////
 ///                        DECLARATIONS                              ///
@@ -66,42 +69,42 @@ int Ssw_ManProfileConstraints( Aig_Man_t * p, int nWords, int nFrames, int fVerb
     vProbs  = Vec_IntStart( Saig_ManPoNum(p) );
     vProbs2 = Vec_IntStart( Saig_ManPoNum(p) );
     // start the constant
-    pInfo = Vec_PtrEntry( vInfo, Aig_ObjId(Aig_ManConst1(p)) );
+    pInfo = (unsigned *)Vec_PtrEntry( vInfo, Aig_ObjId(Aig_ManConst1(p)) );
     for ( w = 0; w < nWords; w++ )
         pInfo[w] = ~0;
     // start the flop inputs
     Saig_ManForEachLi( p, pObj, i )
     {
-        pInfo = Vec_PtrEntry( vInfo, Aig_ObjId(pObj) );
+        pInfo = (unsigned *)Vec_PtrEntry( vInfo, Aig_ObjId(pObj) );
         for ( w = 0; w < nWords; w++ )
             pInfo[w] = 0;
     }
     // get the info mask
-    pInfoMask  = Vec_PtrEntry( vInfo, Aig_ManObjNumMax(p) );    // PO failed
-    pInfoMask2 = Vec_PtrEntry( vInfo, Aig_ManObjNumMax(p)+1 );  // constr failed
+    pInfoMask  = (unsigned *)Vec_PtrEntry( vInfo, Aig_ManObjNumMax(p) );    // PO failed
+    pInfoMask2 = (unsigned *)Vec_PtrEntry( vInfo, Aig_ManObjNumMax(p)+1 );  // constr failed
     for ( f = 0; f < nFrames; f++ )
     {
         // assign primary inputs
         Saig_ManForEachPi( p, pObj, i )
         {
-            pInfo = Vec_PtrEntry( vInfo, Aig_ObjId(pObj) );
+            pInfo = (unsigned *)Vec_PtrEntry( vInfo, Aig_ObjId(pObj) );
             for ( w = 0; w < nWords; w++ )
                 pInfo[w] = Aig_ManRandom( 0 );
         }
         // move the flop values
         Saig_ManForEachLiLo( p, pObjLi, pObj, i )
         {
-            pInfo  = Vec_PtrEntry( vInfo, Aig_ObjId(pObj) );
-            pInfo0 = Vec_PtrEntry( vInfo, Aig_ObjId(pObjLi) );
+            pInfo  = (unsigned *)Vec_PtrEntry( vInfo, Aig_ObjId(pObj) );
+            pInfo0 = (unsigned *)Vec_PtrEntry( vInfo, Aig_ObjId(pObjLi) );
             for ( w = 0; w < nWords; w++ )
                 pInfo[w] = pInfo0[w];
         }
         // simulate the nodes
         Aig_ManForEachNode( p, pObj, i )
         {
-            pInfo  = Vec_PtrEntry( vInfo, Aig_ObjId(pObj) );
-            pInfo0 = Vec_PtrEntry( vInfo, Aig_ObjFaninId0(pObj) );
-            pInfo1 = Vec_PtrEntry( vInfo, Aig_ObjFaninId1(pObj) );
+            pInfo  = (unsigned *)Vec_PtrEntry( vInfo, Aig_ObjId(pObj) );
+            pInfo0 = (unsigned *)Vec_PtrEntry( vInfo, Aig_ObjFaninId0(pObj) );
+            pInfo1 = (unsigned *)Vec_PtrEntry( vInfo, Aig_ObjFaninId1(pObj) );
             if ( Aig_ObjFaninC0(pObj) )
             {
                 if (  Aig_ObjFaninC1(pObj) )
@@ -127,8 +130,8 @@ int Ssw_ManProfileConstraints( Aig_Man_t * p, int nWords, int nFrames, int fVerb
         // simulate the primary outputs
         Aig_ManForEachPo( p, pObj, i )
         {
-            pInfo  = Vec_PtrEntry( vInfo, Aig_ObjId(pObj) );
-            pInfo0 = Vec_PtrEntry( vInfo, Aig_ObjFaninId0(pObj) );
+            pInfo  = (unsigned *)Vec_PtrEntry( vInfo, Aig_ObjId(pObj) );
+            pInfo0 = (unsigned *)Vec_PtrEntry( vInfo, Aig_ObjFaninId0(pObj) );
             if ( i < Saig_ManPoNum(p)-Saig_ManConstrNum(p) || i >= Saig_ManPoNum(p) )
             {
                 if ( Aig_ObjFaninC0(pObj) )
@@ -170,7 +173,7 @@ int Ssw_ManProfileConstraints( Aig_Man_t * p, int nWords, int nFrames, int fVerb
         // compare the PO values (mask=1 => out=0) or UNSAT(mask=1 & out=1)
         Saig_ManForEachPo( p, pObj, i )
         {
-            pInfo  = Vec_PtrEntry( vInfo, Aig_ObjId(pObj) );
+            pInfo  = (unsigned *)Vec_PtrEntry( vInfo, Aig_ObjId(pObj) );
             for ( w = 0; w < nWords; w++ )
                 Vec_IntAddToEntry( vProbs, i, Aig_WordCountOnes(pInfo[w]) );
             if ( i < Saig_ManPoNum(p)-Saig_ManConstrNum(p) )
@@ -275,7 +278,7 @@ Aig_Man_t * Saig_ManCreateIndMiter( Aig_Man_t * pAig, Vec_Vec_t * vCands )
     // go through the candidates
     Vec_VecForEachLevel( vCands, vNodes, i )
     {
-        Vec_PtrForEachEntry( vNodes, pObj, k )
+        Vec_PtrForEachEntry( Aig_Obj_t *, vNodes, pObj, k )
         {
             Aig_Obj_t * pObjR  = Aig_Regular(pObj);
             Aig_Obj_t * pNode0 = pObjMap[nFrames*Aig_ObjId(pObjR)+0];
@@ -344,7 +347,7 @@ void Saig_ManFilterUsingInd( Aig_Man_t * p, Vec_Vec_t * vCands, int nConfs, int 
     int i, k, k2, Counter;
 /*
     Vec_VecForEachLevel( vCands, vNodes, i )
-        Vec_PtrForEachEntry( vNodes, pObj, k )
+        Vec_PtrForEachEntry( Aig_Obj_t *, vNodes, pObj, k )
             printf( "%d ", Aig_ObjId(Aig_Regular(pObj)) );
     printf( "\n" );
 */
@@ -354,7 +357,7 @@ void Saig_ManFilterUsingInd( Aig_Man_t * p, Vec_Vec_t * vCands, int nConfs, int 
     assert( Aig_ManPoNum(pFrames) == Vec_VecSizeSize(vCands) );
     // start the SAT solver
     pCnf = Cnf_DeriveSimple( pFrames, Aig_ManPoNum(pFrames) );
-    pSat = Cnf_DataWriteIntoSolver( pCnf, 1, 0 );
+    pSat = (sat_solver *)Cnf_DataWriteIntoSolver( pCnf, 1, 0 );
     // check candidates
     if ( fVerbose )
         printf( "Filtered cands:  " );
@@ -362,7 +365,7 @@ void Saig_ManFilterUsingInd( Aig_Man_t * p, Vec_Vec_t * vCands, int nConfs, int 
     Vec_VecForEachLevel( vCands, vNodes, i )
     {
         k2 = 0;
-        Vec_PtrForEachEntry( vNodes, pObj, k )
+        Vec_PtrForEachEntry( Aig_Obj_t *, vNodes, pObj, k )
         {
             if ( Saig_ManFilterUsingIndOne_new( p, pFrames, pSat, pCnf, nConfs, nProps, Counter++ ) )
 //            if ( Saig_ManFilterUsingIndOne_old( p, pSat, pCnf, nConfs, pObj ) )
@@ -500,7 +503,7 @@ void Saig_CollectSatValues( sat_solver * pSat, Cnf_Dat_t * pCnf, Vec_Ptr_t * vIn
         if ( !Aig_ObjIsNode(pObj) && !Aig_ObjIsPi(pObj) )
             continue;
         assert( pCnf->pVarNums[i] > 0 );
-        pInfo = Vec_PtrEntry( vInfo, i );
+        pInfo = (unsigned *)Vec_PtrEntry( vInfo, i );
         if ( Aig_InfoHasBit(pInfo, *piPat) != sat_solver_var_value(pSat, pCnf->pVarNums[i]) )
             Aig_InfoXorBit(pInfo, *piPat);
     }
@@ -576,7 +579,7 @@ Vec_Vec_t * Ssw_ManFindDirectImplications( Aig_Man_t * p, int nFrames, int nConf
     assert( Aig_ManPoNum(pFrames) == 1 );
     // start the SAT solver
     pCnf = Cnf_DeriveSimple( pFrames, 0 );
-    pSat = Cnf_DataWriteIntoSolver( pCnf, 1, 0 );
+    pSat = (sat_solver *)Cnf_DataWriteIntoSolver( pCnf, 1, 0 );
     if ( pSat != NULL )
     {
         Aig_ManIncrementTravId( p );
@@ -617,7 +620,7 @@ Vec_Vec_t * Ssw_ManFindDirectImplications( Aig_Man_t * p, int nFrames, int nConf
         Vec_VecForEachLevel( vCands, vNodes, k )
         {
             printf( "Level %d. Cands  =%d    ", k, Vec_PtrSize(vNodes) );
-//            Vec_PtrForEachEntry( vNodes, pObj, i )
+//            Vec_PtrForEachEntry( Aig_Obj_t *, vNodes, pObj, i )
 //                printf( "%d:%s%d ", k, Aig_IsComplement(pObj)? "!":"", Aig_ObjId(Aig_Regular(pObj)) );
             printf( "\n" );
         }
@@ -632,7 +635,7 @@ Vec_Vec_t * Ssw_ManFindDirectImplications( Aig_Man_t * p, int nFrames, int nConf
         Vec_VecForEachLevel( vCands, vNodes, k )
         {
             printf( "Level %d. Constr =%d    ", k, Vec_PtrSize(vNodes) );
-//            Vec_PtrForEachEntry( vNodes, pObj, i )
+//            Vec_PtrForEachEntry( Aig_Obj_t *, vNodes, pObj, i )
 //                printf( "%d:%s%d ", k, Aig_IsComplement(pObj)? "!":"", Aig_ObjId(Aig_Regular(pObj)) );
             printf( "\n" );
         }
@@ -686,7 +689,7 @@ Vec_Vec_t * Saig_ManDetectConstrFunc( Aig_Man_t * p, int nFrames, int nConfs, in
 
     // start the SAT solver
     pCnf = Cnf_DeriveSimple( pFrames, Aig_ManPoNum(pFrames) );
-    pSat = Cnf_DataWriteIntoSolver( pCnf, 1, 0 );
+    pSat = (sat_solver *)Cnf_DataWriteIntoSolver( pCnf, 1, 0 );
 //printf( "Implications = %d.\n", pSat->qhead );
 
     // solve the original problem
@@ -716,7 +719,7 @@ Vec_Vec_t * Saig_ManDetectConstrFunc( Aig_Man_t * p, int nFrames, int nConfs, in
     Saig_CollectSatValues( pSat, pCnf, vInfo, &iPat );
     Aig_ManForEachObj( pFrames, pObj, i )
     {
-        pInfo = Vec_PtrEntry( vInfo, i );
+        pInfo = (unsigned *)Vec_PtrEntry( vInfo, i );
         if ( pInfo[0] & 1 )
             memset( (char*)pInfo, 0xff, 4*nWordsAlloc );
     }
@@ -732,7 +735,7 @@ Vec_Vec_t * Saig_ManDetectConstrFunc( Aig_Man_t * p, int nFrames, int nConfs, in
             continue;
         Bar_ProgressUpdate( pProgress, i, NULL );
         // check if the node is available in both polarities
-        pInfo = Vec_PtrEntry( vInfo, i );
+        pInfo = (unsigned *)Vec_PtrEntry( vInfo, i );
         for ( k = 0; k < nWordsAlloc; k++ )
             if ( pInfo[k] != ~0 )
                 break;
@@ -781,7 +784,7 @@ Vec_Vec_t * Saig_ManDetectConstrFunc( Aig_Man_t * p, int nFrames, int nConfs, in
                     pObjNew = Aig_NotCond(pObj, !Aig_IsComplement(pRepr));
 
                     for ( j = 0; j < k; j++ )
-                        if ( Vec_PtrFind( Vec_VecEntry(vCands, j), pObjNew ) >= 0 )
+                        if ( Vec_PtrFind( (Vec_Ptr_t *)Vec_VecEntry(vCands, j), pObjNew ) >= 0 )
                             break;
                     if ( j == k )
                         Vec_VecPush( vCands, k, pObjNew );
@@ -792,7 +795,7 @@ Vec_Vec_t * Saig_ManDetectConstrFunc( Aig_Man_t * p, int nFrames, int nConfs, in
                     pObjNew = Aig_NotCond(pObj,  Aig_IsComplement(pRepr));
 
                     for ( j = 0; j < k; j++ )
-                        if ( Vec_PtrFind( Vec_VecEntry(vCands, j), pObjNew ) >= 0  )
+                        if ( Vec_PtrFind( (Vec_Ptr_t *)Vec_VecEntry(vCands, j), pObjNew ) >= 0  )
                             break;
                     if ( j == k )
                         Vec_VecPush( vCands, k, pObjNew );
@@ -808,7 +811,7 @@ Vec_Vec_t * Saig_ManDetectConstrFunc( Aig_Man_t * p, int nFrames, int nConfs, in
             Vec_VecForEachLevel( vCands, vNodes, k )
             {
                 printf( "Level %d. Cands  =%d    ", k, Vec_PtrSize(vNodes) );
-//                Vec_PtrForEachEntry( vNodes, pObj, i )
+//                Vec_PtrForEachEntry( Aig_Obj_t *, vNodes, pObj, i )
 //                    printf( "%d:%s%d ", k, Aig_IsComplement(pObj)? "!":"", Aig_ObjId(Aig_Regular(pObj)) );
                 printf( "\n" );
             }
@@ -823,7 +826,7 @@ Vec_Vec_t * Saig_ManDetectConstrFunc( Aig_Man_t * p, int nFrames, int nConfs, in
             Vec_VecForEachLevel( vCands, vNodes, k )
             {
                 printf( "Level %d. Constr =%d    ", k, Vec_PtrSize(vNodes) );
-//                Vec_PtrForEachEntry( vNodes, pObj, i )
+//                Vec_PtrForEachEntry( Aig_Obj_t *, vNodes, pObj, i )
 //                    printf( "%d:%s%d ", k, Aig_IsComplement(pObj)? "!":"", Aig_ObjId(Aig_Regular(pObj)) );
                 printf( "\n" );
             }
@@ -895,12 +898,12 @@ Aig_Man_t * Saig_ManDupUnfoldConstrsFunc( Aig_Man_t * pAig, int nFrames, int nCo
     vNewFlops = Vec_PtrAlloc( 100 );
     Vec_VecForEachLevel( vCands, vNodes, i )
     {
-        Vec_PtrForEachEntry( vNodes, pObj, k )
+        Vec_PtrForEachEntry( Aig_Obj_t *, vNodes, pObj, k )
         {
             Vec_PtrPush( vNewFlops, Aig_ObjRealCopy(pObj) );
             for ( j = 0; j < i; j++ )
                 Vec_PtrPush( vNewFlops, Aig_ObjCreatePi(pNew) );
-            Aig_ObjCreatePo( pNew, Vec_PtrPop(vNewFlops) );
+            Aig_ObjCreatePo( pNew, (Aig_Obj_t *)Vec_PtrPop(vNewFlops) );
         }
     }
     // add latch outputs
@@ -910,10 +913,10 @@ Aig_Man_t * Saig_ManDupUnfoldConstrsFunc( Aig_Man_t * pAig, int nFrames, int nCo
     nNewFlops = 0;
     Vec_VecForEachLevel( vCands, vNodes, i )
     {
-        Vec_PtrForEachEntry( vNodes, pObj, k )
+        Vec_PtrForEachEntry( Aig_Obj_t *, vNodes, pObj, k )
         {
             for ( j = 0; j < i; j++ )
-                Aig_ObjCreatePo( pNew, Vec_PtrEntry(vNewFlops, nNewFlops++) );
+                Aig_ObjCreatePo( pNew, (Aig_Obj_t *)Vec_PtrEntry(vNewFlops, nNewFlops++) );
         }
     }
     assert( nNewFlops == Vec_PtrSize(vNewFlops) );
@@ -993,4 +996,6 @@ Aig_Man_t * Saig_ManDupFoldConstrsFunc( Aig_Man_t * pAig, int fCompl, int fVerbo
 ///                       END OF FILE                                ///
 ////////////////////////////////////////////////////////////////////////
 
+
+ABC_NAMESPACE_IMPL_END
 

@@ -21,6 +21,9 @@
 #include "kit.h"
 #include "aig.h"
 
+ABC_NAMESPACE_IMPL_START
+
+
 ////////////////////////////////////////////////////////////////////////
 ///                        DECLARATIONS                              ///
 ////////////////////////////////////////////////////////////////////////
@@ -207,7 +210,7 @@ void Kit_PlaComplement( char * pSop )
 ***********************************************************************/
 char * Kit_PlaStart( void * p, int nCubes, int nVars )
 {
-    Aig_MmFlex_t * pMan = p;
+    Aig_MmFlex_t * pMan = (Aig_MmFlex_t *)p;
     char * pSopCover, * pCube;
     int i, Length;
 
@@ -239,7 +242,7 @@ char * Kit_PlaStart( void * p, int nCubes, int nVars )
 ***********************************************************************/
 char * Kit_PlaCreateFromIsop( void * p, int nVars, Vec_Int_t * vCover )
 {
-    Aig_MmFlex_t * pMan = p;
+    Aig_MmFlex_t * pMan = (Aig_MmFlex_t *)p;
     char * pSop, * pCube;
     int i, k, Entry, Literal;
     assert( Vec_IntSize(vCover) > 0 );
@@ -313,7 +316,7 @@ void Kit_PlaToIsop( char * pSop, Vec_Int_t * vCover )
 ***********************************************************************/
 char * Kit_PlaStoreSop( void * p, char * pSop )
 {
-    Aig_MmFlex_t * pMan = p;
+    Aig_MmFlex_t * pMan = (Aig_MmFlex_t *)p;
     char * pStore;
     pStore = Aig_MmFlexEntryFetch( pMan, strlen(pSop) + 1 );
     strcpy( pStore, pSop );
@@ -333,7 +336,7 @@ char * Kit_PlaStoreSop( void * p, char * pSop )
 ***********************************************************************/
 char * Kit_PlaFromTruth( void * p, unsigned * pTruth, int nVars, Vec_Int_t * vCover )
 {
-    Aig_MmFlex_t * pMan = p;
+    Aig_MmFlex_t * pMan = (Aig_MmFlex_t *)p;
     char * pSop;
     int RetValue;
     if ( Kit_TruthIsConst0(pTruth, nVars) )
@@ -510,9 +513,9 @@ void Kit_PlaToTruth( char * pSop, int nVars, Vec_Ptr_t * vVars, unsigned * pTemp
         // iterate through the literals of the cube
         for ( v = 0; v < nVars; v++ )
             if ( pSop[v] == '1' )
-                Kit_TruthAnd( pTemp, pTemp, Vec_PtrEntry(vVars, v), nVars );
+                Kit_TruthAnd( pTemp, pTemp, (unsigned *)Vec_PtrEntry(vVars, v), nVars );
             else if ( pSop[v] == '0' )
-                Kit_TruthSharp( pTemp, pTemp, Vec_PtrEntry(vVars, v), nVars );
+                Kit_TruthSharp( pTemp, pTemp, (unsigned *)Vec_PtrEntry(vVars, v), nVars );
         // add cube to storage
         Kit_TruthOr( pTruth, pTruth, pTemp, nVars );
         // go to the next cube
@@ -527,4 +530,6 @@ void Kit_PlaToTruth( char * pSop, int nVars, Vec_Ptr_t * vVars, unsigned * pTemp
 ///                       END OF FILE                                ///
 ////////////////////////////////////////////////////////////////////////
 
+
+ABC_NAMESPACE_IMPL_END
 

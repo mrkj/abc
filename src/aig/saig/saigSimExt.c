@@ -21,6 +21,9 @@
 #include "saig.h"
 #include "ssw.h"
 
+ABC_NAMESPACE_IMPL_START
+
+
 ////////////////////////////////////////////////////////////////////////
 ///                        DECLARATIONS                              ///
 ////////////////////////////////////////////////////////////////////////
@@ -49,13 +52,13 @@ static inline int Saig_ManSimInfoAnd( int Value0, int Value1 )
 
 static inline int Saig_ManSimInfoGet( Vec_Ptr_t * vSimInfo, Aig_Obj_t * pObj, int iFrame )
 {
-    unsigned * pInfo = Vec_PtrEntry( vSimInfo, Aig_ObjId(pObj) );
+    unsigned * pInfo = (unsigned *)Vec_PtrEntry( vSimInfo, Aig_ObjId(pObj) );
     return 3 & (pInfo[iFrame >> 4] >> ((iFrame & 15) << 1));
 }
 
 static inline void Saig_ManSimInfoSet( Vec_Ptr_t * vSimInfo, Aig_Obj_t * pObj, int iFrame, int Value )
 {
-    unsigned * pInfo = Vec_PtrEntry( vSimInfo, Aig_ObjId(pObj) );
+    unsigned * pInfo = (unsigned *)Vec_PtrEntry( vSimInfo, Aig_ObjId(pObj) );
     assert( Value >= SAIG_ZER && Value <= SAIG_UND );
     Value ^= Saig_ManSimInfoGet( vSimInfo, pObj, iFrame );
     pInfo[iFrame >> 4] ^= (Value << ((iFrame & 15) << 1));
@@ -550,4 +553,6 @@ ABC_PRT( "Time", clock() - clk );
 ///                       END OF FILE                                ///
 ////////////////////////////////////////////////////////////////////////
 
+
+ABC_NAMESPACE_IMPL_END
 

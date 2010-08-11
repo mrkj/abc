@@ -21,6 +21,7 @@
 #ifndef __IOA_H__
 #define __IOA_H__
 
+
 ////////////////////////////////////////////////////////////////////////
 ///                          INCLUDES                                ///
 ////////////////////////////////////////////////////////////////////////
@@ -39,9 +40,10 @@
 ///                         PARAMETERS                               ///
 ////////////////////////////////////////////////////////////////////////
 
-#ifdef __cplusplus
-extern "C" {
-#endif 
+
+
+ABC_NAMESPACE_HEADER_START
+ 
 
 ////////////////////////////////////////////////////////////////////////
 ///                         BASIC TYPES                              ///
@@ -71,9 +73,11 @@ extern char *         Ioa_FileNameGeneric( char * FileName );
 extern char *         Ioa_FileNameGenericAppend( char * pBase, char * pSuffix );
 extern char *         Ioa_TimeStamp();
 
-#ifdef __cplusplus
-}
-#endif
+
+
+ABC_NAMESPACE_HEADER_END
+
+
 
 #endif
 

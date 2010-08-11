@@ -23,6 +23,9 @@
 #include "aig.h"
 #include "dar.h"
 
+ABC_NAMESPACE_IMPL_START
+
+
 ////////////////////////////////////////////////////////////////////////
 ///                        DECLARATIONS                              ///
 ////////////////////////////////////////////////////////////////////////
@@ -318,8 +321,8 @@ Gia_Man_t * Hcd_ManChoiceMiter( Vec_Ptr_t * vGias )
     int i, k, iNode, nNodes;
     // make sure they have equal parameters
     assert( Vec_PtrSize(vGias) > 0 );
-    pGia0 = Vec_PtrEntry( vGias, 0 );
-    Vec_PtrForEachEntry( vGias, pGia, i )
+    pGia0 = (Gia_Man_t *)Vec_PtrEntry( vGias, 0 );
+    Vec_PtrForEachEntry( Gia_Man_t *, vGias, pGia, i )
     {
         assert( Gia_ManCiNum(pGia)  == Gia_ManCiNum(pGia0) );
         assert( Gia_ManCoNum(pGia)  == Gia_ManCoNum(pGia0) );
@@ -334,14 +337,14 @@ Gia_Man_t * Hcd_ManChoiceMiter( Vec_Ptr_t * vGias )
     for ( k = 0; k < Gia_ManCiNum(pGia0); k++ )
     {
         iNode = Gia_ManAppendCi(pNew);
-        Vec_PtrForEachEntry( vGias, pGia, i )
+        Vec_PtrForEachEntry( Gia_Man_t *, vGias, pGia, i )
             Gia_ManCi( pGia, k )->Value = iNode; 
     }
     // create internal nodes
     Gia_ManHashAlloc( pNew );
     for ( k = 0; k < Gia_ManCoNum(pGia0); k++ )
     {
-        Vec_PtrForEachEntry( vGias, pGia, i )
+        Vec_PtrForEachEntry( Gia_Man_t *, vGias, pGia, i )
             Hcd_ManChoiceMiter_rec( pNew, pGia, Gia_ManCo( pGia, k ) );
     }
     Gia_ManHashStop( pNew );
@@ -407,7 +410,7 @@ int Hcd_ObjCheckTfi( Gia_Man_t * p, Gia_Obj_t * pOld, Gia_Obj_t * pNode )
     assert( !Gia_IsComplement(pNode) );
     vVisited = Vec_PtrAlloc( 100 );
     RetValue = Hcd_ObjCheckTfi_rec( p, pOld, pNode, vVisited );
-    Vec_PtrForEachEntry( vVisited, pObj, i )
+    Vec_PtrForEachEntry( Gia_Obj_t *, vVisited, pObj, i )
         pObj->fMark0 = 0;
     Vec_PtrFree( vVisited );
     return RetValue;
@@ -617,7 +620,7 @@ Aig_Man_t * Hcd_ComputeChoices( Aig_Man_t * pAig, int nBTLimit, int fSynthesis, 
         // create choices
         clk = clock();
         pMiter = Hcd_ManChoiceMiter( vGias );
-        Vec_PtrForEachEntry( vGias, pGia, i )
+        Vec_PtrForEachEntry( Gia_Man_t *, vGias, pGia, i )
             Gia_ManStop( pGia );
 
         Gia_WriteAiger( pMiter, "m3.aig", 0, 0 );
@@ -678,4 +681,6 @@ void Hcd_ComputeChoicesTest( Gia_Man_t * pGia, int nBTLimit, int fSynthesis, int
 ///                       END OF FILE                                ///
 ////////////////////////////////////////////////////////////////////////
 
+
+ABC_NAMESPACE_IMPL_END
 

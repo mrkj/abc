@@ -20,6 +20,9 @@
 
 #include "ntl.h"
 
+ABC_NAMESPACE_IMPL_START
+
+
 ////////////////////////////////////////////////////////////////////////
 ///                        DECLARATIONS                              ///
 ////////////////////////////////////////////////////////////////////////
@@ -364,7 +367,7 @@ int Ntl_ModelFindPioNumber( Ntl_Mod_t * p, int fPiOnly, int fPoOnly, const char 
     }
     if ( fPoOnly )
     {
-        pTerm = pNet->pCopy;
+        pTerm = (Ntl_Obj_t *)pNet->pCopy;
         if ( pTerm && Ntl_ObjIsPo(pTerm) )
         {
             *pNumber = pTerm->iTemp;
@@ -372,7 +375,7 @@ int Ntl_ModelFindPioNumber( Ntl_Mod_t * p, int fPiOnly, int fPoOnly, const char 
         }
         return 0;
     }
-    pTerm = pNet->pCopy;
+    pTerm = (Ntl_Obj_t *)pNet->pCopy;
     if ( pTerm && Ntl_ObjIsPo(pTerm) )
     {
         *pNumber = pTerm->iTemp;
@@ -546,4 +549,6 @@ Ntl_Mod_t * Ntl_ManFindModel( Ntl_Man_t * p, const char * pName )
 ///                       END OF FILE                                ///
 ////////////////////////////////////////////////////////////////////////
 
+
+ABC_NAMESPACE_IMPL_END
 

@@ -20,6 +20,9 @@
 
 #include "ntl.h"
 
+ABC_NAMESPACE_IMPL_START
+
+
 ////////////////////////////////////////////////////////////////////////
 ///                        DECLARATIONS                              ///
 ////////////////////////////////////////////////////////////////////////
@@ -445,7 +448,7 @@ Vec_Vec_t * Ntl_ManTransformRegClasses( Ntl_Man_t * pMan, int nSizeMax, int fVer
     if ( fVerbose )
     {
         printf( "The number of selected register clases = %d.\n", Vec_PtrSize(vParts) );
-        Vec_PtrForEachEntry( vParts, vPart, i )
+        Vec_PtrForEachEntry( Vec_Int_t *, vParts, vPart, i )
             printf( "(%d, %d)  ", i, Vec_IntSize(vPart) );
         printf( "\n" );
     }
@@ -729,4 +732,6 @@ void Ntl_ManRemoveUselessNets( Ntl_Man_t * p )
 ///                       END OF FILE                                ///
 ////////////////////////////////////////////////////////////////////////
 
+
+ABC_NAMESPACE_IMPL_END
 

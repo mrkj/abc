@@ -20,6 +20,9 @@
 
 #include "if.h"
 
+ABC_NAMESPACE_IMPL_START
+
+
 ////////////////////////////////////////////////////////////////////////
 ///                        DECLARATIONS                              ///
 ////////////////////////////////////////////////////////////////////////
@@ -137,7 +140,6 @@ void If_ObjPerformMappingAnd( If_Man_t * p, If_Obj_t * pObj, int Mode, int fPrep
 #ifdef IF_USE_BAT
             if ( p->pPars->fUseBat )
             {
-                extern int Bat_ManCellFuncLookup( unsigned * pTruth, int nVars, int nLeaves );
                 assert( pCut->nLimit >= 4 && pCut->nLimit <= 6 );
                 pCut->fUseless = !Bat_ManCellFuncLookup( If_CutTruth(pCut), pCut->nLimit, pCut->nLeaves );
                 p->nCutsUseless += pCut->fUseless;
@@ -376,4 +378,6 @@ int If_ManPerformMappingRound( If_Man_t * p, int nCutsUsed, int Mode, int fPrepr
 ///                       END OF FILE                                ///
 ////////////////////////////////////////////////////////////////////////
 
+
+ABC_NAMESPACE_IMPL_END
 

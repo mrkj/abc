@@ -24,6 +24,9 @@
 #include "bzlib.h"
 #include "zlib.h"
 
+ABC_NAMESPACE_IMPL_START
+
+
 ////////////////////////////////////////////////////////////////////////
 ///                        DECLARATIONS                              ///
 ////////////////////////////////////////////////////////////////////////
@@ -152,7 +155,7 @@ Ntl_Man_t * Ntl_ManReadBlif( char * pFileName, int fCheck )
         return NULL;
     }
     // set the design name
-    p->pDesign = Ntl_ManAlloc( pFileName );
+    p->pDesign = Ntl_ManAlloc();
     p->pDesign->pName = Ntl_ManStoreFileName( p->pDesign, pFileName );
     p->pDesign->pSpec = Ntl_ManStoreName( p->pDesign, pFileName );
     // prepare the file for parsing
@@ -249,7 +252,7 @@ static void Ntl_ReadFree( Ntl_ReadMan_t * p )
         Vec_PtrFree( p->vLines );
     if ( p->vModels )
     {
-        Vec_PtrForEachEntry( p->vModels, pMod, i )
+        Vec_PtrForEachEntry( Ntl_ReadMod_t *, p->vModels, pMod, i )
             Ntl_ReadModFree( pMod );
         Vec_PtrFree( p->vModels );
     }
@@ -416,7 +419,7 @@ static int Ntl_ReadGetLine( Ntl_ReadMan_t * p, char * pToken )
 {
     char * pLine;
     int i;
-    Vec_PtrForEachEntry( p->vLines, pLine, i )
+    Vec_PtrForEachEntry( char *, p->vLines, pLine, i )
         if ( pToken < pLine )
             return i;
     return -1;
@@ -563,7 +566,7 @@ static char * Ntl_ReadLoadFileGz( char * pFileName )
     FILE * pFile;
     char * pContents;
     int amtRead, readBlock, nFileSize = READ_BLOCK_SIZE;
-    pFile = gzopen( pFileName, "rb" ); // if pFileName doesn't end in ".gz" then this acts as a passthrough to fopen
+    pFile = (FILE *)gzopen( pFileName, "rb" ); // if pFileName doesn't end in ".gz" then this acts as a passthrough to fopen
     pContents = ABC_ALLOC( char, nFileSize );        
     readBlock = 0;
     while ((amtRead = gzread(pFile, pContents + readBlock * READ_BLOCK_SIZE, READ_BLOCK_SIZE)) == READ_BLOCK_SIZE) {
@@ -620,7 +623,7 @@ static void Ntl_ReadReadPreparse( Ntl_ReadMan_t * p )
     }
 
     // unfold the line extensions and sort lines by directive
-    Vec_PtrForEachEntry( p->vLines, pCur, i )
+    Vec_PtrForEachEntry( char *, p->vLines, pCur, i )
     {
         if ( *pCur == 0 )
             continue;
@@ -728,7 +731,7 @@ static int Ntl_ReadReadInterfaces( Ntl_ReadMan_t * p )
     char * pLine;
     int i, k;
     // iterate through the models
-    Vec_PtrForEachEntry( p->vModels, pMod, i )
+    Vec_PtrForEachEntry( Ntl_ReadMod_t *, p->vModels, pMod, i )
     {
         // parse the model
         if ( !Ntl_ReadParseLineModel( pMod, pMod->pFirst ) )
@@ -740,22 +743,22 @@ static int Ntl_ReadReadInterfaces( Ntl_ReadMan_t * p )
         if ( pMod->fNoMerge )
             pMod->pNtk->attrNoMerge = 1;
         // parse the inputs
-        Vec_PtrForEachEntry( pMod->vInputs, pLine, k )
+        Vec_PtrForEachEntry( char *, pMod->vInputs, pLine, k )
             if ( !Ntl_ReadParseLineInputs( pMod, pLine ) )
                 return 0;
         // parse the outputs
-        Vec_PtrForEachEntry( pMod->vOutputs, pLine, k )
+        Vec_PtrForEachEntry( char *, pMod->vOutputs, pLine, k )
             if ( !Ntl_ReadParseLineOutputs( pMod, pLine ) )
                 return 0;
         // parse the delay info
         Ntl_ModelSetPioNumbers( pMod->pNtk );
-        Vec_PtrForEachEntry( pMod->vDelays, pLine, k )
+        Vec_PtrForEachEntry( char *, pMod->vDelays, pLine, k )
             if ( !Ntl_ReadParseLineDelay( pMod, pLine ) )
                 return 0;
-        Vec_PtrForEachEntry( pMod->vTimeInputs, pLine, k )
+        Vec_PtrForEachEntry( char *, pMod->vTimeInputs, pLine, k )
             if ( !Ntl_ReadParseLineTimes( pMod, pLine, 0 ) )
                 return 0;
-        Vec_PtrForEachEntry( pMod->vTimeOutputs, pLine, k )
+        Vec_PtrForEachEntry( char *, pMod->vTimeOutputs, pLine, k )
             if ( !Ntl_ReadParseLineTimes( pMod, pLine, 1 ) )
                 return 0;
         // report timing line stats
@@ -790,18 +793,18 @@ static Ntl_Man_t * Ntl_ReadParse( Ntl_ReadMan_t * p )
     char * pLine;
     int i, k;
     // iterate through the models
-    Vec_PtrForEachEntry( p->vModels, pMod, i )
+    Vec_PtrForEachEntry( Ntl_ReadMod_t *, p->vModels, pMod, i )
     {
         // parse the latches
-        Vec_PtrForEachEntry( pMod->vLatches, pLine, k )
+        Vec_PtrForEachEntry( char *, pMod->vLatches, pLine, k )
             if ( !Ntl_ReadParseLineLatch( pMod, pLine ) )
                 return NULL;
         // parse the nodes
-        Vec_PtrForEachEntry( pMod->vNames, pLine, k )
+        Vec_PtrForEachEntry( char *, pMod->vNames, pLine, k )
             if ( !Ntl_ReadParseLineNamesBlif( pMod, pLine ) )
                 return NULL;
         // parse the subcircuits
-        Vec_PtrForEachEntry( pMod->vSubckts, pLine, k )
+        Vec_PtrForEachEntry( char *, pMod->vSubckts, pLine, k )
             if ( !Ntl_ReadParseLineSubckt( pMod, pLine ) )
                 return NULL;
         // finalize the network
@@ -810,7 +813,7 @@ static Ntl_Man_t * Ntl_ReadParse( Ntl_ReadMan_t * p )
     if ( i == 0 )
         return NULL;
     // update the design name
-    pMod = Vec_PtrEntry( p->vModels, 0 );
+    pMod = (Ntl_ReadMod_t *)Vec_PtrEntry( p->vModels, 0 );
     if ( Ntl_ModelLatchNum(pMod->pNtk) > 0 )
         Ntl_ModelTransformLatches( pMod->pNtk );
     p->pDesign->pName = Ntl_ManStoreName( p->pDesign, pMod->pNtk->pName );
@@ -836,14 +839,14 @@ static int Ntl_ReadParseLineModel( Ntl_ReadMod_t * p, char * pLine )
     Vec_Ptr_t * vTokens = p->pMan->vTokens;
     char * pToken;
     Ntl_ReadSplitIntoTokens( vTokens, pLine, '\0' );
-    pToken = Vec_PtrEntry( vTokens, 0 );
+    pToken = (char *)Vec_PtrEntry( vTokens, 0 );
     assert( !strcmp(pToken, "model") );
     if ( Vec_PtrSize(vTokens) != 2 )
     {
         sprintf( p->pMan->sError, "Line %d: The number of entries (%d) in .model line is different from two.", Ntl_ReadGetLine(p->pMan, pToken), Vec_PtrSize(vTokens) );
         return 0;
     }
-    p->pNtk = Ntl_ModelAlloc( p->pMan->pDesign, Vec_PtrEntry(vTokens, 1) );
+    p->pNtk = Ntl_ModelAlloc( p->pMan->pDesign, (char *)Vec_PtrEntry(vTokens, 1) );
     if ( p->pNtk == NULL )
     {
         sprintf( p->pMan->sError, "Line %d: Model %s already exists.", Ntl_ReadGetLine(p->pMan, pToken), (char*)Vec_PtrEntry(vTokens, 1) );
@@ -869,11 +872,11 @@ static int Ntl_ReadParseLineAttrib( Ntl_ReadMod_t * p, char * pLine )
     char * pToken;
     int i;
     Ntl_ReadSplitIntoTokens( vTokens, pLine, '\0' );
-    pToken = Vec_PtrEntry( vTokens, 0 );
+    pToken = (char *)Vec_PtrEntry( vTokens, 0 );
     assert( !strncmp(pToken, "attrib", 6) );
-    Vec_PtrForEachEntryStart( vTokens, pToken, i, 1 )
+    Vec_PtrForEachEntryStart( char *, vTokens, pToken, i, 1 )
     {
-        pToken = Vec_PtrEntry( vTokens, i );
+        pToken = (char *)Vec_PtrEntry( vTokens, i );
         if ( strcmp( pToken, "white" ) == 0 )
             p->pNtk->attrWhite = 1;
         else if ( strcmp( pToken, "black" ) == 0 )
@@ -918,9 +921,9 @@ static int Ntl_ReadParseLineInputs( Ntl_ReadMod_t * p, char * pLine )
     char * pToken;
     int i;
     Ntl_ReadSplitIntoTokens( vTokens, pLine, '\0' );
-    pToken = Vec_PtrEntry(vTokens, 0);
+    pToken = (char *)Vec_PtrEntry(vTokens, 0);
     assert( !strcmp(pToken, "inputs") );
-    Vec_PtrForEachEntryStart( vTokens, pToken, i, 1 )
+    Vec_PtrForEachEntryStart( char *, vTokens, pToken, i, 1 )
     {
         pObj = Ntl_ModelCreatePi( p->pNtk );
         pNet = Ntl_ModelFindOrCreateNet( p->pNtk, pToken );
@@ -952,9 +955,9 @@ static int Ntl_ReadParseLineOutputs( Ntl_ReadMod_t * p, char * pLine )
     char * pToken;
     int i;
     Ntl_ReadSplitIntoTokens( vTokens, pLine, '\0' );
-    pToken = Vec_PtrEntry(vTokens, 0);
+    pToken = (char *)Vec_PtrEntry(vTokens, 0);
     assert( !strcmp(pToken, "outputs") );
-    Vec_PtrForEachEntryStart( vTokens, pToken, i, 1 )
+    Vec_PtrForEachEntryStart( char *, vTokens, pToken, i, 1 )
     {
         pNet = Ntl_ModelFindOrCreateNet( p->pNtk, pToken );
         pObj = Ntl_ModelCreatePo( p->pNtk, pNet );
@@ -981,7 +984,7 @@ static int Ntl_ReadParseLineLatch( Ntl_ReadMod_t * p, char * pLine )
     Ntl_Obj_t * pObj;
     char * pToken, * pNameLi, * pNameLo;
     Ntl_ReadSplitIntoTokens( vTokens, pLine, '\0' );
-    pToken = Vec_PtrEntry(vTokens,0);
+    pToken = (char *)Vec_PtrEntry(vTokens,0);
     assert( !strcmp(pToken, "latch") );
     if ( Vec_PtrSize(vTokens) < 3 )
     {
@@ -989,8 +992,8 @@ static int Ntl_ReadParseLineLatch( Ntl_ReadMod_t * p, char * pLine )
         return 0;
     }
     // create latch
-    pNameLi = Vec_PtrEntry( vTokens, 1 );
-    pNameLo = Vec_PtrEntry( vTokens, 2 );
+    pNameLi = (char *)Vec_PtrEntry( vTokens, 1 );
+    pNameLo = (char *)Vec_PtrEntry( vTokens, 2 );
     pNetLi  = Ntl_ModelFindOrCreateNet( p->pNtk, pNameLi );
     pNetLo  = Ntl_ModelFindOrCreateNet( p->pNtk, pNameLo );
     pObj    = Ntl_ModelCreateLatch( p->pNtk );
@@ -1002,7 +1005,7 @@ static int Ntl_ReadParseLineLatch( Ntl_ReadMod_t * p, char * pLine )
     }
     // get initial value
     if ( Vec_PtrSize(vTokens) > 3 )
-        pObj->LatchId.regInit = atoi( Vec_PtrEntry(vTokens,Vec_PtrSize(vTokens)-1) );
+        pObj->LatchId.regInit = atoi( (char *)Vec_PtrEntry(vTokens,Vec_PtrSize(vTokens)-1) );
     else
         pObj->LatchId.regInit = 2;
     if ( pObj->LatchId.regInit < 0 || pObj->LatchId.regInit > 2 )
@@ -1014,7 +1017,7 @@ static int Ntl_ReadParseLineLatch( Ntl_ReadMod_t * p, char * pLine )
 //    if ( Vec_PtrSize(vTokens) == 6 )
     if ( Vec_PtrSize(vTokens) == 5 || Vec_PtrSize(vTokens) == 6 )
     {
-        pToken = Vec_PtrEntry(vTokens,3);
+        pToken = (char *)Vec_PtrEntry(vTokens,3);
         if ( strcmp( pToken, "fe" ) == 0 )
             pObj->LatchId.regType = 1;
         else if ( strcmp( pToken, "re" ) == 0 )
@@ -1042,7 +1045,7 @@ static int Ntl_ReadParseLineLatch( Ntl_ReadMod_t * p, char * pLine )
 //    if ( Vec_PtrSize(vTokens) == 5 || Vec_PtrSize(vTokens) == 6 )
     if ( Vec_PtrSize(vTokens) == 6 )
     {
-        pToken = Vec_PtrEntry(vTokens,Vec_PtrSize(vTokens)-2);
+        pToken = (char *)Vec_PtrEntry(vTokens,Vec_PtrSize(vTokens)-2);
         pNetLi = Ntl_ModelFindOrCreateNet( p->pNtk, pToken );
         pObj->pClock = pNetLi;
     }
@@ -1072,11 +1075,11 @@ static int Ntl_ReadParseLineSubckt( Ntl_ReadMod_t * p, char * pLine )
     // split the line into tokens
     nEquals = Ntl_ReadCountChars( pLine, '=' );
     Ntl_ReadSplitIntoTokensAndClear( vTokens, pLine, '\0', '=' );
-    pToken = Vec_PtrEntry(vTokens,0);
+    pToken = (char *)Vec_PtrEntry(vTokens,0);
     assert( !strcmp(pToken, "subckt") );
 
     // get the model for this box
-    pName = Vec_PtrEntry(vTokens,1);
+    pName = (char *)Vec_PtrEntry(vTokens,1);
     pModel = Ntl_ManFindModel( p->pMan->pDesign, pName );
     if ( pModel == NULL )
     {
@@ -1094,7 +1097,7 @@ static int Ntl_ReadParseLineSubckt( Ntl_ReadMod_t * p, char * pLine )
         for ( ; *pToken == 0; pToken++ );
         Ntl_ReadSplitIntoTokensAndClear( vTokens2, pToken, '\0', '=' );
 //        assert( Vec_PtrSize( vTokens2 ) == 2 );
-        Vec_PtrForEachEntry( vTokens2, pToken, i )
+        Vec_PtrForEachEntry( char *, vTokens2, pToken, i )
             Vec_PtrPush( vTokens, pToken );
         nEquals += Vec_PtrSize(vTokens2)/2;
         Vec_PtrFree( vTokens2 );
@@ -1170,7 +1173,7 @@ static int Ntl_ReadParseLineDelay( Ntl_ReadMod_t * p, char * pLine )
     float Delay;
     assert( sizeof(float) == sizeof(int) );
     Ntl_ReadSplitIntoTokens( vTokens, pLine, '\0' );
-    pToken = Vec_PtrEntry(vTokens,0);
+    pToken = (char *)Vec_PtrEntry(vTokens,0);
     assert( !strcmp(pToken, "delay") );
     if ( Vec_PtrSize(vTokens) < 2 && Vec_PtrSize(vTokens) > 4 )
     {
@@ -1178,7 +1181,7 @@ static int Ntl_ReadParseLineDelay( Ntl_ReadMod_t * p, char * pLine )
         return 0;
     }
     // find the delay number
-    pTokenNum = Vec_PtrEntryLast(vTokens);
+    pTokenNum = (char *)Vec_PtrEntryLast(vTokens);
     Delay = atof( pTokenNum );
     if ( Delay == 0.0 && pTokenNum[0] != '0' )
     {
@@ -1189,7 +1192,7 @@ static int Ntl_ReadParseLineDelay( Ntl_ReadMod_t * p, char * pLine )
     RetValue1 = 0; Number1 = -1;
     if ( Vec_PtrSize(vTokens) > 2 )
     {
-        RetValue1 = Ntl_ModelFindPioNumber( p->pNtk, 0, 0, Vec_PtrEntry(vTokens, 1), &Number1 );
+        RetValue1 = Ntl_ModelFindPioNumber( p->pNtk, 0, 0, (char *)Vec_PtrEntry(vTokens, 1), &Number1 );
         if ( RetValue1 == 0 )
         {
             sprintf( p->pMan->sError, "Line %d: Cannot find signal \"%s\" among PIs/POs.", Ntl_ReadGetLine(p->pMan, pToken), (char*)Vec_PtrEntry(vTokens, 1) );
@@ -1199,7 +1202,7 @@ static int Ntl_ReadParseLineDelay( Ntl_ReadMod_t * p, char * pLine )
     RetValue2 = 0; Number2 = -1;
     if ( Vec_PtrSize(vTokens) > 3 )
     {
-        RetValue2 = Ntl_ModelFindPioNumber( p->pNtk, 0, 0, Vec_PtrEntry(vTokens, 2), &Number2 );
+        RetValue2 = Ntl_ModelFindPioNumber( p->pNtk, 0, 0, (char *)Vec_PtrEntry(vTokens, 2), &Number2 );
         if ( RetValue2 == 0 )
         {
             sprintf( p->pMan->sError, "Line %d: Cannot find signal \"%s\" among PIs/POs.", Ntl_ReadGetLine(p->pMan, pToken), (char*)Vec_PtrEntry(vTokens, 2) );
@@ -1247,7 +1250,7 @@ static int Ntl_ReadParseLineTimes( Ntl_ReadMod_t * p, char * pLine, int fOutput 
     float Delay;
     assert( sizeof(float) == sizeof(int) );
     Ntl_ReadSplitIntoTokens( vTokens, pLine, '\0' );
-    pToken = Vec_PtrEntry(vTokens,0);
+    pToken = (char *)Vec_PtrEntry(vTokens,0);
     if ( fOutput )
         assert( !strncmp(pToken, "output_", 7) );
     else
@@ -1258,7 +1261,7 @@ static int Ntl_ReadParseLineTimes( Ntl_ReadMod_t * p, char * pLine, int fOutput 
         return 0;
     }
     // find the delay number
-    pTokenNum = Vec_PtrEntryLast(vTokens);
+    pTokenNum = (char *)Vec_PtrEntryLast(vTokens);
     if ( !strcmp( pTokenNum, "-inf" ) )
         Delay = -TIM_ETERNITY;
     else if ( !strcmp( pTokenNum, "inf" ) ) 
@@ -1275,7 +1278,7 @@ static int Ntl_ReadParseLineTimes( Ntl_ReadMod_t * p, char * pLine, int fOutput 
     {
         if ( Vec_PtrSize(vTokens) == 3 )
         {
-            RetValue = Ntl_ModelFindPioNumber( p->pNtk, 0, 1, Vec_PtrEntry(vTokens, 1), &Number );
+            RetValue = Ntl_ModelFindPioNumber( p->pNtk, 0, 1, (char *)Vec_PtrEntry(vTokens, 1), &Number );
             if ( RetValue == 0 )
             {
                 sprintf( p->pMan->sError, "Line %d: Cannot find signal \"%s\" among POs.", Ntl_ReadGetLine(p->pMan, pToken), (char*)Vec_PtrEntry(vTokens, 1) );
@@ -1292,7 +1295,7 @@ static int Ntl_ReadParseLineTimes( Ntl_ReadMod_t * p, char * pLine, int fOutput 
     {
         if ( Vec_PtrSize(vTokens) == 3 )
         {
-            RetValue = Ntl_ModelFindPioNumber( p->pNtk, 1, 0, Vec_PtrEntry(vTokens, 1), &Number );
+            RetValue = Ntl_ModelFindPioNumber( p->pNtk, 1, 0, (char *)Vec_PtrEntry(vTokens, 1), &Number );
             if ( RetValue == 0 )
             {
                 sprintf( p->pMan->sError, "Line %d: Cannot find signal \"%s\" among PIs.", Ntl_ReadGetLine(p->pMan, pToken), (char*)Vec_PtrEntry(vTokens, 1) );
@@ -1335,7 +1338,7 @@ static char * Ntl_ReadParseTableBlif( Ntl_ReadMod_t * p, char * pTable, int nFan
         return Ntl_ManStoreSop( p->pMan->pDesign->pMemSops, " 0\n" );
     if ( Vec_PtrSize(vTokens) == 1 )
     {
-        pOutput = Vec_PtrEntry( vTokens, 0 );
+        pOutput = (char *)Vec_PtrEntry( vTokens, 0 );
         if ( *pOutput == '\"' )
             return Ntl_ManStoreSop( p->pMan->pDesign->pMemSops, pOutput );
         if ( ((pOutput[0] - '0') & 0x8E) || pOutput[1] )
@@ -1345,7 +1348,7 @@ static char * Ntl_ReadParseTableBlif( Ntl_ReadMod_t * p, char * pTable, int nFan
         }
         return Ntl_ManStoreSop( p->pMan->pDesign->pMemSops, (pOutput[0] == '0') ? " 0\n" : " 1\n" );
     }
-    pProduct = Vec_PtrEntry( vTokens, 0 );
+    pProduct = (char *)Vec_PtrEntry( vTokens, 0 );
     if ( Vec_PtrSize(vTokens) % 2 == 1 )
     {
         sprintf( p->pMan->sError, "Line %d: Table has odd number of tokens (%d).", Ntl_ReadGetLine(p->pMan, pProduct), Vec_PtrSize(vTokens) );
@@ -1355,8 +1358,8 @@ static char * Ntl_ReadParseTableBlif( Ntl_ReadMod_t * p, char * pTable, int nFan
     Vec_StrClear( vFunc );
     for ( i = 0; i < Vec_PtrSize(vTokens)/2; i++ )
     {
-        pProduct = Vec_PtrEntry( vTokens, 2*i + 0 );
-        pOutput  = Vec_PtrEntry( vTokens, 2*i + 1 );
+        pProduct = (char *)Vec_PtrEntry( vTokens, 2*i + 0 );
+        pOutput  = (char *)Vec_PtrEntry( vTokens, 2*i + 1 );
         if ( strlen(pProduct) != (unsigned)nFanins )
         {
             sprintf( p->pMan->sError, "Line %d: Cube \"%s\" has size different from the fanin count (%d).", Ntl_ReadGetLine(p->pMan, pProduct), pProduct, nFanins );
@@ -1407,14 +1410,14 @@ static int Ntl_ReadParseLineNamesBlif( Ntl_ReadMod_t * p, char * pLine )
 //    if ( !strcmp(Vec_PtrEntry(vTokens,0), "gate") )
 //        return Ntl_ReadParseLineGateBlif( p, vTokens );
     // parse the regular name line
-    assert( !strcmp(Vec_PtrEntry(vTokens,0), "names") );
-    pNameOut = Vec_PtrEntryLast( vTokens );
+    assert( !strcmp((char *)Vec_PtrEntry(vTokens,0), "names") );
+    pNameOut = (char *)Vec_PtrEntryLast( vTokens );
     pNetOut = Ntl_ModelFindOrCreateNet( p->pNtk, pNameOut );
     // create fanins
     pNode = Ntl_ModelCreateNode( p->pNtk, Vec_PtrSize(vTokens) - 2 );
     for ( i = 0; i < Vec_PtrSize(vTokens) - 2; i++ )
     {
-        pNameIn = Vec_PtrEntry(vTokens, i+1);
+        pNameIn = (char *)Vec_PtrEntry(vTokens, i+1);
         pNetIn = Ntl_ModelFindOrCreateNet( p->pNtk, pNameIn );
         Ntl_ObjSetFanin( pNode, pNetIn, i );
     }
@@ -1436,4 +1439,6 @@ static int Ntl_ReadParseLineNamesBlif( Ntl_ReadMod_t * p, char * pLine )
 ///                       END OF FILE                                ///
 ////////////////////////////////////////////////////////////////////////
 
+
+ABC_NAMESPACE_IMPL_END
 

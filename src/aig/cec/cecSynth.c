@@ -21,6 +21,9 @@
 #include "cecInt.h"
 #include "giaAig.h"
 
+ABC_NAMESPACE_IMPL_START
+
+
 ////////////////////////////////////////////////////////////////////////
 ///                        DECLARATIONS                              ///
 ////////////////////////////////////////////////////////////////////////
@@ -301,7 +304,7 @@ int Cec_SequentialSynthesisPart( Gia_Man_t * p, Cec_ParSeq_t * pPars )
     {
         // print partitions
         Abc_Print( 1, "The following clock domains are used:\n" );
-        Vec_PtrForEachEntry( vParts, vPart, i )
+        Vec_PtrForEachEntry( Vec_Int_t *, vParts, vPart, i )
         {
             pTemp = Gia_ManRegCreatePart( p, vPart, &nCountPis, &nCountRegs, NULL );
             sprintf( Buffer, "part%03d.aig", i );
@@ -314,7 +317,7 @@ int Cec_SequentialSynthesisPart( Gia_Man_t * p, Cec_ParSeq_t * pPars )
 
     // perform sequential synthesis for clock domains
     pReprs = ABC_FALLOC( int, Gia_ManObjNum(p) );
-    Vec_PtrForEachEntry( vParts, vPart, i )
+    Vec_PtrForEachEntry( Vec_Int_t *, vParts, vPart, i )
     {
         pTemp = Gia_ManRegCreatePart( p, vPart, &nCountPis, &nCountRegs, &pMapBack );
         if ( nCountPis > 0 ) 
@@ -372,4 +375,6 @@ int Cec_SequentialSynthesisPart( Gia_Man_t * p, Cec_ParSeq_t * pPars )
 ///                       END OF FILE                                ///
 ////////////////////////////////////////////////////////////////////////
 
+
+ABC_NAMESPACE_IMPL_END
 

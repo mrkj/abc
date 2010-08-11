@@ -19,6 +19,9 @@
 ***********************************************************************/
 
 #include "gia.h"
+#include "cec.h"
+
+ABC_NAMESPACE_IMPL_START
 
 ////////////////////////////////////////////////////////////////////////
 ///                        DECLARATIONS                              ///
@@ -1232,7 +1235,7 @@ int Gia_ObjCheckTfi( Gia_Man_t * p, Gia_Obj_t * pOld, Gia_Obj_t * pNode )
     assert( !Gia_IsComplement(pNode) );
     vVisited = Vec_PtrAlloc( 100 );
     RetValue = Gia_ObjCheckTfi_rec( p, pOld, pNode, vVisited );
-    Vec_PtrForEachEntry( vVisited, pObj, i )
+    Vec_PtrForEachEntry( Gia_Obj_t *, vVisited, pObj, i )
         pObj->fMark0 = 0;
     Vec_PtrFree( vVisited );
     return RetValue;
@@ -1469,12 +1472,15 @@ int Gia_ManCountChoices( Gia_Man_t * p )
     return Counter;
 }
 
-
+ABC_NAMESPACE_IMPL_END
 
 #include "aig.h"
 #include "saig.h"
 #include "cec.h"
 #include "giaAig.h"
+
+ABC_NAMESPACE_IMPL_START
+
 
 /**Function*************************************************************
 
@@ -1489,7 +1495,7 @@ int Gia_ManCountChoices( Gia_Man_t * p )
 ***********************************************************************/
 int Gia_CommandSpecI( Gia_Man_t * pGia, int nFramesInit, int nBTLimitInit, int fStart, int fCheckMiter, int fVerbose )
 {
-    extern int Cec_ManCheckNonTrivialCands( Gia_Man_t * pAig );
+//    extern int Cec_ManCheckNonTrivialCands( Gia_Man_t * pAig );
     Aig_Man_t * pTemp;
     Gia_Man_t * pSrm, * pReduce, * pAux;
     int nIter, nStart = 0;
@@ -1576,4 +1582,6 @@ int Gia_CommandSpecI( Gia_Man_t * pGia, int nFramesInit, int nBTLimitInit, int f
 ///                       END OF FILE                                ///
 ////////////////////////////////////////////////////////////////////////
 
+
+ABC_NAMESPACE_IMPL_END
 

@@ -21,6 +21,7 @@
 #ifndef __UTIL_INT_H__
 #define __UTIL_INT_H__
 
+
 ////////////////////////////////////////////////////////////////////////
 ///                          INCLUDES                                ///
 ////////////////////////////////////////////////////////////////////////
@@ -29,9 +30,10 @@
 ///                         PARAMETERS                               ///
 ////////////////////////////////////////////////////////////////////////
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+
+
+ABC_NAMESPACE_HEADER_START
+
 
 extern void * s_vAllocs;   // storage of allocated pointers
 extern void * s_vFrees;    // storage of deallocated pointers
@@ -57,9 +59,11 @@ extern void         Util_MemQuit();
 extern void         Util_MemRecycle();
 extern int          Util_MemRecIsSet();
 
-#ifdef __cplusplus
-}
-#endif
+
+
+ABC_NAMESPACE_HEADER_END
+
+
 
 #endif
 

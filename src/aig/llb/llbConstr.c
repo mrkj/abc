@@ -20,6 +20,9 @@
 
 #include "llbInt.h"
 
+ABC_NAMESPACE_IMPL_START
+
+
 ////////////////////////////////////////////////////////////////////////
 ///                        DECLARATIONS                              ///
 ////////////////////////////////////////////////////////////////////////
@@ -95,7 +98,7 @@ void Llb_ManDerefenceBdds( Aig_Man_t * p, DdManager * dd )
     Aig_Obj_t * pObj;
     int i;
     Aig_ManForEachObj( p, pObj, i )
-        Cudd_RecursiveDeref( dd, pObj->pData );
+        Cudd_RecursiveDeref( dd, (DdNode *)pObj->pData );
 }
 
 /**Function*************************************************************
@@ -112,7 +115,7 @@ void Llb_ManDerefenceBdds( Aig_Man_t * p, DdManager * dd )
 DdNode * Llb_ManComputeIndCase_rec( Aig_Man_t * p, Aig_Obj_t * pObj, DdManager * dd, Vec_Ptr_t * vBdds )
 {
     DdNode * bBdd0, * bBdd1;
-    DdNode * bFunc = Vec_PtrEntry( vBdds, Aig_ObjId(pObj) );
+    DdNode * bFunc = (DdNode *)Vec_PtrEntry( vBdds, Aig_ObjId(pObj) );
     if ( bFunc != NULL )
         return bFunc;
     assert( Aig_ObjIsNode(pObj) );
@@ -152,7 +155,7 @@ void Llb_ManComputeIndCase( Aig_Man_t * p, DdManager * dd, Vec_Int_t * vNodes )
     }
     Saig_ManForEachLi( p, pObj, i )
     {
-        bFunc = pObj->pData;  Cudd_Ref( bFunc );
+        bFunc = (DdNode *)pObj->pData;  Cudd_Ref( bFunc );
         Vec_PtrWriteEntry( vBdds, Aig_ObjId(Saig_ObjLiToLo(p, pObj)), bFunc );
     }
     Vec_IntForEachEntry( vNodes, Entry, i )
@@ -172,11 +175,11 @@ void Llb_ManComputeIndCase( Aig_Man_t * p, DdManager * dd, Vec_Int_t * vNodes )
         {
 //            Extra_bddPrint( dd, pObj->pData );  printf( "\n" );
 //            Extra_bddPrint( dd, bFunc );        printf( "\n" );
-            if ( !Cudd_bddLeq( dd, pObj->pData, bFunc ) )
+            if ( !Cudd_bddLeq( dd, (DdNode *)pObj->pData, bFunc ) )
                 Vec_IntWriteEntry( vNodes, i, -1 );
         }
     }
-    Vec_PtrForEachEntry( vBdds, bFunc, i )
+    Vec_PtrForEachEntry( DdNode *, vBdds, bFunc, i )
         if ( bFunc )
             Cudd_RecursiveDeref( dd, bFunc );
     Vec_PtrFree( vBdds );
@@ -204,9 +207,9 @@ Vec_Int_t * Llb_ManComputeBaseCase( Aig_Man_t * p, DdManager * dd )
     {
         if ( !Aig_ObjIsNode(pObj) && !Aig_ObjIsPi(pObj) )
             continue;
-        if ( Cudd_bddLeq( dd, pObj->pData, Cudd_Not(pRoot->pData) ) )
+        if ( Cudd_bddLeq( dd, (DdNode *)pObj->pData, Cudd_Not(pRoot->pData) ) )
             Vec_IntWriteEntry( vNodes, i, 1 );
-        else if ( Cudd_bddLeq( dd, Cudd_Not(pObj->pData), Cudd_Not(pRoot->pData) ) )
+        else if ( Cudd_bddLeq( dd, Cudd_Not((DdNode *)pObj->pData), Cudd_Not(pRoot->pData) ) )
             Vec_IntWriteEntry( vNodes, i, 0 );
     }
     return vNodes;
@@ -232,20 +235,20 @@ DdManager * Llb_ManConstructGlobalBdds( Aig_Man_t * p )
     dd = Cudd_Init( Aig_ManPiNum(p), 0, CUDD_UNIQUE_SLOTS, CUDD_CACHE_SLOTS, 0 );
     Cudd_AutodynEnable( dd,  CUDD_REORDER_SYMM_SIFT );
     pObj = Aig_ManConst1(p);
-    pObj->pData = Cudd_ReadOne(dd);  Cudd_Ref( pObj->pData );
+    pObj->pData = Cudd_ReadOne(dd);  Cudd_Ref( (DdNode *)pObj->pData );
     Aig_ManForEachPi( p, pObj, i )
     {
-        pObj->pData = Cudd_bddIthVar(dd, i);  Cudd_Ref( pObj->pData );
+        pObj->pData = Cudd_bddIthVar(dd, i);  Cudd_Ref( (DdNode *)pObj->pData );
     }
     Aig_ManForEachNode( p, pObj, i )
     {
-        bBdd0 = Cudd_NotCond( Aig_ObjFanin0(pObj)->pData, Aig_ObjFaninC0(pObj) );
-        bBdd1 = Cudd_NotCond( Aig_ObjFanin1(pObj)->pData, Aig_ObjFaninC1(pObj) );
-        pObj->pData = Cudd_bddAnd( dd, bBdd0, bBdd1 );   Cudd_Ref( pObj->pData );
+        bBdd0 = Cudd_NotCond( (DdNode *)Aig_ObjFanin0(pObj)->pData, Aig_ObjFaninC0(pObj) );
+        bBdd1 = Cudd_NotCond( (DdNode *)Aig_ObjFanin1(pObj)->pData, Aig_ObjFaninC1(pObj) );
+        pObj->pData = Cudd_bddAnd( dd, bBdd0, bBdd1 );   Cudd_Ref( (DdNode *)pObj->pData );
     }
     Aig_ManForEachPo( p, pObj, i )
     {
-        pObj->pData = Cudd_NotCond( Aig_ObjFanin0(pObj)->pData, Aig_ObjFaninC0(pObj) );  Cudd_Ref( pObj->pData );
+        pObj->pData = Cudd_NotCond( (DdNode *)Aig_ObjFanin0(pObj)->pData, Aig_ObjFaninC0(pObj) );  Cudd_Ref( (DdNode *)pObj->pData );
     }
     return dd;
 }
@@ -263,7 +266,6 @@ DdManager * Llb_ManConstructGlobalBdds( Aig_Man_t * p )
 ***********************************************************************/
 Vec_Int_t * Llb_ManDeriveConstraints( Aig_Man_t * p )
 {
-    extern void Extra_StopManager( DdManager * dd );
     DdManager * dd;
     Vec_Int_t * vNodes;
     if ( Saig_ManPoNum(p) != 1 )
@@ -306,4 +308,6 @@ void Llb_ManConstrTest( Aig_Man_t * p )
 ///                       END OF FILE                                ///
 ////////////////////////////////////////////////////////////////////////
 
+
+ABC_NAMESPACE_IMPL_END
 

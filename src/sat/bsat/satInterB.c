@@ -26,6 +26,9 @@
 #include "satStore.h"
 #include "aig.h"
 
+ABC_NAMESPACE_IMPL_START
+
+
 ////////////////////////////////////////////////////////////////////////
 ///                        DECLARATIONS                              ///
 ////////////////////////////////////////////////////////////////////////
@@ -993,7 +996,7 @@ void * Intb_ManInterpolate( Intb_Man_t * p, Sto_Man_t * pCnf, void * vVarsAB, in
     assert( pCnf->nVars > 0 && pCnf->nClauses > 0 );
     p->pCnf = pCnf;
     p->fVerbose = fVerbose;
-    p->vVarsAB = vVarsAB;
+    p->vVarsAB = (Vec_Int_t *)vVarsAB;
     p->pAig = pRes = Aig_ManStart( 10000 );
     Aig_IthVar( p->pAig, Vec_IntSize(p->vVarsAB) - 1 );
 
@@ -1107,4 +1110,6 @@ Aig_Man_t * Intb_ManDeriveClauses( Intb_Man_t * pMan, Sto_Man_t * pCnf, int fCla
 ///                       END OF FILE                                ///
 ////////////////////////////////////////////////////////////////////////
 
+
+ABC_NAMESPACE_IMPL_END
 

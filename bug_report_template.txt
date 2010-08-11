@@ -1,0 +1,7 @@
+When reporting a problem, please include the following:    
+1. Linux Distribution and Version
+2. 32/64 bit
+3. The exact error message when trying to run the tool.
+4. The output of the 'ldd' command run on the exeutable (e.g. 'ldd abc').
+5. Versions of relevant tools or packages used.
+

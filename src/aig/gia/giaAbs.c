@@ -21,12 +21,19 @@
 #include "gia.h"
 #include "giaAig.h"
 #include "giaAbs.h"
+#include "saig.h"
+
+#ifndef _WIN32
+#include <unistd.h>
+#endif
+
+ABC_NAMESPACE_IMPL_START
+
 
 ////////////////////////////////////////////////////////////////////////
 ///                        DECLARATIONS                              ///
 ////////////////////////////////////////////////////////////////////////
 
-extern Aig_Man_t * Saig_ManDeriveAbstraction( Aig_Man_t * p, Vec_Int_t * vFlops );
 extern Vec_Int_t * Saig_ManProofAbstractionFlops( Aig_Man_t * p, Gia_ParAbs_t * pPars );
 extern Vec_Int_t * Saig_ManCexAbstractionFlops( Aig_Man_t * p, Gia_ParAbs_t * pPars );
 extern int         Saig_ManCexRefineStep( Aig_Man_t * p, Vec_Int_t * vFlops, Abc_Cex_t * pCex, int fVerbose );
@@ -541,4 +548,6 @@ void Gia_ManCexAbstractionStartNew( Gia_Man_t * pGia, Gia_ParAbs_t * pPars )
 ///                       END OF FILE                                ///
 ////////////////////////////////////////////////////////////////////////
 
+
+ABC_NAMESPACE_IMPL_END
 

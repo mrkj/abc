@@ -20,6 +20,9 @@
 
 #include "extra.h"
 
+ABC_NAMESPACE_IMPL_START
+
+
 /*---------------------------------------------------------------------------*/
 /* Constant declarations                                                     */
 /*---------------------------------------------------------------------------*/
@@ -530,4 +533,6 @@ char * Extra_StringAppend( char * pStrGiven, char * pStrAdd )
 ///                       END OF FILE                                ///
 ////////////////////////////////////////////////////////////////////////
 
+
+ABC_NAMESPACE_IMPL_END
 

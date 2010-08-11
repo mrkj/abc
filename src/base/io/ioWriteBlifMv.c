@@ -22,6 +22,9 @@
 #include "main.h"
 #include "mio.h"
 
+ABC_NAMESPACE_IMPL_START
+
+
 ////////////////////////////////////////////////////////////////////////
 ///                        DECLARATIONS                              ///
 ////////////////////////////////////////////////////////////////////////
@@ -72,7 +75,7 @@ void Io_WriteBlifMv( Abc_Ntk_t * pNtk, char * FileName )
     // write the remaining networks
     if ( pNtk->pDesign )
     {
-        Vec_PtrForEachEntry( pNtk->pDesign->vModules, pNtkTemp, i )
+        Vec_PtrForEachEntry( Abc_Ntk_t *, pNtk->pDesign->vModules, pNtkTemp, i )
         {
             if ( pNtkTemp == pNtk )
                 continue;
@@ -317,7 +320,7 @@ void Io_NtkWriteBlifMvLatch( FILE * pFile, Abc_Obj_t * pLatch )
 ***********************************************************************/
 void Io_NtkWriteBlifMvSubckt( FILE * pFile, Abc_Obj_t * pNode )
 {
-    Abc_Ntk_t * pModel = pNode->pData;
+    Abc_Ntk_t * pModel = (Abc_Ntk_t *)pNode->pData;
     Abc_Obj_t * pTerm;
     int i;
     // write the MV directives
@@ -388,7 +391,7 @@ void Io_NtkWriteBlifMvNode( FILE * pFile, Abc_Obj_t * pNode )
     fprintf( pFile, "\n" );
 
     // write the cubes
-    pCur = Abc_ObjData(pNode);
+    pCur = (char *)Abc_ObjData(pNode);
     if ( *pCur == 'd' )
     {
         fprintf( pFile, ".default " );
@@ -468,4 +471,6 @@ void Io_NtkWriteBlifMvNodeFanins( FILE * pFile, Abc_Obj_t * pNode )
 ///                       END OF FILE                                ///
 ////////////////////////////////////////////////////////////////////////
 
+
+ABC_NAMESPACE_IMPL_END
 

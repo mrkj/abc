@@ -27,10 +27,15 @@
 #include "giaAig.h"
 #include "cec.h"
 #include "int.h"
+
+ABC_NAMESPACE_IMPL_START
+
  
 ////////////////////////////////////////////////////////////////////////
 ///                        DECLARATIONS                              ///
 ////////////////////////////////////////////////////////////////////////
+
+extern int Abc_NtkDarBmcInter_int( Aig_Man_t * pMan, Inter_ManParams_t * pPars );
 
 extern Aig_Man_t * Abc_NtkToDar( Abc_Ntk_t * pNtk, int fExors, int fRegisters );
 extern Abc_Ntk_t * Abc_NtkFromDar( Abc_Ntk_t * pNtkOld, Aig_Man_t * pMan );
@@ -114,7 +119,7 @@ int Abc_NtkDProve2( Abc_Ntk_t * pNtk, int nConfLast, int fSeparate, int fVeryVer
             goto finish;
     }
     Aig_ManStop( pMan );
-    pSave1 = Abc_FrameReadSave1();
+    pSave1 = (Aig_Man_t *)Abc_FrameReadSave1();
     pMan = Aig_ManDupSimple( pSave1 );
 
     // abstraction
@@ -198,7 +203,7 @@ abstraction:
         }
         assert( RetValue == -1 );
         Aig_ManStop( pMan );
-        pMan = Abc_FrameReadSave1(); // save2
+        pMan = (Aig_Man_t *)Abc_FrameReadSave1(); // save2
     }
 
 speculation:
@@ -233,7 +238,7 @@ speculation:
 //        Gia_ManPrintStats( pSrm, 0 );
         // bmc2 -F 100 -C 25000
         {
-            void * pCex;
+            Abc_Cex_t * pCex;
             int nFrames     = 100; // different from default
             int nNodeDelta  = 2000;
             int nBTLimit    = 25000; // different from default
@@ -317,7 +322,6 @@ speculation:
         }
     }
     {
-        extern int Abc_NtkDarBmcInter_int( Aig_Man_t * pMan, Inter_ManParams_t * pPars );
         Inter_ManParams_t Pars, * pPars = &Pars;
         Inter_ManSetDefaultParams( pPars );
         pPars->fUseSeparate = fSeparate;
@@ -396,4 +400,6 @@ finish:
 ///                       END OF FILE                                ///
 ////////////////////////////////////////////////////////////////////////
 
+
+ABC_NAMESPACE_IMPL_END
 

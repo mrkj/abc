@@ -21,11 +21,14 @@
 #include "bbr.h"
 #include "ssw.h"
 
+ABC_NAMESPACE_IMPL_START
+
+
 ////////////////////////////////////////////////////////////////////////
 ///                        DECLARATIONS                              ///
 ////////////////////////////////////////////////////////////////////////
 
-extern void * Aig_ManVerifyUsingBddsCountExample( Aig_Man_t * p, DdManager * dd, 
+extern Abc_Cex_t * Aig_ManVerifyUsingBddsCountExample( Aig_Man_t * p, DdManager * dd, 
     DdNode ** pbParts, Vec_Ptr_t * vOnionRings, DdNode * bCubeFirst, 
     int iOutput, int fVerbose, int fSilent );
 
@@ -242,10 +245,10 @@ int Aig_ManComputeReachable( DdManager * dd, Aig_Man_t * p, DdNode ** pbParts, D
     DdNode * bCurrent;
     DdNode * bNext = NULL; // Suppress "might be used uninitialized"
     DdNode * bTemp;
-    int i, nIters, nBddSize;
+    Cudd_ReorderingType method;
+    int i, nIters, nBddSize, status;
     int nThreshold = 10000, clk = clock();
     Vec_Ptr_t * vOnionRings;
-    int status, method;
 
     status = Cudd_ReorderingStatus( dd, &method );
     if ( status )
@@ -370,7 +373,7 @@ int Aig_ManComputeReachable( DdManager * dd, Aig_Man_t * p, DdNode ** pbParts, D
     }
     Cudd_RecursiveDeref( dd, bNext );
     // free the onion rings
-    Vec_PtrForEachEntry( vOnionRings, bTemp, i )
+    Vec_PtrForEachEntry( DdNode *, vOnionRings, bTemp, i )
         Cudd_RecursiveDeref( dd, bTemp );
     Vec_PtrFree( vOnionRings );
     // undo the image tree
@@ -481,7 +484,7 @@ int Aig_ManVerifyUsingBdds_int( Aig_Man_t * p, Saig_ParBbr_t * pPars )
         }
     }
     // free the onion rings
-    Vec_PtrForEachEntry( vOnionRings, bTemp, i )
+    Vec_PtrForEachEntry( DdNode *, vOnionRings, bTemp, i )
         Cudd_RecursiveDeref( dd, bTemp );
     Vec_PtrFree( vOnionRings );
     // explore reachable states
@@ -552,7 +555,7 @@ int Aig_ManVerifyUsingBdds( Aig_Man_t * pInit, Saig_ParBbr_t * pPars )
     vInputMap = Vec_IntAlloc( Saig_ManPiNum(pInit) );
     Saig_ManForEachPi( pInit, pObj, i )
         if ( pObj->pData != NULL )
-            Vec_IntPush( vInputMap, Aig_ObjPioNum(pObj->pData) );
+            Vec_IntPush( vInputMap, Aig_ObjPioNum((Aig_Obj_t *)pObj->pData) );
         else
             Vec_IntPush( vInputMap, -1 );
     // create new pattern
@@ -590,4 +593,6 @@ int Aig_ManVerifyUsingBdds( Aig_Man_t * pInit, Saig_ParBbr_t * pPars )
 ///                       END OF FILE                                ///
 ////////////////////////////////////////////////////////////////////////
 
+
+ABC_NAMESPACE_IMPL_END
 

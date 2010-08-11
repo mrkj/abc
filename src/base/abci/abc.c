@@ -19,6 +19,7 @@
 ***********************************************************************/
 
 #include "abc.h"
+#include "main.h"
 #include "mainInt.h"
 #include "fraig.h"
 #include "fxu.h"
@@ -39,12 +40,38 @@
 #include "dch.h"
 #include "ssw.h"
 #include "cgt.h"
+#include "kit.h"
 #include "amap.h"
+#include "retInt.h"
+#include "cnf.h"
 #include "cec.h"
 #include "giaAbs.h"
-#include "ntlnwk.h"
+
+#include "tim.h"
 #include "sky.h"
 #include "llb.h"
+#include "ntlnwk.h"
+#include "mfx.h"
+#include "bbr.h"
+#include "cov.h"
+
+#include "cmd.h"
+#include "extra.h"
+//#include "magic.h"
+
+#ifndef _WIN32
+#include <unistd.h>
+#endif
+
+#ifdef IF_USE_BAT
+ABC_NAMESPACE_HEADER_START
+extern Sky_Man_t * Bat_ManLogic( Sky_Man_t * p, int nSlackMin );
+extern Sky_Man_t * Bat_ManPerformCellShink( Sky_Man_t * p );
+ABC_NAMESPACE_HEADER_END
+#endif
+
+
+ABC_NAMESPACE_IMPL_START
 
 ////////////////////////////////////////////////////////////////////////
 ///                        DECLARATIONS                              ///
@@ -161,7 +188,7 @@ static int Abc_CommandIFraig                 ( Abc_Frame_t * pAbc, int argc, cha
 static int Abc_CommandDFraig                 ( Abc_Frame_t * pAbc, int argc, char ** argv );
 static int Abc_CommandCSweep                 ( Abc_Frame_t * pAbc, int argc, char ** argv );
 static int Abc_CommandDProve                 ( Abc_Frame_t * pAbc, int argc, char ** argv );
-static int Abc_CommandDProve2                ( Abc_Frame_t * pAbc, int argc, char ** argv );
+//static int Abc_CommandDProve2                ( Abc_Frame_t * pAbc, int argc, char ** argv );
 static int Abc_CommandAbSec                  ( Abc_Frame_t * pAbc, int argc, char ** argv );
 static int Abc_CommandSimSec                 ( Abc_Frame_t * pAbc, int argc, char ** argv );
 static int Abc_CommandMatch                  ( Abc_Frame_t * pAbc, int argc, char ** argv );
@@ -390,9 +417,11 @@ static int Abc_CommandAbc9Reach              ( Abc_Frame_t * pAbc, int argc, cha
 static int Abc_CommandAbc9Undo               ( Abc_Frame_t * pAbc, int argc, char ** argv );
 static int Abc_CommandAbc9Test               ( Abc_Frame_t * pAbc, int argc, char ** argv );
 
+static int Abc_CommandAbcTestNew             ( Abc_Frame_t * pAbc, int argc, char ** argv );
+
 extern int Abc_CommandAbcLivenessToSafety    ( Abc_Frame_t * pAbc, int argc, char ** argv );
 extern int Abc_CommandAbcLivenessToSafetySim ( Abc_Frame_t * pAbc, int argc, char ** argv );
-static int Abc_CommandAbcTestNew             ( Abc_Frame_t * pAbc, int argc, char ** argv );
+extern int Abc_CommandAbcLivenessToSafetyWithLTL( Abc_Frame_t * pAbc, int argc, char ** argv );
 
 ////////////////////////////////////////////////////////////////////////
 ///                     FUNCTION DEFINITIONS                         ///
@@ -429,7 +458,6 @@ void Abc_FrameReplaceCex( Abc_Frame_t * pAbc, Abc_Cex_t ** ppCex )
 ***********************************************************************/
 void Abc_FrameClearDesign()
 {
-    extern Abc_Frame_t * Abc_FrameGetGlobalFrame();
     Abc_Frame_t * pAbc;
 
     pAbc = Abc_FrameGetGlobalFrame();
@@ -464,6 +492,7 @@ void Abc_FrameClearDesign()
 void Abc_Init( Abc_Frame_t * pAbc )
 {
     {
+//        Sky_ReadLoadFileBz2Test( "x2\\edif3\\xlnx01.postopt.edif.bz2" );
 //        void Nal_PinsPrintClassTable();
 //        Nal_PinsPrintClassTable();
     }
@@ -642,7 +671,7 @@ void Abc_Init( Abc_Frame_t * pAbc )
 //    Cmd_CommandAdd( pAbc, "Verification", "sec",           Abc_CommandSec,              0 );
     Cmd_CommandAdd( pAbc, "Verification", "dsec",          Abc_CommandDSec,             0 );
     Cmd_CommandAdd( pAbc, "Verification", "dprove",        Abc_CommandDProve,           0 );
-    Cmd_CommandAdd( pAbc, "Verification", "dprove2",       Abc_CommandDProve2,          0 );
+//    Cmd_CommandAdd( pAbc, "Verification", "dprove2",       Abc_CommandDProve2,          0 );
     Cmd_CommandAdd( pAbc, "Verification", "absec",         Abc_CommandAbSec,            0 );
     Cmd_CommandAdd( pAbc, "Verification", "simsec",        Abc_CommandSimSec,           0 );
     Cmd_CommandAdd( pAbc, "Verification", "match",         Abc_CommandMatch,            0 );
@@ -803,6 +832,7 @@ void Abc_Init( Abc_Frame_t * pAbc )
 
 	Cmd_CommandAdd( pAbc, "Liveness",     "l2s",           Abc_CommandAbcLivenessToSafety,    0 );
 	Cmd_CommandAdd( pAbc, "Liveness",     "l2ssim",        Abc_CommandAbcLivenessToSafetySim, 0 );
+	Cmd_CommandAdd( pAbc, "Liveness",     "l3s",           Abc_CommandAbcLivenessToSafetyWithLTL,    0 );
 
     Cmd_CommandAdd( pAbc, "Various",      "testnew",       Abc_CommandAbcTestNew,       0 );
 
@@ -886,10 +916,9 @@ void Abc_Init( Abc_Frame_t * pAbc )
   SeeAlso     []
 
 ***********************************************************************/
-void Abc_End()
+void Abc_End( Abc_Frame_t * pAbc )
 {
     extern Abc_Frame_t * Abc_FrameGetGlobalFrame();
-    Abc_Frame_t * pAbc;
 #ifdef IF_USE_BAT
     {
         extern void Bat_ManFuncSetdownTable();
@@ -898,7 +927,6 @@ void Abc_End()
         Bat_ManCellTableStop();
     }
 #endif
-    pAbc = Abc_FrameGetGlobalFrame();
     Sky_ManFreeP( &pAbc->pAbc85Ntl );
     Sky_ManFreeP( &pAbc->pAbc85Ntl2 );
     Sky_ManFreeP( &pAbc->pAbc85Best );
@@ -909,9 +937,9 @@ void Abc_End()
     {
         extern void If_LutLibFree( If_Lib_t * pLutLib );
         if ( Abc_FrameGetGlobalFrame()->pAbc8Lib )
-            If_LutLibFree( Abc_FrameGetGlobalFrame()->pAbc8Lib );
+            If_LutLibFree( (If_Lib_t *)Abc_FrameGetGlobalFrame()->pAbc8Lib );
         if ( Abc_FrameGetGlobalFrame()->pAbc85Lib )
-            If_LutLibFree( Abc_FrameGetGlobalFrame()->pAbc85Lib );
+            If_LutLibFree( (If_Lib_t *)Abc_FrameGetGlobalFrame()->pAbc85Lib );
     }
 
 //    Dar_LibDumpPriorities();
@@ -921,7 +949,7 @@ void Abc_End()
     }
 
     {
-        extern void Cnf_ClearMemory();
+//        extern void Cnf_ClearMemory();
         Cnf_ClearMemory();
     }
     {
@@ -1112,7 +1140,7 @@ int Abc_CommandPrintExdc( Abc_Frame_t * pAbc, int argc, char ** argv )
 {
     Abc_Ntk_t * pNtk, * pNtkTemp;
     double Percentage;
-    bool fShort;
+    int fShort;
     int c;
     int fPrintDc;
     extern double Abc_NtkSpacePercentage( Abc_Obj_t * pNode );
@@ -2135,7 +2163,6 @@ int Abc_CommandPrintDsd( Abc_Frame_t * pAbc, int argc, char ** argv )
 
     extern void Kit_DsdTest( unsigned * pTruth, int nVars );
     extern void Kit_DsdPrintCofactors( unsigned * pTruth, int nVars, int nCofLevel, int fVerbose );
-    extern void Kit_TruthPrintProfile( unsigned * pTruth, int nVars );
 
     // set defaults
     nCofLevel = 1;
@@ -2197,8 +2224,8 @@ int Abc_CommandPrintDsd( Abc_Frame_t * pAbc, int argc, char ** argv )
             Abc_Print( -1, "Currently works only for up to 16 inputs.\n" );
             return 1;
         }
-        pTruth = Hop_ManConvertAigToTruth( pNtk->pManFunc, Hop_Regular(pObj->pData), Abc_ObjFaninNum(pObj), vMemory, 0 );
-        if ( Hop_IsComplement(pObj->pData) )
+        pTruth = Hop_ManConvertAigToTruth( (Hop_Man_t *)pNtk->pManFunc, Hop_Regular((Hop_Obj_t *)pObj->pData), Abc_ObjFaninNum(pObj), vMemory, 0 );
+        if ( Hop_IsComplement((Hop_Obj_t *)pObj->pData) )
             Extra_TruthNot( pTruth, pTruth, Abc_ObjFaninNum(pObj) );
 //        Extra_PrintBinary( stdout, pTruth, 1 << Abc_ObjFaninNum(pObj) );
 //        Abc_Print( -1, "\n" );
@@ -2238,8 +2265,6 @@ int Abc_CommandPrintCone( Abc_Frame_t * pAbc, int argc, char ** argv )
     Abc_Ntk_t * pNtk = Abc_FrameReadNtk(pAbc);
     int c;
     int fUseLibrary;
-
-    extern int Abc_NtkDarPrintCone( Abc_Ntk_t * pNtk );
 
     // set defaults
     fUseLibrary = 1;
@@ -2829,9 +2854,9 @@ int Abc_CommandBalance( Abc_Frame_t * pAbc, int argc, char ** argv )
 {
     Abc_Ntk_t * pNtk, * pNtkRes, * pNtkTemp;
     int c;
-    bool fDuplicate;
-    bool fSelective;
-    bool fUpdateLevel;
+    int fDuplicate;
+    int fSelective;
+    int fUpdateLevel;
     int fExor;
     int fVerbose;
     extern Abc_Ntk_t * Abc_NtkBalanceExor( Abc_Ntk_t * pNtk, int fUpdateLevel, int fVerbose );
@@ -3426,7 +3451,7 @@ int Abc_CommandFastExtract( Abc_Frame_t * pAbc, int argc, char ** argv )
     Abc_Ntk_t * pNtk = Abc_FrameReadNtk(pAbc);
     Fxu_Data_t * p = NULL;
     int c;
-    extern bool Abc_NtkFastExtract( Abc_Ntk_t * pNtk, Fxu_Data_t * p );
+    extern int Abc_NtkFastExtract( Abc_Ntk_t * pNtk, Fxu_Data_t * p );
     extern void Abc_NtkFxuFreeInfo( Fxu_Data_t * p );
 
     // allocate the structure
@@ -3647,8 +3672,8 @@ int Abc_CommandDisjoint( Abc_Frame_t * pAbc, int argc, char ** argv )
     Abc_Ntk_t * pNtk, * pNtkRes, * pNtkNew;
     int fGlobal, fRecursive, fVerbose, fPrint, fShort, c;
 
-    extern Abc_Ntk_t * Abc_NtkDsdGlobal( Abc_Ntk_t * pNtk, bool fVerbose, bool fPrint, bool fShort );
-    extern int         Abc_NtkDsdLocal( Abc_Ntk_t * pNtk, bool fVerbose, bool fRecursive );
+    extern Abc_Ntk_t * Abc_NtkDsdGlobal( Abc_Ntk_t * pNtk, int fVerbose, int fPrint, int fShort );
+    extern int         Abc_NtkDsdLocal( Abc_Ntk_t * pNtk, int fVerbose, int fRecursive );
 
     pNtk = Abc_FrameReadNtk(pAbc);
     // set defaults
@@ -4686,12 +4711,12 @@ int Abc_CommandRewrite( Abc_Frame_t * pAbc, int argc, char ** argv )
 {
     Abc_Ntk_t * pNtk = Abc_FrameReadNtk(pAbc);
     int c;
-    bool fUpdateLevel;
-    bool fPrecompute;
-    bool fUseZeros;
-    bool fVerbose;
-    bool fVeryVerbose;
-    bool fPlaceEnable;
+    int fUpdateLevel;
+    int fPrecompute;
+    int fUseZeros;
+    int fVerbose;
+    int fVeryVerbose;
+    int fPlaceEnable;
     // external functions
     extern void Rwr_Precompute();
 
@@ -4791,11 +4816,11 @@ int Abc_CommandRefactor( Abc_Frame_t * pAbc, int argc, char ** argv )
     int c;
     int nNodeSizeMax;
     int nConeSizeMax;
-    bool fUpdateLevel;
-    bool fUseZeros;
-    bool fUseDcs;
-    bool fVerbose;
-    extern int Abc_NtkRefactor( Abc_Ntk_t * pNtk, int nNodeSizeMax, int nConeSizeMax, bool fUpdateLevel, bool fUseZeros, bool fUseDcs, bool fVerbose );
+    int fUpdateLevel;
+    int fUseZeros;
+    int fUseDcs;
+    int fVerbose;
+    extern int Abc_NtkRefactor( Abc_Ntk_t * pNtk, int nNodeSizeMax, int nConeSizeMax, int fUpdateLevel, int fUseZeros, int fUseDcs, int fVerbose );
 
     // set defaults
     nNodeSizeMax = 10;
@@ -4909,10 +4934,10 @@ int Abc_CommandRestructure( Abc_Frame_t * pAbc, int argc, char ** argv )
     Abc_Ntk_t * pNtk = Abc_FrameReadNtk(pAbc);
     int c;
     int nCutsMax;
-    bool fUpdateLevel;
-    bool fUseZeros;
-    bool fVerbose;
-    extern int Abc_NtkRestructure( Abc_Ntk_t * pNtk, int nCutsMax, bool fUpdateLevel, bool fUseZeros, bool fVerbose );
+    int fUpdateLevel;
+    int fUseZeros;
+    int fVerbose;
+    extern int Abc_NtkRestructure( Abc_Ntk_t * pNtk, int nCutsMax, int fUpdateLevel, int fUseZeros, int fVerbose );
 
     // set defaults
     nCutsMax      =  5;
@@ -5011,11 +5036,11 @@ int Abc_CommandResubstitute( Abc_Frame_t * pAbc, int argc, char ** argv )
     int nCutsMax;
     int nNodesMax;
     int nLevelsOdc;
-    bool fUpdateLevel;
-    bool fUseZeros;
-    bool fVerbose;
-    bool fVeryVerbose;
-    extern int Abc_NtkResubstitute( Abc_Ntk_t * pNtk, int nCutsMax, int nNodesMax, int nLevelsOdc, bool fUpdateLevel, bool fVerbose, bool fVeryVerbose );
+    int fUpdateLevel;
+    int fUseZeros;
+    int fVerbose;
+    int fVeryVerbose;
+    extern int Abc_NtkResubstitute( Abc_Ntk_t * pNtk, int nCutsMax, int nNodesMax, int nLevelsOdc, int fUpdateLevel, int fVerbose, int fVeryVerbose );
 
     // set defaults
     nCutsMax     =  8;
@@ -5730,7 +5755,6 @@ int Abc_CommandAndPos( Abc_Frame_t * pAbc, int argc, char ** argv )
     Abc_Ntk_t * pNtk = Abc_FrameReadNtk(pAbc);//, * pNtkRes;
     int fComb;
     int c;
-    extern int Abc_NtkCombinePos( Abc_Ntk_t * pNtk, int fAnd );
 
     // set defaults
     Extra_UtilGetoptReset();
@@ -5919,7 +5943,7 @@ int Abc_CommandAppend( Abc_Frame_t * pAbc, int argc, char ** argv )
     }
     Abc_NtkDelete( pNtk2 );
     // sweep dangling logic
-    Abc_AigCleanup( pNtk->pManFunc );
+    Abc_AigCleanup( (Abc_Aig_t *)pNtk->pManFunc );
     // replace the current network
 //    Abc_FrameReplaceCurrentNetwork( pAbc, pNtkRes );
     return 0;
@@ -6579,7 +6603,7 @@ int Abc_CommandExtSeqDcs( Abc_Frame_t * pAbc, int argc, char ** argv )
     Abc_Ntk_t * pNtk = Abc_FrameReadNtk(pAbc);
     int c;
     int fVerbose;
-    extern int Abc_NtkExtractSequentialDcs( Abc_Ntk_t * pNet, bool fVerbose );
+    extern int Abc_NtkExtractSequentialDcs( Abc_Ntk_t * pNet, int fVerbose );
 
     pNtk = Abc_FrameReadNtk(pAbc);
     // set defaults
@@ -6647,7 +6671,6 @@ int Abc_CommandReach( Abc_Frame_t * pAbc, int argc, char ** argv )
     int c;
     char * pLogFileName = NULL;
 
-    extern void Bbr_ManSetDefaultParams( Saig_ParBbr_t * pPars );
     extern int Abc_NtkDarReach( Abc_Ntk_t * pNtk, Saig_ParBbr_t * pPars );
 
     // set defaults
@@ -7530,7 +7553,7 @@ int Abc_CommandCareSet( Abc_Frame_t * pAbc, int argc, char ** argv )
     // replace the EXDC
     if ( pNtk->pExcare )
     {
-        Abc_NtkDelete( pNtk->pExcare );
+        Abc_NtkDelete( (Abc_Ntk_t *)pNtk->pExcare );
         pNtk->pExcare = NULL;
     }
     pNtkRes = Abc_NtkDup( pNtk );
@@ -8019,7 +8042,6 @@ int Abc_CommandCover( Abc_Frame_t * pAbc, int argc, char ** argv )
     int fUseEsop;
     int fUseInvs;
     int nFaninMax;
-    extern Abc_Ntk_t * Abc_NtkSopEsopCover( Abc_Ntk_t * pNtk, int nFaninMax, bool fUseEsop, bool fUseSop, bool fUseInvs, bool fVerbose );
     pNtk = Abc_FrameReadNtk(pAbc);
 
     // set defaults
@@ -8694,7 +8716,7 @@ int Abc_CommandQuaVar( Abc_Frame_t * pAbc, int argc, char ** argv )
     RetValue = Abc_NtkQuantify( pNtkRes, fUniv, iVar, fVerbose );
     // clean temporary storage for the cofactors
     Abc_NtkCleanData( pNtkRes );
-    Abc_AigCleanup( pNtkRes->pManFunc );
+    Abc_AigCleanup( (Abc_Aig_t *)pNtkRes->pManFunc );
     // check the result 
     if ( !RetValue )
     {
@@ -10417,16 +10439,16 @@ int Abc_CommandIProve( Abc_Frame_t * pAbc, int argc, char ** argv )
                 break;
             }
         if ( i == Abc_NtkCoNum(pNtk) )
-            Abc_Print( -1, "ERROR in Abc_NtkMiterProve(): Generated counter-example is invalid.\n" );
+            Abc_Print( 1, "ERROR in Abc_NtkMiterProve(): Generated counter-example is invalid.\n" );
         ABC_FREE( pSimInfo );
     }
     pAbc->Status = RetValue;
     if ( RetValue == -1 ) 
-        Abc_Print( -1, "UNDECIDED      " );
+        Abc_Print( 1, "UNDECIDED      " );
     else if ( RetValue == 0 )
-        Abc_Print( -1, "SATISFIABLE (output = %d) ", iOut );
+        Abc_Print( 1, "SATISFIABLE (output = %d) ", iOut );
     else
-        Abc_Print( -1, "UNSATISFIABLE  " );
+        Abc_Print( 1, "UNSATISFIABLE  " );
     //Abc_Print( -1, "\n" );
 
     Abc_PrintTime( 1, "Time", clock() - clk );
@@ -10702,7 +10724,7 @@ int Abc_CommandQbf( Abc_Frame_t * pAbc, int argc, char ** argv )
 
 usage:
     Abc_Print( -2, "usage: qbf [-P num] [-vh]\n" );
-    Abc_Print( -2, "\t         solves a quantified boolean formula problem EpVxM(p,x)\n" );
+    Abc_Print( -2, "\t         solves a quantified intean formula problem EpVxM(p,x)\n" );
     Abc_Print( -2, "\t-P num : number of paramters (should be the first PIs) [default = %d]\n", nPars );
     Abc_Print( -2, "\t-v     : toggle verbose output [default = %s]\n", fVerbose? "yes": "no" );
     Abc_Print( -2, "\t-h     : print the command usage\n");
@@ -11127,7 +11149,7 @@ int Abc_CommandFraigSweep( Abc_Frame_t * pAbc, int argc, char ** argv )
     int fExdc;
     int fVerbose;
     int fVeryVerbose;
-    extern bool Abc_NtkFraigSweep( Abc_Ntk_t * pNtk, int fUseInv, int fExdc, int fVerbose, int fVeryVerbose );
+    extern int Abc_NtkFraigSweep( Abc_Ntk_t * pNtk, int fUseInv, int fExdc, int fVerbose, int fVeryVerbose );
     // set defaults
     fUseInv   = 1;
     fExdc     = 0;
@@ -11705,7 +11727,7 @@ int Abc_CommandMap( Abc_Frame_t * pAbc, int argc, char ** argv )
     int fVerbose;
     int c;
     extern Abc_Ntk_t * Abc_NtkMap( Abc_Ntk_t * pNtk, double DelayTarget, int fRecovery, int fSwitching, int fVerbose );
-    extern bool Abc_NtkFraigSweep( Abc_Ntk_t * pNtk, int fUseInv, int fExdc, int fVerbose, int fVeryVerbose );
+    extern int Abc_NtkFraigSweep( Abc_Ntk_t * pNtk, int fUseInv, int fExdc, int fVerbose, int fVeryVerbose );
 
     pNtk = Abc_FrameReadNtk(pAbc);
     // set defaults
@@ -11841,7 +11863,7 @@ int Abc_CommandAmap( Abc_Frame_t * pAbc, int argc, char ** argv )
     int fSweep;
     int c;
     extern Abc_Ntk_t * Abc_NtkDarAmap( Abc_Ntk_t * pNtk, Amap_Par_t * pPars );
-    extern bool Abc_NtkFraigSweep( Abc_Ntk_t * pNtk, int fUseInv, int fExdc, int fVerbose, int fVeryVerbose );
+    extern int Abc_NtkFraigSweep( Abc_Ntk_t * pNtk, int fUseInv, int fExdc, int fVerbose, int fVeryVerbose );
 
     pNtk = Abc_FrameReadNtk(pAbc);
     // set defaults
@@ -12580,7 +12602,7 @@ int Abc_CommandIf( Abc_Frame_t * pAbc, int argc, char ** argv )
     pPars->fTruth      =  0;
     pPars->nLatches    =  pNtk? Abc_NtkLatchNum(pNtk) : 0;
     pPars->fLiftLeaves =  0;
-    pPars->pLutLib     =  Abc_FrameReadLibLut();
+    pPars->pLutLib     =  (If_Lib_t *)Abc_FrameReadLibLut();
     pPars->pTimesArr   =  NULL; 
     pPars->pTimesArr   =  NULL;   
     pPars->pFuncCost   =  NULL;   
@@ -12998,7 +13020,7 @@ int Abc_CommandZero( Abc_Frame_t * pAbc, int argc, char ** argv )
     Abc_Ntk_t * pNtk, * pNtkRes;
     int c;
 
-    extern Abc_Ntk_t * Abc_NtkRestrashZero( Abc_Ntk_t * pNtk, bool fCleanup );
+    extern Abc_Ntk_t * Abc_NtkRestrashZero( Abc_Ntk_t * pNtk, int fCleanup );
 
     pNtk = Abc_FrameReadNtk(pAbc);
     // set defaults
@@ -13395,7 +13417,6 @@ int Abc_CommandRetime( Abc_Frame_t * pAbc, int argc, char ** argv )
     int fVerbose;
     int Mode;
     int nDelayLim;
-    extern int Abc_NtkRetime( Abc_Ntk_t * pNtk, int Mode, int nDelayLim, int fForwardOnly, int fBackwardOnly, int fOneStep, int fVerbose );
 
     pNtk = Abc_FrameReadNtk(pAbc);
     // set defaults
@@ -16797,7 +16818,7 @@ int Abc_CommandDProve2( Abc_Frame_t * pAbc, int argc, char ** argv )
     int fVerbose;
     int c;
 
-    extern int Abc_NtkDProve2( Abc_Ntk_t * pNtk, int nConfLast, int fSeparate, int fVeryVerbose, int fVerbose );
+//    extern int Abc_NtkDProve2( Abc_Ntk_t * pNtk, int nConfLast, int fSeparate, int fVeryVerbose, int fVerbose );
     // set defaults
     nConfLast    = 75000;
     fSeparate    = 0;
@@ -16848,7 +16869,7 @@ int Abc_CommandDProve2( Abc_Frame_t * pAbc, int argc, char ** argv )
         return 0;
     }
     // perform verification
-    Abc_NtkDProve2( pNtk, nConfLast, fSeparate, fVeryVerbose, fVerbose );
+//    Abc_NtkDProve2( pNtk, nConfLast, fSeparate, fVeryVerbose, fVerbose );
     return 0;
 
 usage:
@@ -17286,7 +17307,7 @@ int Abc_CommandSat( Abc_Frame_t * pAbc, int argc, char ** argv )
         //Abc_Obj_t * pObj;
         int * pSimInfo = Abc_NtkVerifySimulatePattern( pNtk, pNtk->pModel );
         if ( pSimInfo[0] != 1 )
-            Abc_Print( -1, "ERROR in Abc_NtkMiterSat(): Generated counter example is invalid.\n" );
+            Abc_Print( 1, "ERROR in Abc_NtkMiterSat(): Generated counter example is invalid.\n" );
         ABC_FREE( pSimInfo );
         /*
         // print model
@@ -17301,11 +17322,11 @@ int Abc_CommandSat( Abc_Frame_t * pAbc, int argc, char ** argv )
     }
     pAbc->Status = RetValue;
     if ( RetValue == -1 )
-        Abc_Print( -1, "UNDECIDED      " );
+        Abc_Print( 1, "UNDECIDED      " );
     else if ( RetValue == 0 )
-        Abc_Print( -1, "SATISFIABLE    " );
+        Abc_Print( 1, "SATISFIABLE    " );
     else
-        Abc_Print( -1, "UNSATISFIABLE  " );
+        Abc_Print( 1, "UNSATISFIABLE  " );
     //Abc_Print( -1, "\n" );
     Abc_PrintTime( 1, "Time", clock() - clk );
     return 0;
@@ -17425,17 +17446,17 @@ int Abc_CommandDSat( Abc_Frame_t * pAbc, int argc, char ** argv )
     {
         int * pSimInfo = Abc_NtkVerifySimulatePattern( pNtk, pNtk->pModel );
         if ( pSimInfo[0] != 1 )
-            Abc_Print( -1, "ERROR in Abc_NtkMiterSat(): Generated counter example is invalid.\n" );
+            Abc_Print( 1, "ERROR in Abc_NtkMiterSat(): Generated counter example is invalid.\n" );
         ABC_FREE( pSimInfo );
         pAbc->pCex = Gia_ManCreateFromComb( 0, Abc_NtkPiNum(pNtk), 0, pNtk->pModel );
     }
     pAbc->Status = RetValue;
     if ( RetValue == -1 )
-        Abc_Print( -1, "UNDECIDED      " );
+        Abc_Print( 1, "UNDECIDED      " );
     else if ( RetValue == 0 )
-        Abc_Print( -1, "SATISFIABLE    " );
+        Abc_Print( 1, "SATISFIABLE    " );
     else
-        Abc_Print( -1, "UNSATISFIABLE  " );
+        Abc_Print( 1, "UNSATISFIABLE  " );
     //Abc_Print( -1, "\n" );
     Abc_PrintTime( 1, "Time", clock() - clk );
     return 0;
@@ -17565,7 +17586,7 @@ int Abc_CommandPSat( Abc_Frame_t * pAbc, int argc, char ** argv )
         //Abc_Obj_t * pObj;
         int * pSimInfo = Abc_NtkVerifySimulatePattern( pNtk, pNtk->pModel );
         if ( pSimInfo[0] != 1 )
-            Abc_Print( -1, "ERROR in Abc_NtkMiterSat(): Generated counter example is invalid.\n" );
+            Abc_Print( 1, "ERROR in Abc_NtkMiterSat(): Generated counter example is invalid.\n" );
         ABC_FREE( pSimInfo );
         /*
         // print model
@@ -17580,11 +17601,11 @@ int Abc_CommandPSat( Abc_Frame_t * pAbc, int argc, char ** argv )
     }
 
     if ( RetValue == -1 )
-        Abc_Print( -1, "UNDECIDED      " );
+        Abc_Print( 1, "UNDECIDED      " );
     else if ( RetValue == 0 )
-        Abc_Print( -1, "SATISFIABLE    " );
+        Abc_Print( 1, "SATISFIABLE    " );
     else
-        Abc_Print( -1, "UNSATISFIABLE  " );
+        Abc_Print( 1, "UNSATISFIABLE  " );
     //Abc_Print( -1, "\n" );
     Abc_PrintTime( 1, "Time", clock() - clk );
     return 0;
@@ -17739,16 +17760,16 @@ int Abc_CommandProve( Abc_Frame_t * pAbc, int argc, char ** argv )
     {
         int * pSimInfo = Abc_NtkVerifySimulatePattern( pNtk, pNtkTemp->pModel );
         if ( pSimInfo[0] != 1 )
-            Abc_Print( -1, "ERROR in Abc_NtkMiterProve(): Generated counter-example is invalid.\n" );
+            Abc_Print( 1, "ERROR in Abc_NtkMiterProve(): Generated counter-example is invalid.\n" );
         ABC_FREE( pSimInfo );
     }
     pAbc->Status = RetValue;
     if ( RetValue == -1 ) 
-        Abc_Print( -1, "UNDECIDED      " );
+        Abc_Print( 1, "UNDECIDED      " );
     else if ( RetValue == 0 )
-        Abc_Print( -1, "SATISFIABLE    " );
+        Abc_Print( 1, "SATISFIABLE    " );
     else
-        Abc_Print( -1, "UNSATISFIABLE  " );
+        Abc_Print( 1, "UNSATISFIABLE  " );
     //Abc_Print( -1, "\n" );
 
     Abc_PrintTime( 1, "Time", clock() - clk );
@@ -19455,8 +19476,8 @@ int Abc_CommandBm( Abc_Frame_t * pAbc, int argc, char ** argv )
     int fDelete1, fDelete2; 
 	char ** pArgvNew;
     int c, nArgcNew;		
-	bool p_equivalence = FALSE;
-    extern void bmGateWay( Abc_Ntk_t * pNtk1, Abc_Ntk_t * pNtk2, bool p_equivalence );
+	int p_equivalence = FALSE;
+    extern void bmGateWay( Abc_Ntk_t * pNtk1, Abc_Ntk_t * pNtk2, int p_equivalence );
 
 	pNtk = Abc_FrameReadNtk(pAbc);
 	pOut = Abc_FrameReadOut(pAbc);
@@ -19686,7 +19707,7 @@ int Abc_CommandAbc8Read( Abc_Frame_t * pAbc, int argc, char ** argv )
     fclose( pFile );
     if ( fTest )
     {
-        void * pTemp = Ntl_ManReadBlif( pFileName, 1 );
+        Ntl_Man_t * pTemp = Ntl_ManReadBlif( pFileName, 1 );
         if ( pTemp )
         {
 //            Ntl_ManWriteBlif( pTemp, "test_boxes.blif" );
@@ -19741,7 +19762,7 @@ int Abc_CommandAbc8ReadLogic( Abc_Frame_t * pAbc, int argc, char ** argv )
 {
     FILE * pFile;
     char * pFileName;
-    void * pNtkNew;
+    Nwk_Man_t * pNtkNew;
     int c;
 
     // set defaults
@@ -19810,7 +19831,8 @@ usage:
 int Abc_CommandAbc8Write( Abc_Frame_t * pAbc, int argc, char ** argv )
 {
     char * pFileName;
-    void * pTemp;
+    Aig_Man_t * pTemp;
+    Ntl_Man_t * pTemp2;
     int fAig;
     int fBlif;
     int fCollapsed;
@@ -19851,7 +19873,6 @@ int Abc_CommandAbc8Write( Abc_Frame_t * pAbc, int argc, char ** argv )
     {
         if ( fCollapsed )
         {
-            extern void Ioa_WriteAiger( Aig_Man_t * pMan, char * pFileName, int fWriteSymbols, int fCompact );
             pTemp = Ntl_ManCollapseSeq( pAbc->pAbc8Ntl, 0, 0 );
             if ( fBlif )
                 Saig_ManDumpBlif( pTemp, pFileName );
@@ -19865,14 +19886,14 @@ int Abc_CommandAbc8Write( Abc_Frame_t * pAbc, int argc, char ** argv )
             {
                 if ( fBlif )
                 {
-                    pTemp = Ntl_ManInsertAig( pAbc->pAbc8Ntl, pAbc->pAbc8Aig );
-                    if ( pTemp == NULL )
+                    pTemp2 = Ntl_ManInsertAig( pAbc->pAbc8Ntl, pAbc->pAbc8Aig );
+                    if ( pTemp2 == NULL )
                     {
                         Abc_Print( -1, "Abc_CommandAbc8Write(): Inserting AIG has failed.\n" );
                         return 1;
                     }
-                    Ntl_ManWriteBlif( pTemp, pFileName );
-                    Ntl_ManFree( pTemp );
+                    Ntl_ManWriteBlif( pTemp2, pFileName );
+                    Ntl_ManFree( pTemp2 );
                 }
                 else
                     Ioa_WriteAiger( pAbc->pAbc8Aig, pFileName, 0, 0 );
@@ -19888,20 +19909,20 @@ int Abc_CommandAbc8Write( Abc_Frame_t * pAbc, int argc, char ** argv )
     {
         if ( pAbc->pAbc8Nwk != NULL ) 
         {
-            pTemp = Ntl_ManInsertNtk( pAbc->pAbc8Ntl, pAbc->pAbc8Nwk );
-            if ( pTemp == NULL )
+            pTemp2 = Ntl_ManInsertNtk( pAbc->pAbc8Ntl, pAbc->pAbc8Nwk );
+            if ( pTemp2 == NULL )
             {
                 Abc_Print( -1, "Abc_CommandAbc8Write():  Inserting mapped network has failed.\n" );
                 return 1;
             }
-            Ntl_ManWriteBlif( pTemp, pFileName );
-            Ntl_ManFree( pTemp );
+            Ntl_ManWriteBlif( pTemp2, pFileName );
+            Ntl_ManFree( pTemp2 );
         }
         else
         {
             Abc_Print( -1, "Writing the unmapped netlist.\n" );
-            pTemp = pAbc->pAbc8Ntl;
-            Ntl_ManWriteBlif( pTemp, pFileName );
+            pTemp2 = pAbc->pAbc8Ntl;
+            Ntl_ManWriteBlif( pTemp2, pFileName );
         }
     }
     return 0;
@@ -20007,7 +20028,7 @@ int Abc_CommandAbc8ReadLut( Abc_Frame_t * pAbc, int argc, char **argv )
 {
     FILE * pFile;
     char * FileName;
-    void * pLib;
+    If_Lib_t * pLib;
     int c;
     extern If_Lib_t * If_LutLibRead( char * FileName );
     extern void If_LutLibFree( If_Lib_t * pLutLib );
@@ -20115,7 +20136,7 @@ int Abc_CommandAbc8PrintLut( Abc_Frame_t * pAbc, int argc, char **argv )
     if ( pAbc->pAbc8Lib == NULL )
         Abc_Print( -1, "Abc_CommandAbc8PrintLut(): LUT library is not specified.\n" );
     else
-        If_LutLibPrint( pAbc->pAbc8Lib );
+        If_LutLibPrint( (If_Lib_t *)pAbc->pAbc8Lib );
     return 0;
 
 usage:
@@ -20325,7 +20346,7 @@ int Abc_CommandAbc8If( Abc_Frame_t * pAbc, int argc, char ** argv )
     char Buffer[200];
     char LutSize[200];
     If_Par_t Pars, * pPars = &Pars;
-    void * pNtkNew;
+    Nwk_Man_t * pNtkNew;
     int c;
 
     if ( pAbc->pAbc8Lib == NULL )
@@ -20944,7 +20965,7 @@ int Abc_CommandAbc8Mfs( Abc_Frame_t * pAbc, int argc, char ** argv )
 {
     Mfx_Par_t Pars, * pPars = &Pars;
     int c;
-    extern int Mfx_Perform( void * pNtk, Mfx_Par_t * pPars, If_Lib_t * pLutLib );
+//    extern int Mfx_Perform( void * pNtk, Mfx_Par_t * pPars, If_Lib_t * pLutLib );
 
     // set defaults
     Mfx_ParsDefault( pPars );
@@ -21467,7 +21488,7 @@ usage:
 ***********************************************************************/
 int Abc_CommandAbc8Insert( Abc_Frame_t * pAbc, int argc, char ** argv )
 {
-    void * pNtlNew;
+    Ntl_Man_t * pNtlNew;
     int c;
     Extra_UtilGetoptReset();
     while ( ( c = Extra_UtilGetopt( argc, argv, "vh" ) ) != EOF )
@@ -21516,7 +21537,7 @@ usage:
 ***********************************************************************/
 int Abc_CommandAbc8ClpLut( Abc_Frame_t * pAbc, int argc, char ** argv )
 {
-    void * pNtlNew;
+    Ntl_Man_t * pNtlNew;
     int c;
     Extra_UtilGetoptReset();
     while ( ( c = Extra_UtilGetopt( argc, argv, "vh" ) ) != EOF )
@@ -21559,7 +21580,7 @@ usage:
 ***********************************************************************/
 int Abc_CommandAbc8Fraig( Abc_Frame_t * pAbc, int argc, char ** argv )
 {
-    void * pNtlNew, * pNtlOld;
+    Ntl_Man_t * pNtlNew, * pNtlOld;
     int c, fVerbose;
     int nPartSize;
     int nConfLimit;
@@ -21678,7 +21699,7 @@ usage:
 ***********************************************************************/
 int Abc_CommandAbc8Scl( Abc_Frame_t * pAbc, int argc, char ** argv )
 {
-    void * pNtlNew, * pNtlOld;
+    Ntl_Man_t * pNtlNew, * pNtlOld;
     int c;
     int fLatchConst;
     int fLatchEqual;
@@ -21769,7 +21790,7 @@ usage:
 ***********************************************************************/
 int Abc_CommandAbc8Lcorr( Abc_Frame_t * pAbc, int argc, char ** argv )
 {
-    void * pNtlNew, * pNtlOld;
+    Ntl_Man_t * pNtlNew, * pNtlOld;
     int c;
     int fScorrGia;
     int fUseCSat;
@@ -21887,7 +21908,7 @@ usage:
 ***********************************************************************/
 int Abc_CommandAbc8Ssw( Abc_Frame_t * pAbc, int argc, char ** argv )
 {
-    void * pNtlNew, * pNtlOld;
+    Ntl_Man_t * pNtlNew, * pNtlOld;
     Fra_Ssw_t Pars, * pPars = &Pars;
     int c;
 
@@ -22099,7 +22120,7 @@ usage:
 ***********************************************************************/
 int Abc_CommandAbc8Scorr( Abc_Frame_t * pAbc, int argc, char ** argv )
 {
-    void * pNtlNew, * pNtlOld;
+    Ntl_Man_t * pNtlNew, * pNtlOld;
     Ssw_Pars_t Pars, * pPars = &Pars;
     int c;
 
@@ -22316,7 +22337,7 @@ usage:
 ***********************************************************************/
 int Abc_CommandAbc8Sweep( Abc_Frame_t * pAbc, int argc, char ** argv )
 {
-    void * pNtlTemp;
+    Ntl_Man_t * pNtlTemp;
     int Counter;
     int fMapped;
     int fVerbose;
@@ -22425,7 +22446,7 @@ usage:
 ***********************************************************************/
 int Abc_CommandAbc8Zero( Abc_Frame_t * pAbc, int argc, char ** argv )
 {
-    void * pNtlNew;
+    Ntl_Man_t * pNtlNew;
     int fVerbose;
     int c;
 
@@ -22483,7 +22504,7 @@ usage:
 int Abc_CommandAbc8Cec( Abc_Frame_t * pAbc, int argc, char ** argv )
 {
     Aig_Man_t * pAig1, * pAig2;
-    void * pTemp1, * pTemp2;
+    Ntl_Man_t * pTemp1, * pTemp2;
     char ** pArgvNew;
     int nArgcNew;
     int c;
@@ -22931,7 +22952,7 @@ int Abc_CommandAbc85ReadLut( Abc_Frame_t * pAbc, int argc, char **argv )
 {
     FILE * pFile;
     char * FileName;
-    void * pLib;
+    If_Lib_t * pLib;
     int c;
     extern If_Lib_t * If_LutLibRead( char * FileName );
     extern void If_LutLibFree( If_Lib_t * pLutLib );
@@ -23599,7 +23620,6 @@ int Abc_CommandAbc85Logic( Abc_Frame_t * pAbc, int argc, char ** argv )
 #ifdef IF_USE_BAT
     if ( fUseBat )
     {
-        extern Sky_Man_t * Bat_ManLogic( Sky_Man_t * p, int nSlackMin );
         pSkyNew = Bat_ManLogic( pAbc->pAbc85Ntl, nSlackMin );
     }
     else
@@ -23902,7 +23922,6 @@ int Abc_CommandAbc85Shrink( Abc_Frame_t * pAbc, int argc, char ** argv )
 #ifdef IF_USE_BAT
     if ( fUseBat )
     {
-        extern Sky_Man_t * Bat_ManPerformCellShink( Sky_Man_t * p );
         pSkyNew = Bat_ManPerformCellShink( pAbc->pAbc85Ntl );
     }
     else
@@ -27874,7 +27893,7 @@ int Abc_CommandAbc9Bidec( Abc_Frame_t * pAbc, int argc, char ** argv )
         Abc_Print( -1, "Abc_CommandAbc9Bidec(): There is no AIG.\n" );
         return 1;
     } 
-    if ( ((Gia_Man_t *)pAbc->pGia)->pMapping == NULL )
+    if ( pAbc->pGia->pMapping == NULL )
     {
         Abc_Print( -1, "Abc_CommandAbc9Bidec(): Mapping of the AIG is not defined.\n" );
         return 1;
@@ -27930,7 +27949,7 @@ int Abc_CommandAbc9Shrink( Abc_Frame_t * pAbc, int argc, char ** argv )
         Abc_Print( -1, "Abc_CommandAbc9Shrink(): There is no AIG.\n" );
         return 1;
     } 
-    if ( ((Gia_Man_t *)pAbc->pGia)->pMapping == NULL )
+    if ( pAbc->pGia->pMapping == NULL )
     {
         Abc_Print( -1, "Abc_CommandAbc9Shrink(): Mapping of the AIG is not defined.\n" );
         return 1;
@@ -28829,7 +28848,7 @@ int Abc_CommandAbc9Cec( Abc_Frame_t * pAbc, int argc, char ** argv )
             Abc_Print( -1, "The dual-output miter should have an even number of outputs.\n" );
             return 1;
         }
-        Abc_Print( -1, "Assuming the current network is a double-output miter. (Conflict limit = %d.)\n", pPars->nBTLimit );
+        Abc_Print( 1, "Assuming the current network is a double-output miter. (Conflict limit = %d.)\n", pPars->nBTLimit );
         Cec_ManVerify( pAbc->pGia, pPars );
         return 0;
     }
@@ -28940,7 +28959,7 @@ int Abc_CommandAbc9Force( Abc_Frame_t * pAbc, int argc, char ** argv )
 usage:
     Abc_Print( -2, "usage: &force [-I <num>] [-cvh]\n" );
     Abc_Print( -2, "\t         one-dimensional placement algorithm FORCE introduced by\n" );
-    Abc_Print( -2, "\t         F. A. Aloul, I. L. Markov, and K. A. Sakallah (GLSVLSI’03).\n" );
+    Abc_Print( -2, "\t         F. A. Aloul, I. L. Markov, and K. A. Sakallah (GLSVLSIï¿½03).\n" );
     Abc_Print( -2, "\t-I num : the number of refinement iterations [default = %d]\n", nIters );
     Abc_Print( -2, "\t-c     : toggle clustered representation [default = %s]\n", fClustered? "yes":"no");
     Abc_Print( -2, "\t-v     : toggle verbose output [default = %s]\n", fVerbose? "yes":"no");
@@ -29321,12 +29340,12 @@ int Abc_CommandAbc9Trace( Abc_Frame_t * pAbc, int argc, char ** argv )
         Abc_Print( -1, "Abc_CommandAbc9Speedup(): There is no AIG to map.\n" );
         return 1;
     }
-    if ( ((Gia_Man_t *)pAbc->pGia)->pMapping == NULL )
+    if ( pAbc->pGia->pMapping == NULL )
     {
         Abc_Print( -1, "Abc_CommandAbc9Speedup(): Mapping of the AIG is not defined.\n" );
         return 1;
     }
-    ((Gia_Man_t *)pAbc->pGia)->pLutLib = fUseLutLib ? pAbc->pLibLut : NULL;
+    pAbc->pGia->pLutLib = fUseLutLib ? pAbc->pLibLut : NULL;
     Gia_ManDelayTraceLutPrint( pAbc->pGia, fVerbose );
     return 0;
 
@@ -29412,12 +29431,12 @@ int Abc_CommandAbc9Speedup( Abc_Frame_t * pAbc, int argc, char ** argv )
         Abc_Print( -1, "Abc_CommandAbc9Speedup(): There is no AIG to map.\n" );
         return 1;
     }
-    if ( ((Gia_Man_t *)pAbc->pGia)->pMapping == NULL )
+    if ( pAbc->pGia->pMapping == NULL )
     {
         Abc_Print( -1, "Abc_CommandAbc9Speedup(): Mapping of the AIG is not defined.\n" );
         return 1;
     }
-    ((Gia_Man_t *)pAbc->pGia)->pLutLib = fUseLutLib ? pAbc->pLibLut : NULL;
+    pAbc->pGia->pLutLib = fUseLutLib ? pAbc->pLibLut : NULL;
     pTemp = Gia_ManSpeedup( pAbc->pGia, Percentage, Degree, fVerbose, fVeryVerbose );
     Abc_CommandUpdate9( pAbc, pTemp );
     return 0;
@@ -29506,7 +29525,7 @@ int Abc_CommandAbc9Era( Abc_Frame_t * pAbc, int argc, char ** argv )
         pAbc->Status = Gia_ManArePerform( pAbc->pGia, nStatesMax, fMiter, fVerbose );
     else
         pAbc->Status = Gia_ManCollectReachable( pAbc->pGia, nStatesMax, fMiter, fVerbose );
-    Abc_FrameReplaceCex( pAbc, &((Gia_Man_t *)pAbc->pGia)->pCexSeq );
+    Abc_FrameReplaceCex( pAbc, &pAbc->pGia->pCexSeq );
     return 0;
 
 usage:
@@ -29728,7 +29747,7 @@ int Abc_CommandAbc9AbsStart( Abc_Frame_t * pAbc, int argc, char ** argv )
     Gia_ManCexAbstractionStart( pAbc->pGia, pPars );
     pAbc->Status  = pPars->Status;
     pAbc->nFrames = pPars->nFramesDone;
-    Abc_FrameReplaceCex( pAbc, &((Gia_Man_t *)pAbc->pGia)->pCexSeq );
+    Abc_FrameReplaceCex( pAbc, &pAbc->pGia->pCexSeq );
     return 0;
 usage:
     Abc_Print( -2, "usage: &abs_start [-FCR num] [-rpfvh]\n" );
@@ -29896,7 +29915,7 @@ int Abc_CommandAbc9AbsStartNew( Abc_Frame_t * pAbc, int argc, char ** argv )
     Gia_ManCexAbstractionStartNew( pAbc->pGia, pPars );
     pAbc->Status  = pPars->Status;
     pAbc->nFrames = pPars->nFramesDone;
-    Abc_FrameReplaceCex( pAbc, &((Gia_Man_t *)pAbc->pGia)->pCexSeq );
+    Abc_FrameReplaceCex( pAbc, &pAbc->pGia->pCexSeq );
     if ( pPars->fVerbose )
         printf( "Updating ABC solving status to be %d and bmc_frames_done to be %d.\n", pPars->Status, pAbc->nFrames );
     return 0;
@@ -29990,7 +30009,7 @@ int Abc_CommandAbc9PbaStart( Abc_Frame_t * pAbc, int argc, char ** argv )
     } 
     Gia_ManProofAbstractionStart( pAbc->pGia, pPars );
     pAbc->Status = pPars->Status;
-    Abc_FrameReplaceCex( pAbc, &((Gia_Man_t *)pAbc->pGia)->pCexSeq );
+    Abc_FrameReplaceCex( pAbc, &pAbc->pGia->pCexSeq );
     return 0;
 usage:
     Abc_Print( -2, "usage: &pba_start [-FC num] [-dvh]\n" );
@@ -30109,7 +30128,7 @@ int Abc_CommandAbc9AbsRefine( Abc_Frame_t * pAbc, int argc, char ** argv )
         return 1;
     } 
     pAbc->Status = Gia_ManCexAbstractionRefine( pAbc->pGia, pAbc->pCex, fVerbose );
-    Abc_FrameReplaceCex( pAbc, &((Gia_Man_t *)pAbc->pGia)->pCexSeq );
+    Abc_FrameReplaceCex( pAbc, &pAbc->pGia->pCexSeq );
     return 0;
 
 usage:
@@ -30380,7 +30399,7 @@ int Abc_CommandAbc9Reach( Abc_Frame_t * pAbc, int argc, char ** argv )
     }
     pAbc->Status  = Llb_ManModelCheckGia( pAbc->pGia, pPars );
     pAbc->nFrames = pPars->iFrame;
-    Abc_FrameReplaceCex( pAbc, &((Gia_Man_t *)pAbc->pGia)->pCexSeq );
+    Abc_FrameReplaceCex( pAbc, &pAbc->pGia->pCexSeq );
     if ( pLogFileName )
         Abc_NtkWriteLogFile( pLogFileName, pAbc->pCex, pAbc->Status, "&reach" );
     return 0;
@@ -30583,4 +30602,6 @@ usage:
 ///                       END OF FILE                                ///
 ////////////////////////////////////////////////////////////////////////
 
+
+ABC_NAMESPACE_IMPL_END
 

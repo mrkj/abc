@@ -286,7 +286,6 @@ def add_abc_command(fcmd, group, cmd, change):
 
 import sys
 import optparse
-import os.path
 
 import __main__
 
@@ -310,18 +309,8 @@ def cmd_python(cmd_args):
         exec options.cmd in __main__.__dict__
         return 0
     
-    scripts_dir = os.getenv('ABC_PYTHON_SCRIPTS', ".")
-    scripts_dirs = scripts_dir.split(':')
-    
     for fname in args[1:]:
-        if os.path.isabs(fname):
-            execfile(fname, __main__.__dict__)
-        else:
-            for d in scripts_dirs:
-                fname = os.path.join(scripts_dir, fname)
-                if os.path.exists(fname):
-                    execfile(fname, __main__.__dict__)
-                    break
+        execfile(fname, __main__.__dict__)
     
     return 0
     

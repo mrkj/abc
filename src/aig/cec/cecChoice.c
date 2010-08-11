@@ -22,6 +22,9 @@
 #include "giaAig.h"
 #include "dch.h"
 
+ABC_NAMESPACE_IMPL_START
+
+
 ////////////////////////////////////////////////////////////////////////
 ///                        DECLARATIONS                              ///
 ////////////////////////////////////////////////////////////////////////
@@ -343,7 +346,7 @@ Gia_Man_t * Cec_ManChoiceComputationVec( Gia_Man_t * pGia, int nGias, Cec_ParChc
 ***********************************************************************/
 Gia_Man_t * Cec_ManChoiceComputation( Gia_Man_t * pAig, Cec_ParChc_t * pParsChc )
 {
-    extern Aig_Man_t * Dar_ManChoiceNew( Aig_Man_t * pAig, Dch_Pars_t * pPars );
+//    extern Aig_Man_t * Dar_ManChoiceNew( Aig_Man_t * pAig, Dch_Pars_t * pPars );
     Dch_Pars_t Pars, * pPars = &Pars;
     Aig_Man_t * pMan, * pManNew;
     Gia_Man_t * pGia;
@@ -401,4 +404,6 @@ Aig_Man_t * Cec_ComputeChoices( Gia_Man_t * pGia, Dch_Pars_t * pPars )
 ///                       END OF FILE                                ///
 ////////////////////////////////////////////////////////////////////////
 
+
+ABC_NAMESPACE_IMPL_END
 

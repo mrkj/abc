@@ -21,6 +21,9 @@
 #include "aig.h"
 #include "kit.h"
 
+ABC_NAMESPACE_IMPL_START
+
+
 ////////////////////////////////////////////////////////////////////////
 ///                        DECLARATIONS                              ///
 ////////////////////////////////////////////////////////////////////////
@@ -666,4 +669,6 @@ Aig_ManCut_t * Aig_ComputeCuts( Aig_Man_t * pAig, int nCutsMax, int nLeafMax, in
 ///                       END OF FILE                                ///
 ////////////////////////////////////////////////////////////////////////
 
+
+ABC_NAMESPACE_IMPL_END
 

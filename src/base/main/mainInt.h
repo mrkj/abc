@@ -20,12 +20,25 @@
 
 #ifndef __MAIN_INT_H__
 #define __MAIN_INT_H__
+
  
 ////////////////////////////////////////////////////////////////////////
 ///                          INCLUDES                                ///
 ////////////////////////////////////////////////////////////////////////
 
 #include "main.h"
+#include "tim.h"
+#include "if.h"
+#include "aig.h"
+#include "gia.h"
+#include "ssw.h"
+#include "fra.h"
+#include "nwkMerge.h"
+#include "ntlnwk.h"
+#include "sky.h"
+
+ABC_NAMESPACE_HEADER_START
+
 
 ////////////////////////////////////////////////////////////////////////
 ///                         PARAMETERS                               ///
@@ -75,25 +88,28 @@ struct Abc_Frame_t_
     void *          pLibVer;     // the current Verilog library
 
     // new code
-    void *          pAbc8Ntl;    // the current design
-    void *          pAbc8Nwk;    // the current mapped network
-    void *          pAbc8Aig;    // the current AIG
-    void *          pAbc8Lib;    // the current LUT library
+    Ntl_Man_t *     pAbc8Ntl;    // the current design
+    Nwk_Man_t *     pAbc8Nwk;    // the current mapped network
+    Aig_Man_t *     pAbc8Aig;    // the current AIG
+    If_Lib_t *      pAbc8Lib;    // the current LUT library
 
-    void *          pAbc85Ntl;   // the current design
-    void *          pAbc85Ntl2;  // the backup design
-    void *          pAbc85Best;  // the best design so far
-    void *          pAbc85Delay; // the best delay so far
-    void *          pAbc85Lib;   // the current LUT library
+    Sky_Man_t *     pAbc85Ntl;   // the current design
+    Sky_Man_t *     pAbc85Ntl2;  // the backup design
+    Sky_Man_t *     pAbc85Best;  // the best design so far
+    Sky_Man_t *     pAbc85Delay; // the best delay so far
+    If_Lib_t *      pAbc85Lib;   // the current LUT library
 
-    void *          pGia;
-    void *          pGia2;
+    Gia_Man_t *     pGia;
+    Gia_Man_t *     pGia2;
     Abc_Cex_t *     pCex; 
 
     void *          pSave1; 
     void *          pSave2; 
     void *          pSave3; 
     void *          pSave4; 
+
+	// related to LTL
+	Vec_Ptr_t *     vLTLProperties_global;
 
     // the addition to keep the best Ntl that can be used to restore
 	void *			pAbc8NtlBestDelay;	// the best delay, Ntl
@@ -129,6 +145,10 @@ extern ABC_DLL char *          Abc_UtilsGetUsersInput( Abc_Frame_t * pAbc );
 extern ABC_DLL void            Abc_UtilsPrintHello( Abc_Frame_t * pAbc );
 extern ABC_DLL void            Abc_UtilsPrintUsage( Abc_Frame_t * pAbc, char * ProgName );
 extern ABC_DLL void            Abc_UtilsSource( Abc_Frame_t * pAbc );
+
+
+
+ABC_NAMESPACE_HEADER_END
 
 #endif
 

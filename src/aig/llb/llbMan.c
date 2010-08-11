@@ -20,6 +20,9 @@
 
 #include "llbInt.h"
 
+ABC_NAMESPACE_IMPL_START
+
+
 ////////////////////////////////////////////////////////////////////////
 ///                        DECLARATIONS                              ///
 ////////////////////////////////////////////////////////////////////////
@@ -84,17 +87,17 @@ void Llb_ManPrepareVarLimits( Llb_Man_t * p )
     {
         pGroup = p->pMatrix->pColGrps[i];
 
-        Vec_PtrForEachEntry( pGroup->vIns, pVar, k )
+        Vec_PtrForEachEntry( Aig_Obj_t *, pGroup->vIns, pVar, k )
             if ( Vec_IntEntry(p->vVarBegs, pVar->Id) > i )
                 Vec_IntWriteEntry( p->vVarBegs, pVar->Id, i );
-        Vec_PtrForEachEntry( pGroup->vOuts, pVar, k )
+        Vec_PtrForEachEntry( Aig_Obj_t *, pGroup->vOuts, pVar, k )
             if ( Vec_IntEntry(p->vVarBegs, pVar->Id) > i )
                 Vec_IntWriteEntry( p->vVarBegs, pVar->Id, i );
 
-        Vec_PtrForEachEntry( pGroup->vIns, pVar, k )
+        Vec_PtrForEachEntry( Aig_Obj_t *, pGroup->vIns, pVar, k )
             if ( Vec_IntEntry(p->vVarEnds, pVar->Id) < i )
                 Vec_IntWriteEntry( p->vVarEnds, pVar->Id, i );
-        Vec_PtrForEachEntry( pGroup->vOuts, pVar, k )
+        Vec_PtrForEachEntry( Aig_Obj_t *, pGroup->vOuts, pVar, k )
             if ( Vec_IntEntry(p->vVarEnds, pVar->Id) < i )
                 Vec_IntWriteEntry( p->vVarEnds, pVar->Id, i );
     }
@@ -113,8 +116,6 @@ void Llb_ManPrepareVarLimits( Llb_Man_t * p )
 ***********************************************************************/
 void Llb_ManStop( Llb_Man_t * p )
 {
-    extern void Extra_StopManager( DdManager * dd );
-
     Llb_Grp_t * pGrp;
     int i;
 
@@ -125,7 +126,7 @@ void Llb_ManStop( Llb_Man_t * p )
 
     if ( p->pMatrix )
         Llb_MtrFree( p->pMatrix );
-    Vec_PtrForEachEntry( p->vGroups, pGrp, i )
+    Vec_PtrForEachEntry( Llb_Grp_t *, p->vGroups, pGrp, i )
         Llb_ManGroupStop( pGrp );
     Vec_PtrFreeP( &p->vGroups );
     Vec_IntFreeP( &p->vVar2Obj );
@@ -183,4 +184,6 @@ Llb_Man_t * Llb_ManStart( Aig_Man_t * pAigGlo, Aig_Man_t * pAig, Gia_ParLlb_t * 
 ///                       END OF FILE                                ///
 ////////////////////////////////////////////////////////////////////////
 
+
+ABC_NAMESPACE_IMPL_END
 

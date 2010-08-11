@@ -20,6 +20,9 @@
 
 #include "if.h"
 
+ABC_NAMESPACE_IMPL_START
+
+
 ////////////////////////////////////////////////////////////////////////
 ///                        DECLARATIONS                              ///
 ////////////////////////////////////////////////////////////////////////
@@ -383,6 +386,8 @@ void If_ManSetupCutTriv( If_Man_t * p, If_Cut_t * pCut, int ObjId )
         for ( i = 0; i < nTruthWords; i++ )
             If_CutTruth(pCut)[i] = 0xAAAAAAAA;
     }
+
+    assert( pCut->pLeaves[0] < p->vObjs->nSize );
 }
 
 /**Function*************************************************************
@@ -583,4 +588,6 @@ void If_ManSetupSetAll( If_Man_t * p, int nCrossCut )
 ///                       END OF FILE                                ///
 ////////////////////////////////////////////////////////////////////////
 
+
+ABC_NAMESPACE_IMPL_END
 

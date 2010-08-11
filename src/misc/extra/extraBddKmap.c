@@ -22,6 +22,9 @@
 
 #include "extra.h"
 
+ABC_NAMESPACE_IMPL_START
+
+
 /*---------------------------------------------------------------------------*/
 /* Constant declarations                                                     */
 /*---------------------------------------------------------------------------*/
@@ -801,4 +804,6 @@ int BinCode ( int GrayCode )
   return bc;
 }
 
+
+ABC_NAMESPACE_IMPL_END
 

@@ -19,13 +19,17 @@
 ***********************************************************************/
 
 #include "gia.h"
+#include "aig.h"
+#include "dar.h"
+
+ABC_NAMESPACE_IMPL_START
+
 
 ////////////////////////////////////////////////////////////////////////
 ///                        DECLARATIONS                              ///
 ////////////////////////////////////////////////////////////////////////
 
 extern int  Dar_LibEvalBuild( Gia_Man_t * p, Vec_Int_t * vCut, unsigned uTruth, int fKeepLevel, Vec_Int_t * vLeavesBest );
-extern void Dar_LibPrepare( int nSubgrMax ); 
 
 ////////////////////////////////////////////////////////////////////////
 ///                     FUNCTION DEFINITIONS                         ///
@@ -142,4 +146,6 @@ Gia_Man_t * Gia_ManPerformMapShrink( Gia_Man_t * p, int fKeepLevel, int fVerbose
 ///                       END OF FILE                                ///
 ////////////////////////////////////////////////////////////////////////
 
+
+ABC_NAMESPACE_IMPL_END
 

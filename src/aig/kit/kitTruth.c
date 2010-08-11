@@ -20,6 +20,9 @@
 
 #include "kit.h"
 
+ABC_NAMESPACE_IMPL_START
+
+
 ////////////////////////////////////////////////////////////////////////
 ///                        DECLARATIONS                              ///
 ////////////////////////////////////////////////////////////////////////
@@ -229,7 +232,7 @@ void Kit_TruthShrink( unsigned * pOut, unsigned * pIn, int nVars, int nVarsAll, 
 ***********************************************************************/
 void Kit_TruthPermute( unsigned * pOut, unsigned * pIn, int nVars, char * pPerm, int fReturnIn )
 {
-    int * pTemp;
+    unsigned * pTemp;
     int i, Temp, fChange, Counter = 0;
     do {
         fChange = 0;
@@ -649,7 +652,7 @@ int Kit_TruthVarIsVacuous( unsigned * pOnset, unsigned * pOffset, int nVars, int
         return 1;
     case 4:
         for ( i = 0; i < nWords; i++ )
-            if ( ((pOnset[i] & (pOffset[i] >> 16)) || (pOffset[i] & (pOnset[i] >> 16))) & 0x0000FFFF )
+            if ( ((pOnset[i] & (pOffset[i] >> 16)) | (pOffset[i] & (pOnset[i] >> 16))) & 0x0000FFFF )
                  return 0;
         return 1;
     default:
@@ -2214,4 +2217,6 @@ void Kit_TruthPrintProfile( unsigned * pTruth, int nVars )
 ///                       END OF FILE                                ///
 ////////////////////////////////////////////////////////////////////////
 
+
+ABC_NAMESPACE_IMPL_END
 

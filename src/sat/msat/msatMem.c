@@ -20,6 +20,9 @@
 
 #include "msatInt.h"
 
+ABC_NAMESPACE_IMPL_START
+
+
 ////////////////////////////////////////////////////////////////////////
 ///                        DECLARATIONS                              ///
 ////////////////////////////////////////////////////////////////////////
@@ -527,3 +530,5 @@ int Msat_MmStepReadMemUsage( Msat_MmStep_t * p )
         nMemTotal += p->pMems[i]->nMemoryAlloc;
     return nMemTotal;
 }
+ABC_NAMESPACE_IMPL_END
+

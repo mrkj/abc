@@ -18,26 +18,29 @@
 
 ***********************************************************************/
  
-#ifndef __LLB_H__
-#define __LLB_H__
+#ifndef __LLB_INT_H__
+#define __LLB_INT_H__
+
 
 ////////////////////////////////////////////////////////////////////////
 ///                          INCLUDES                                ///
 ////////////////////////////////////////////////////////////////////////
 
 #include <stdio.h>
-#include "cuddInt.h"
 #include "aig.h"
 #include "saig.h"
+#include "cuddInt.h"
+#include "extra.h"
 #include "llb.h"
 
 ////////////////////////////////////////////////////////////////////////
 ///                         PARAMETERS                               ///
 ////////////////////////////////////////////////////////////////////////
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+
+
+ABC_NAMESPACE_HEADER_START
+
 
 ////////////////////////////////////////////////////////////////////////
 ///                         BASIC TYPES                              ///
@@ -145,9 +148,11 @@ extern int             Llb_ManReachability( Llb_Man_t * p, Vec_Int_t * vHints, D
 /*=== llbSched.c =====================================================*/
 extern void            Llb_MtrSchedule( Llb_Mtr_t * p );
 
-#ifdef __cplusplus
-}
-#endif
+
+
+ABC_NAMESPACE_HEADER_END
+
+
 
 #endif
 

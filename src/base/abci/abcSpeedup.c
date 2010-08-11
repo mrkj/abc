@@ -19,8 +19,12 @@
 ***********************************************************************/
 
 #include "abc.h"
+#include "main.h"
 #include "if.h"
 #include "aig.h"
+
+ABC_NAMESPACE_IMPL_START
+
 
 ////////////////////////////////////////////////////////////////////////
 ///                        DECLARATIONS                              ///
@@ -33,8 +37,6 @@ static inline float Abc_ObjSlack( Abc_Obj_t * pNode )                   { return
 static inline void  Abc_ObjSetArrival( Abc_Obj_t * pNode, float Time )  { pNode->pNtk->pLutTimes[3*pNode->Id+0] = Time; }
 static inline void  Abc_ObjSetRequired( Abc_Obj_t * pNode, float Time ) { pNode->pNtk->pLutTimes[3*pNode->Id+1] = Time; }
 static inline void  Abc_ObjSetSlack( Abc_Obj_t * pNode, float Time )    { pNode->pNtk->pLutTimes[3*pNode->Id+2] = Time; }
-
-extern void * Abc_FrameReadLibLut();   
 
 ////////////////////////////////////////////////////////////////////////
 ///                     FUNCTION DEFINITIONS                         ///
@@ -108,7 +110,7 @@ float Abc_NtkDelayTraceLut( Abc_Ntk_t * pNtk, int fUseLutLib )
 
     assert( Abc_NtkIsLogic(pNtk) );
     // get the library
-    pLutLib = fUseLutLib?  Abc_FrameReadLibLut() : NULL;
+    pLutLib = fUseLutLib?  (If_Lib_t *)Abc_FrameReadLibLut() : NULL;
     if ( pLutLib && pLutLib->LutMax < Abc_NtkGetFaninMax(pNtk) )
     {
         printf( "The max LUT size (%d) is less than the max fanin count (%d).\n", 
@@ -127,7 +129,7 @@ float Abc_NtkDelayTraceLut( Abc_Ntk_t * pNtk, int fUseLutLib )
 
     // propagate arrival times
     vNodes = Abc_NtkDfs( pNtk, 1 );
-    Vec_PtrForEachEntry( vNodes, pNode, i )
+    Vec_PtrForEachEntry( Abc_Obj_t *, vNodes, pNode, i )
     {
         tArrival = -ABC_INFINITY;
         if ( pLutLib == NULL )
@@ -179,7 +181,7 @@ float Abc_NtkDelayTraceLut( Abc_Ntk_t * pNtk, int fUseLutLib )
 
     // propagate the required times
     vNodes = Abc_NtkDfsReverse( pNtk );
-    Vec_PtrForEachEntry( vNodes, pNode, i )
+    Vec_PtrForEachEntry( Abc_Obj_t *, vNodes, pNode, i )
     {
         if ( pLutLib == NULL )
         {
@@ -246,7 +248,7 @@ void Abc_NtkDelayTracePrint( Abc_Ntk_t * pNtk, int fUseLutLib, int fVerbose )
     int i, Nodes, * pCounters;
     float tArrival, tDelta, nSteps, Num;
     // get the library
-    pLutLib = fUseLutLib?  Abc_FrameReadLibLut() : NULL;
+    pLutLib = fUseLutLib?  (If_Lib_t *)Abc_FrameReadLibLut() : NULL;
     if ( pLutLib && pLutLib->LutMax < Abc_NtkGetFaninMax(pNtk) )
     {
         printf( "The max LUT size (%d) is less than the max fanin count (%d).\n", 
@@ -311,7 +313,7 @@ int Abc_AigCheckTfi_rec( Abc_Obj_t * pNode, Abc_Obj_t * pOld )
     if ( Abc_AigCheckTfi_rec( Abc_ObjFanin1(pNode), pOld ) )
         return 1;
     // check equivalent nodes
-    return Abc_AigCheckTfi_rec( pNode->pData, pOld );
+    return Abc_AigCheckTfi_rec( (Abc_Obj_t *)pNode->pData, pOld );
 }
 
 /**Function*************************************************************
@@ -379,8 +381,8 @@ void Abc_NtkSpeedupNode( Abc_Ntk_t * pNtk, Abc_Ntk_t * pAig, Abc_Obj_t * pNode, 
     int nCofs, i, k, nSkip;
 
     // quit of regulars are the same
-    Vec_PtrForEachEntry( vLeaves, pObj, i )
-    Vec_PtrForEachEntry( vLeaves, pObj2, k )
+    Vec_PtrForEachEntry( Abc_Obj_t *, vLeaves, pObj, i )
+    Vec_PtrForEachEntry( Abc_Obj_t *, vLeaves, pObj2, k )
         if ( i != k && Abc_ObjRegular(pObj->pCopy) == Abc_ObjRegular(pObj2->pCopy) )
         {
 //            printf( "Identical after structural hashing!!!\n" );
@@ -391,7 +393,7 @@ void Abc_NtkSpeedupNode( Abc_Ntk_t * pNtk, Abc_Ntk_t * pAig, Abc_Obj_t * pNode, 
     vNodes = Vec_PtrAlloc( 100 );
     Abc_NtkIncrementTravId( pAig );
     Abc_NodeSetTravIdCurrent( Abc_AigConst1(pAig) );
-    Vec_PtrForEachEntry( vLeaves, pObj, i )
+    Vec_PtrForEachEntry( Abc_Obj_t *, vLeaves, pObj, i )
     {
         pAnd = pObj->pCopy;
         Abc_NodeSetTravIdCurrent( Abc_ObjRegular(pAnd) );
@@ -409,18 +411,18 @@ void Abc_NtkSpeedupNode( Abc_Ntk_t * pNtk, Abc_Ntk_t * pAig, Abc_Obj_t * pNode, 
     nCofs = (1 << Vec_PtrSize(vTimes));
     for ( i = 0; i < nCofs; i++ )
     {
-        Vec_PtrForEachEntry( vLeaves, pObj, k )
+        Vec_PtrForEachEntry( Abc_Obj_t *, vLeaves, pObj, k )
         {
             pAnd = pObj->pCopy;
             Abc_ObjRegular(pAnd)->pCopy = Abc_ObjRegular(pAnd);
         }
-        Vec_PtrForEachEntry( vTimes, pObj, k )
+        Vec_PtrForEachEntry( Abc_Obj_t *, vTimes, pObj, k )
         {
             pAnd = pObj->pCopy;
             Abc_ObjRegular(pAnd)->pCopy = Abc_ObjNotCond( Abc_AigConst1(pAig), ((i & (1<<k)) == 0) );
         }
-        Vec_PtrForEachEntry( vNodes, pObj, k )
-            pObj->pCopy = Abc_AigAnd( pAig->pManFunc, Abc_ObjChild0Copy(pObj), Abc_ObjChild1Copy(pObj) );
+        Vec_PtrForEachEntry( Abc_Obj_t *, vNodes, pObj, k )
+            pObj->pCopy = Abc_AigAnd( (Abc_Aig_t *)pAig->pManFunc, Abc_ObjChild0Copy(pObj), Abc_ObjChild1Copy(pObj) );
         // save the result
         pAnd = pNode->pCopy;
         ppCofs[i] = Abc_ObjNotCond( Abc_ObjRegular(pAnd)->pCopy, Abc_ObjIsComplement(pAnd) );
@@ -431,11 +433,11 @@ void Abc_NtkSpeedupNode( Abc_Ntk_t * pNtk, Abc_Ntk_t * pAig, Abc_Obj_t * pNode, 
 //Abc_ObjAddFanin( Abc_NtkCreatePo(pAig), ppCofs[1] );
 
     // collect the resulting tree
-    Vec_PtrForEachEntry( vTimes, pObj, k )
+    Vec_PtrForEachEntry( Abc_Obj_t *, vTimes, pObj, k )
         for ( nSkip = (1<<k), i = 0; i < nCofs; i += 2*nSkip )
         {
             pAnd = pObj->pCopy;
-            ppCofs[i] = Abc_AigMux( pAig->pManFunc, Abc_ObjRegular(pAnd), ppCofs[i+nSkip], ppCofs[i] );
+            ppCofs[i] = Abc_AigMux( (Abc_Aig_t *)pAig->pManFunc, Abc_ObjRegular(pAnd), ppCofs[i+nSkip], ppCofs[i] );
         }
 //Abc_ObjAddFanin( Abc_NtkCreatePo(pAig), ppCofs[0] );
 
@@ -470,7 +472,7 @@ unsigned Abc_NtkDelayTraceTCEdges( Abc_Ntk_t * pNtk, Abc_Obj_t * pNode, float tD
     unsigned uResult = 0;
     float tRequired, * pDelays;
     int k;
-    pLutLib = fUseLutLib?  Abc_FrameReadLibLut() : NULL;
+    pLutLib = fUseLutLib?  (If_Lib_t *)Abc_FrameReadLibLut() : NULL;
     tRequired = Abc_ObjRequired(pNode);
     if ( pLutLib == NULL )
     {
@@ -606,8 +608,8 @@ Abc_Ntk_t * Abc_NtkSpeedup( Abc_Ntk_t * pNtk, int fUseLutLib, int Percentage, in
         // order the fanins in the increasing order of criticalily
         if ( Vec_PtrSize(vTimeCries) > 1 )
         {
-            pFanin = Vec_PtrEntry( vTimeCries, 0 );
-            pFanin2 = Vec_PtrEntry( vTimeCries, 1 );
+            pFanin = (Abc_Obj_t *)Vec_PtrEntry( vTimeCries, 0 );
+            pFanin2 = (Abc_Obj_t *)Vec_PtrEntry( vTimeCries, 1 );
             if ( Abc_ObjSlack(pFanin) < Abc_ObjSlack(pFanin2) )
             {
                 Vec_PtrWriteEntry( vTimeCries, 0, pFanin2 );
@@ -616,15 +618,15 @@ Abc_Ntk_t * Abc_NtkSpeedup( Abc_Ntk_t * pNtk, int fUseLutLib, int Percentage, in
         }
         if ( Vec_PtrSize(vTimeCries) > 2 )
         {
-            pFanin = Vec_PtrEntry( vTimeCries, 1 );
-            pFanin2 = Vec_PtrEntry( vTimeCries, 2 );
+            pFanin = (Abc_Obj_t *)Vec_PtrEntry( vTimeCries, 1 );
+            pFanin2 = (Abc_Obj_t *)Vec_PtrEntry( vTimeCries, 2 );
             if ( Abc_ObjSlack(pFanin) < Abc_ObjSlack(pFanin2) )
             {
                 Vec_PtrWriteEntry( vTimeCries, 1, pFanin2 );
                 Vec_PtrWriteEntry( vTimeCries, 2, pFanin );
             }
-            pFanin = Vec_PtrEntry( vTimeCries, 0 );
-            pFanin2 = Vec_PtrEntry( vTimeCries, 1 );
+            pFanin = (Abc_Obj_t *)Vec_PtrEntry( vTimeCries, 0 );
+            pFanin2 = (Abc_Obj_t *)Vec_PtrEntry( vTimeCries, 1 );
             if ( Abc_ObjSlack(pFanin) < Abc_ObjSlack(pFanin2) )
             {
                 Vec_PtrWriteEntry( vTimeCries, 0, pFanin2 );
@@ -645,7 +647,7 @@ Abc_Ntk_t * Abc_NtkSpeedup( Abc_Ntk_t * pNtk, int fUseLutLib, int Percentage, in
     Abc_AigForEachAnd( pNtkNew, pNode, i )
         if ( pNode->pData )
         {
-            if ( Abc_ObjFanoutNum(pNode->pData) > 0 )
+            if ( Abc_ObjFanoutNum((Abc_Obj_t *)pNode->pData) > 0 )
                 pNode->pData = NULL;
         }
 
@@ -683,7 +685,7 @@ Vec_Int_t * Abc_NtkPowerEstimate( Abc_Ntk_t * pNtk, int fProbOne )
     // strash the network
     pNtkStr = Abc_NtkStrash( pNtk, 0, 1, 0 );
     Abc_NtkForEachObj( pNtk, pObjAbc, i )
-        if ( Abc_ObjRegular(pObjAbc->pTemp)->Type == ABC_FUNC_NONE )
+        if ( Abc_ObjRegular((Abc_Obj_t *)pObjAbc->pTemp)->Type == ABC_FUNC_NONE )
             pObjAbc->pTemp = NULL;
     // map network into an AIG
     pAig = Abc_NtkToDar( pNtkStr, 0, (int)(Abc_NtkLatchNum(pNtk) > 0) );
@@ -691,7 +693,7 @@ Vec_Int_t * Abc_NtkPowerEstimate( Abc_Ntk_t * pNtk, int fProbOne )
     pSwitching = (float *)vSwitching->pArray;
     Abc_NtkForEachObj( pNtk, pObjAbc, i )
     {
-        if ( (pObjAbc2 = Abc_ObjRegular(pObjAbc->pTemp)) && (pObjAig = Aig_Regular(pObjAbc2->pTemp)) )
+        if ( (pObjAbc2 = Abc_ObjRegular((Abc_Obj_t *)pObjAbc->pTemp)) && (pObjAig = Aig_Regular((Aig_Obj_t *)pObjAbc2->pTemp)) )
             pProbability[pObjAbc->Id] = pSwitching[pObjAig->Id];
     }
     Vec_IntFree( vSwitching );
@@ -903,8 +905,8 @@ Abc_Ntk_t * Abc_NtkPowerdown( Abc_Ntk_t * pNtk, int fUseLutLib, int Percentage, 
         // order the fanins in the increasing order of criticalily
         if ( Vec_PtrSize(vTimeCries) > 1 )
         {
-            pFanin = Vec_PtrEntry( vTimeCries, 0 );
-            pFanin2 = Vec_PtrEntry( vTimeCries, 1 );
+            pFanin = (Abc_Obj_t *)Vec_PtrEntry( vTimeCries, 0 );
+            pFanin2 = (Abc_Obj_t *)Vec_PtrEntry( vTimeCries, 1 );
 //            if ( Abc_ObjSlack(pFanin) < Abc_ObjSlack(pFanin2) )
             if ( pProb[pFanin->Id] > pProb[pFanin2->Id] )
             {
@@ -914,16 +916,16 @@ Abc_Ntk_t * Abc_NtkPowerdown( Abc_Ntk_t * pNtk, int fUseLutLib, int Percentage, 
         }
         if ( Vec_PtrSize(vTimeCries) > 2 )
         {
-            pFanin = Vec_PtrEntry( vTimeCries, 1 );
-            pFanin2 = Vec_PtrEntry( vTimeCries, 2 );
+            pFanin = (Abc_Obj_t *)Vec_PtrEntry( vTimeCries, 1 );
+            pFanin2 = (Abc_Obj_t *)Vec_PtrEntry( vTimeCries, 2 );
 //            if ( Abc_ObjSlack(pFanin) < Abc_ObjSlack(pFanin2) )
             if ( pProb[pFanin->Id] > pProb[pFanin2->Id] )
             {
                 Vec_PtrWriteEntry( vTimeCries, 1, pFanin2 );
                 Vec_PtrWriteEntry( vTimeCries, 2, pFanin );
             }
-            pFanin = Vec_PtrEntry( vTimeCries, 0 );
-            pFanin2 = Vec_PtrEntry( vTimeCries, 1 );
+            pFanin = (Abc_Obj_t *)Vec_PtrEntry( vTimeCries, 0 );
+            pFanin2 = (Abc_Obj_t *)Vec_PtrEntry( vTimeCries, 1 );
 //            if ( Abc_ObjSlack(pFanin) < Abc_ObjSlack(pFanin2) )
             if ( pProb[pFanin->Id] > pProb[pFanin2->Id] )
             {
@@ -945,7 +947,7 @@ Abc_Ntk_t * Abc_NtkPowerdown( Abc_Ntk_t * pNtk, int fUseLutLib, int Percentage, 
     Abc_AigForEachAnd( pNtkNew, pNode, i )
         if ( pNode->pData )
         {
-            if ( Abc_ObjFanoutNum(pNode->pData) > 0 )
+            if ( Abc_ObjFanoutNum((Abc_Obj_t *)pNode->pData) > 0 )
                 pNode->pData = NULL;
         }
 
@@ -958,4 +960,6 @@ Abc_Ntk_t * Abc_NtkPowerdown( Abc_Ntk_t * pNtk, int fUseLutLib, int Percentage, 
 ///                       END OF FILE                                ///
 ////////////////////////////////////////////////////////////////////////
 
+
+ABC_NAMESPACE_IMPL_END
 

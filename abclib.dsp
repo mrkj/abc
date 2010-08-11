@@ -41,7 +41,7 @@ RSC=rc.exe
 # PROP Intermediate_Dir "ReleaseLib"
 # PROP Target_Dir ""
 # ADD BASE CPP /nologo /W3 /GX /O2 /D "WIN32" /D "NDEBUG" /D "_MBCS" /D "_LIB" /YX /FD /c
-# ADD CPP /nologo /MD /W3 /GX /O2 /I "src/base/abc" /I "src/base/abci" /I "src/base/cmd" /I "src/base/io" /I "src/base/main" /I "src/base/ver" /I "src/bdd/cudd" /I "src/bdd/dsd" /I "src/bdd/epd" /I "src/bdd/mtr" /I "src/bdd/parse" /I "src/bdd/reo" /I "src/bdd/cas" /I "src/map/fpga" /I "src/map/mapper" /I "src/map/mio" /I "src/map/super" /I "src/map/if" /I "src/map/pcm" /I "src/map/ply" /I "src/misc/extra" /I "src/misc/mvc" /I "src/misc/st" /I "src/misc/util" /I "src/misc/espresso" /I "src/misc/nm" /I "src/misc/vec" /I "src/misc/hash" /I "src/misc/bzlib" /I "src/misc/zlib" /I "src/opt/cut" /I "src/opt/dec" /I "src/opt/fxu" /I "src/opt/rwr" /I "src/opt/sim" /I "src/opt/ret" /I "src/opt/res" /I "src/opt/lpk" /I "src/sat/bsat" /I "src/sat/csat" /I "src/sat/msat" /I "src/sat/fraig" /I "src/sat/nsat" /I "src/sat/psat" /I "src/aig/ivy" /I "src/aig/hop" /I "src/aig/rwt" /I "src/aig/deco" /I "src/aig/mem" /I "src/aig/dar" /I "src/aig/fra" /I "src/aig/cnf" /I "src/aig/csw" /I "src/aig/ioa" /I "src/aig/aig" /I "src/aig/kit" /I "src/aig/bdc" /I "src/aig/bar" /I "src/aig/ntl" /I "src/aig/nwk" /I "src/aig/tim" /I "src/opt/mfs" /I "src/aig/mfx" /I "src/aig/saig" /I "src/aig/bbr" /I "src/aig/int" /I "src/aig/dch" /I "src/aig/ssw" /I "src/sat/lsat" /I "src/aig/cec" /I "src/aig/cgt" /I "src/aig/sec" /I "src/map/amap" /I "src/aig/fsim" /I "src/aig/gia" /I "src/aig/bbl" /I "src/aig/sky" /I "src/aig/_sky" /I "src/aig/_rti" /I "src/aig/_bat" /I "src/aig/llb" /D "WIN32" /D "NDEBUG" /D "_CONSOLE" /D "_MBCS" /D "__STDC__" /D ABC_DLL=ABC_DLLEXPORT /D "_CRT_SECURE_NO_DEPRECATE" /FR /YX /FD /c
+# ADD CPP /nologo /MD /W3 /GX /O2 /I "src/aig/_rti" /I "src/aig/_bat" /I "src/base/abc" /I "src/base/abci" /I "src/base/cmd" /I "src/base/io" /I "src/base/main" /I "src/base/ver" /I "src/bdd/cudd" /I "src/bdd/dsd" /I "src/bdd/epd" /I "src/bdd/mtr" /I "src/bdd/parse" /I "src/bdd/reo" /I "src/bdd/cas" /I "src/map/cov" /I "src/map/fpga" /I "src/map/mapper" /I "src/map/mio" /I "src/map/super" /I "src/map/if" /I "src/map/pcm" /I "src/map/ply" /I "src/misc/extra" /I "src/misc/mvc" /I "src/misc/st" /I "src/misc/util" /I "src/misc/espresso" /I "src/misc/nm" /I "src/misc/vec" /I "src/misc/hash" /I "src/misc/bzlib" /I "src/misc/zlib" /I "src/opt/cut" /I "src/opt/dec" /I "src/opt/fxu" /I "src/opt/rwr" /I "src/opt/sim" /I "src/opt/ret" /I "src/opt/res" /I "src/opt/lpk" /I "src/sat/bsat" /I "src/sat/csat" /I "src/sat/msat" /I "src/sat/fraig" /I "src/sat/nsat" /I "src/sat/psat" /I "src/aig/ivy" /I "src/aig/hop" /I "src/aig/rwt" /I "src/aig/deco" /I "src/aig/mem" /I "src/aig/dar" /I "src/aig/fra" /I "src/aig/cnf" /I "src/aig/csw" /I "src/aig/ioa" /I "src/aig/aig" /I "src/aig/kit" /I "src/aig/bdc" /I "src/aig/bar" /I "src/aig/ntl" /I "src/aig/nwk" /I "src/aig/tim" /I "src/opt/mfs" /I "src/aig/mfx" /I "src/aig/saig" /I "src/aig/bbr" /I "src/aig/int" /I "src/aig/dch" /I "src/aig/ssw" /I "src/sat/lsat" /I "src/aig/cec" /I "src/aig/cgt" /I "src/aig/sec" /I "src/map/amap" /I "src/aig/fsim" /I "src/aig/gia" /I "src/aig/bbl" /I "src/aig/sky" /I "src/aig/_sky" /I "src/aig/llb" /I "src/aig/_nal" /D "WIN32" /D "NDEBUG" /D "_CONSOLE" /D "_MBCS" /D ABC_DLL=ABC_DLLEXPORT /D "_CRT_SECURE_NO_DEPRECATE" /FR /YX /FD /c
 # ADD BASE RSC /l 0x409 /d "NDEBUG"
 # ADD RSC /l 0x409 /d "NDEBUG"
 BSC32=bscmake.exe
@@ -64,7 +64,7 @@ LIB32=link.exe -lib
 # PROP Intermediate_Dir "DebugLib"
 # PROP Target_Dir ""
 # ADD BASE CPP /nologo /W3 /Gm /GX /ZI /Od /D "WIN32" /D "_DEBUG" /D "_MBCS" /D "_LIB" /YX /FD /GZ /c
-# ADD CPP /nologo /MDd /W3 /Gm /GX /ZI /Od /I "src/base/abc" /I "src/base/abci" /I "src/base/cmd" /I "src/base/io" /I "src/base/main" /I "src/base/ver" /I "src/bdd/cudd" /I "src/bdd/dsd" /I "src/bdd/epd" /I "src/bdd/mtr" /I "src/bdd/parse" /I "src/bdd/reo" /I "src/bdd/cas" /I "src/map/fpga" /I "src/map/mapper" /I "src/map/mio" /I "src/map/super" /I "src/map/if" /I "src/map/pcm" /I "src/map/ply" /I "src/misc/extra" /I "src/misc/mvc" /I "src/misc/st" /I "src/misc/util" /I "src/misc/espresso" /I "src/misc/nm" /I "src/misc/vec" /I "src/misc/hash" /I "src/misc/bzlib" /I "src/misc/zlib" /I "src/opt/cut" /I "src/opt/dec" /I "src/opt/fxu" /I "src/opt/rwr" /I "src/opt/sim" /I "src/opt/ret" /I "src/opt/res" /I "src/opt/lpk" /I "src/sat/bsat" /I "src/sat/csat" /I "src/sat/msat" /I "src/sat/fraig" /I "src/sat/nsat" /I "src/sat/psat" /I "src/aig/ivy" /I "src/aig/hop" /I "src/aig/rwt" /I "src/aig/deco" /I "src/aig/mem" /I "src/aig/dar" /I "src/aig/fra" /I "src/aig/cnf" /I "src/aig/csw" /I "src/aig/ioa" /I "src/aig/aig" /I "src/aig/kit" /I "src/aig/bdc" /I "src/aig/bar" /I "src/aig/ntl" /I "src/aig/nwk" /I "src/aig/tim" /I "src/opt/mfs" /I "src/aig/mfx" /I "src/aig/saig" /I "src/aig/bbr" /I "src/aig/int" /I "src/aig/dch" /I "src/aig/ssw" /I "src/sat/lsat" /I "src/aig/cec" /I "src/aig/cgt" /I "src/aig/sec" /I "src/map/amap" /I "src/aig/fsim" /I "src/aig/gia" /I "src/aig/bbl" /I "src/aig/sky" /I "src/aig/_sky" /I "src/aig/_rti" /I "src/aig/_bat" /I "src/aig/llb" /D "WIN32" /D "_DEBUG" /D "_CONSOLE" /D "_MBCS" /D "__STDC__" /D ABC_DLL=ABC_DLLEXPORT /D "_CRT_SECURE_NO_DEPRECATE" /FR /YX /FD /GZ /c
+# ADD CPP /nologo /MDd /W3 /Gm /GX /ZI /Od /I "src/aig/_rti" /I "src/aig/_bat" /I "src/base/abc" /I "src/base/abci" /I "src/base/cmd" /I "src/base/io" /I "src/base/main" /I "src/base/ver" /I "src/bdd/cudd" /I "src/bdd/dsd" /I "src/bdd/epd" /I "src/bdd/mtr" /I "src/bdd/parse" /I "src/bdd/reo" /I "src/bdd/cas" /I "src/map/cov" /I "src/map/fpga" /I "src/map/mapper" /I "src/map/mio" /I "src/map/super" /I "src/map/if" /I "src/map/pcm" /I "src/map/ply" /I "src/misc/extra" /I "src/misc/mvc" /I "src/misc/st" /I "src/misc/util" /I "src/misc/espresso" /I "src/misc/nm" /I "src/misc/vec" /I "src/misc/hash" /I "src/misc/bzlib" /I "src/misc/zlib" /I "src/opt/cut" /I "src/opt/dec" /I "src/opt/fxu" /I "src/opt/rwr" /I "src/opt/sim" /I "src/opt/ret" /I "src/opt/res" /I "src/opt/lpk" /I "src/sat/bsat" /I "src/sat/csat" /I "src/sat/msat" /I "src/sat/fraig" /I "src/sat/nsat" /I "src/sat/psat" /I "src/aig/ivy" /I "src/aig/hop" /I "src/aig/rwt" /I "src/aig/deco" /I "src/aig/mem" /I "src/aig/dar" /I "src/aig/fra" /I "src/aig/cnf" /I "src/aig/csw" /I "src/aig/ioa" /I "src/aig/aig" /I "src/aig/kit" /I "src/aig/bdc" /I "src/aig/bar" /I "src/aig/ntl" /I "src/aig/nwk" /I "src/aig/tim" /I "src/opt/mfs" /I "src/aig/mfx" /I "src/aig/saig" /I "src/aig/bbr" /I "src/aig/int" /I "src/aig/dch" /I "src/aig/ssw" /I "src/sat/lsat" /I "src/aig/cec" /I "src/aig/cgt" /I "src/aig/sec" /I "src/map/amap" /I "src/aig/fsim" /I "src/aig/gia" /I "src/aig/bbl" /I "src/aig/sky" /I "src/aig/_sky" /I "src/aig/llb" /I "src/aig/_nal" /D "WIN32" /D "_DEBUG" /D "_CONSOLE" /D "_MBCS" /D ABC_DLL=ABC_DLLEXPORT /D "_CRT_SECURE_NO_DEPRECATE" /FR /YX /FD /GZ /c
 # ADD BASE RSC /l 0x409 /d "_DEBUG"
 # ADD RSC /l 0x409 /d "_DEBUG"
 BSC32=bscmake.exe
@@ -211,11 +211,11 @@ SOURCE=.\src\base\abci\abcCas.c
 # End Source File
 # Begin Source File
 
-SOURCE=.\src\base\abci\abcClpBdd.c
+SOURCE=.\src\base\abci\abcCascade.c
 # End Source File
 # Begin Source File
 
-SOURCE=.\src\base\abci\abcClpSop.c
+SOURCE=.\src\base\abci\abcCollapse.c
 # End Source File
 # Begin Source File
 
@@ -228,10 +228,6 @@ SOURCE=.\src\base\abci\abcDar.c
 # Begin Source File
 
 SOURCE=.\src\base\abci\abcDebug.c
-# End Source File
-# Begin Source File
-
-SOURCE=.\src\base\abci\abcDprove2.c
 # End Source File
 # Begin Source File
 
@@ -671,7 +667,7 @@ SOURCE=.\src\base\ver\verStream.c
 # PROP Default_Filter ""
 # Begin Source File
 
-SOURCE=.\src\base\dummy\dummy.c
+SOURCE=.\src\base\dummy\dummy_old.c
 # End Source File
 # End Group
 # Begin Group "dummy2"
@@ -2447,7 +2443,23 @@ SOURCE=.\src\misc\zlib\deflate.h
 # End Source File
 # Begin Source File
 
-SOURCE=.\src\misc\zlib\gzio.c
+SOURCE=.\src\misc\zlib\gzclose.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\src\misc\zlib\gzguts.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\src\misc\zlib\gzlib.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\src\misc\zlib\gzread.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\src\misc\zlib\gzwrite.c
 # End Source File
 # Begin Source File
 
@@ -3964,6 +3976,10 @@ SOURCE=.\src\aig\live\liveness.c
 # Begin Source File
 
 SOURCE=.\src\aig\live\liveness_sim.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\src\aig\live\ltl_parser.c
 # End Source File
 # End Group
 # Begin Group "sky"

@@ -21,11 +21,15 @@
 #ifndef __RET_INT_H__
 #define __RET_INT_H__
 
+
 ////////////////////////////////////////////////////////////////////////
 ///                          INCLUDES                                ///
 ////////////////////////////////////////////////////////////////////////
 
 #include "abc.h"
+
+ABC_NAMESPACE_HEADER_START
+
 
 ////////////////////////////////////////////////////////////////////////
 ///                         PARAMETERS                               ///
@@ -70,6 +74,10 @@ extern Abc_Ntk_t * Abc_NtkRetimeBackwardInitialStart( Abc_Ntk_t * pNtk );
 extern void        Abc_NtkRetimeBackwardInitialFinish( Abc_Ntk_t * pNtk, Abc_Ntk_t * pNtkNew, Vec_Int_t * vValuesOld, int fVerbose );
 /*=== retLvalue.c ========================================================*/
 extern int         Abc_NtkRetimeLValue( Abc_Ntk_t * pNtk, int nIterLimit, int fVerbose );
+
+
+
+ABC_NAMESPACE_HEADER_END
 
 #endif
 

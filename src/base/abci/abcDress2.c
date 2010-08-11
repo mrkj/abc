@@ -22,6 +22,9 @@
 #include "aig.h"
 #include "dch.h"
 
+ABC_NAMESPACE_IMPL_START
+
+
 /*
   Procedure Abc_NtkDressComputeEquivs() implemented in this file computes 
   equivalence classes of objects of the two networks (pNtk1 and pNtk2).
@@ -153,7 +156,7 @@ Vec_Int_t * Abc_NtkDressMapClasses( Aig_Man_t * pMiter, Abc_Ntk_t * pNtk )
         // get the pointer to the miter node corresponding to pObj
         if ( (pAnd = Abc_ObjRegular(pObj->pCopy)) && Abc_ObjType(pAnd) != ABC_OBJ_NONE &&          // strashed node is present and legal
              (pObjMan = Aig_Regular((Aig_Obj_t *)pAnd->pCopy)) && Aig_ObjType(pObjMan) != AIG_OBJ_NONE &&       // AIG node is present and legal
-             (pObjMiter = Aig_Regular(pObjMan->pData)) && Aig_ObjType(pObjMiter) != AIG_OBJ_NONE ) // miter node is present and legal
+             (pObjMiter = Aig_Regular((Aig_Obj_t *)pObjMan->pData)) && Aig_ObjType(pObjMiter) != AIG_OBJ_NONE ) // miter node is present and legal
         {
             // get the representative of the miter node
             pObjRepr = Aig_ObjRepr( pMiter, pObjMiter );
@@ -183,11 +186,11 @@ Vec_Int_t * Abc_ObjDressClass( Vec_Ptr_t * vRes, Vec_Int_t * vClass2Num, int Cla
     ClassNumber = Vec_IntEntry( vClass2Num, Class );
     assert( ClassNumber != 0 );
     if ( ClassNumber > 0 )
-        return Vec_PtrEntry( vRes, ClassNumber ); // previous class
+        return (Vec_Int_t *)Vec_PtrEntry( vRes, ClassNumber ); // previous class
     // create new class
     Vec_IntWriteEntry( vClass2Num, Class, Vec_PtrSize(vRes) );
     Vec_PtrPush( vRes, Vec_IntAlloc(4) );
-    return Vec_PtrEntryLast( vRes ); 
+    return (Vec_Int_t *)Vec_PtrEntryLast( vRes ); 
 }
 
 /**Function*************************************************************
@@ -331,7 +334,7 @@ void Abc_NtkDressPrintEquivs( Vec_Ptr_t * vRes )
 {
     Vec_Int_t * vClass;
     int i, k, Entry;
-    Vec_PtrForEachEntry( vRes, vClass, i )
+    Vec_PtrForEachEntry( Vec_Int_t *, vRes, vClass, i )
     {
         printf( "Class %5d : ", i );
         printf( "Num =%5d    ", Vec_IntSize(vClass) );
@@ -362,7 +365,7 @@ void Abc_NtkDressPrintStats( Vec_Ptr_t * vRes, int nNodes0, int nNodes1, int Tim
     int NegAll[2] = {0}, PosAll[2] = {0}, PairsAll = 0, PairsOne = 0;
     int Pos[2], Neg[2];
     // count the number of equivalences in each class
-    Vec_PtrForEachEntry( vRes, vClass, i )
+    Vec_PtrForEachEntry( Vec_Int_t *, vRes, vClass, i )
     {
         Pos[0] = Pos[1] = 0;
         Neg[0] = Neg[1] = 0;
@@ -427,4 +430,6 @@ void Abc_NtkDress2( Abc_Ntk_t * pNtk1, Abc_Ntk_t * pNtk2, int nConflictLimit, in
 ///                       END OF FILE                                ///
 ////////////////////////////////////////////////////////////////////////
 
+
+ABC_NAMESPACE_IMPL_END
 

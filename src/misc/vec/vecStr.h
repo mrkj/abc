@@ -21,11 +21,15 @@
 #ifndef __VEC_STR_H__
 #define __VEC_STR_H__
 
+
 ////////////////////////////////////////////////////////////////////////
 ///                          INCLUDES                                ///
 ////////////////////////////////////////////////////////////////////////
 
 #include <stdio.h>
+
+ABC_NAMESPACE_HEADER_START
+
 
 ////////////////////////////////////////////////////////////////////////
 ///                         PARAMETERS                               ///
@@ -538,7 +542,7 @@ static inline void Vec_StrPrintNum( Vec_Str_t * p, int Num )
   SeeAlso     []
 
 ***********************************************************************/
-static inline void Vec_StrPrintStr( Vec_Str_t * p, char * pStr )
+static inline void Vec_StrPrintStr( Vec_Str_t * p, const char * pStr )
 {
     int i, Length = strlen(pStr);
     for ( i = 0; i < Length; i++ )
@@ -556,7 +560,7 @@ static inline void Vec_StrPrintStr( Vec_Str_t * p, char * pStr )
   SeeAlso     []
 
 ***********************************************************************/
-static inline void Vec_StrAppend( Vec_Str_t * p, char * pString )
+static inline void Vec_StrAppend( Vec_Str_t * p, const char * pString )
 {
     Vec_StrPrintStr( p, pString );
 }
@@ -645,6 +649,10 @@ static inline void Vec_StrSort( Vec_Str_t * p, int fReverse )
         qsort( (void *)p->pArray, p->nSize, sizeof(char), 
                 (int (*)(const void *, const void *)) Vec_StrSortCompare1 );
 }
+
+
+
+ABC_NAMESPACE_HEADER_END
 
 #endif
 

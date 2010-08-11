@@ -22,6 +22,9 @@
 #include "main.h"
 #include "mio.h"
 
+ABC_NAMESPACE_IMPL_START
+
+
 ////////////////////////////////////////////////////////////////////////
 ///                        DECLARATIONS                              ///
 ////////////////////////////////////////////////////////////////////////
@@ -98,7 +101,7 @@ void Io_WriteBlif( Abc_Ntk_t * pNtk, char * FileName, int fWriteLatches, int fBb
     // write the hierarchy if present
     if ( Abc_NtkBlackboxNum(pNtk) > 0 )
     {
-        Vec_PtrForEachEntry( pNtk->pDesign->vModules, pNtkTemp, i )
+        Vec_PtrForEachEntry( Abc_Ntk_t *, pNtk->pDesign->vModules, pNtkTemp, i )
         {
             if ( pNtkTemp == pNtk )
                 continue;
@@ -241,7 +244,7 @@ void Io_NtkWriteOne( FILE * pFile, Abc_Ntk_t * pNtk, int fWriteLatches, int fBb2
     }
 
     // write each internal node
-    Length = Abc_NtkHasMapping(pNtk)? Mio_LibraryReadGateNameMax(pNtk->pManFunc) : 0;
+    Length = Abc_NtkHasMapping(pNtk)? Mio_LibraryReadGateNameMax((Mio_Library_t *)pNtk->pManFunc) : 0;
     pProgress = Extra_ProgressBarStart( stdout, Abc_NtkObjNumMax(pNtk) );
     Abc_NtkForEachNode( pNtk, pNode, i )
     {
@@ -391,7 +394,7 @@ void Io_NtkWritePos( FILE * pFile, Abc_Ntk_t * pNtk, int fWriteLatches )
 ***********************************************************************/
 void Io_NtkWriteSubckt( FILE * pFile, Abc_Obj_t * pNode )
 {
-    Abc_Ntk_t * pModel = pNode->pData;
+    Abc_Ntk_t * pModel = (Abc_Ntk_t *)pNode->pData;
     Abc_Obj_t * pTerm;
     int i;
     // write the subcircuit
@@ -483,7 +486,7 @@ void Io_NtkWriteNode( FILE * pFile, Abc_Obj_t * pNode, int Length )
 ***********************************************************************/
 void Io_NtkWriteNodeGate( FILE * pFile, Abc_Obj_t * pNode, int Length )
 {
-    Mio_Gate_t * pGate = pNode->pData;
+    Mio_Gate_t * pGate = (Mio_Gate_t *)pNode->pData;
     Mio_Pin_t * pGatePin;
     int i;
     // write the node
@@ -627,4 +630,6 @@ void Abc_NtkConvertBb2Wb( char * pFileNameIn, char * pFileNameOut, int fSeq, int
 ///                       END OF FILE                                ///
 ////////////////////////////////////////////////////////////////////////
 
+
+ABC_NAMESPACE_IMPL_END
 

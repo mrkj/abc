@@ -32,6 +32,9 @@
 #include    "util_hack.h"
 #define CUDD_MAIN
 #include    "cuddInt.h"
+
+ABC_NAMESPACE_IMPL_START
+
 #undef CUDD_MAIN
 
 /*---------------------------------------------------------------------------*/
@@ -105,7 +108,7 @@ Cudd_Init(
     DdNode *one, *zero;
     unsigned int maxCacheSize;
     unsigned int looseUpTo;
-    extern void (*MMoutOfMemory)(long);
+//    extern void (*MMoutOfMemory)(long);
     void (*saveHandler)(long);
 
     if (maxMemory == 0) {
@@ -281,4 +284,6 @@ cuddZddFreeUniv(
 /*---------------------------------------------------------------------------*/
 /* Definition of static functions                                            */
 /*---------------------------------------------------------------------------*/
+
+ABC_NAMESPACE_IMPL_END
 

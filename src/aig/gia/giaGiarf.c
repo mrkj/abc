@@ -20,6 +20,8 @@
 
 #include "gia.h"
 
+ABC_NAMESPACE_IMPL_START
+
 ////////////////////////////////////////////////////////////////////////
 ///                        DECLARATIONS                              ///
 ////////////////////////////////////////////////////////////////////////
@@ -583,7 +585,7 @@ Vec_Ptr_t * Gia_CollectRelatedClasses( Gia_Man_t * pGia, Vec_Ptr_t * vRoots )
     int i;
     vClasses = Vec_PtrAlloc( 100 );
     Gia_ManConst0( pGia )->fMark0 = 1;
-    Vec_PtrForEachEntry( vRoots, pRoot, i )
+    Vec_PtrForEachEntry( Gia_Obj_t *, vRoots, pRoot, i )
     {
         pRepr = Gia_ObjReprObj( pGia, Gia_ObjId(pGia, pRoot) );
         if ( pRepr == NULL || pRepr->fMark0 )
@@ -592,7 +594,7 @@ Vec_Ptr_t * Gia_CollectRelatedClasses( Gia_Man_t * pGia, Vec_Ptr_t * vRoots )
         Vec_PtrPush( vClasses, pRepr );
     }
     Gia_ManConst0( pGia )->fMark0 = 0;
-    Vec_PtrForEachEntry( vClasses, pRepr, i )
+    Vec_PtrForEachEntry( Gia_Obj_t *, vClasses, pRepr, i )
         pRepr->fMark0 = 0;
     return vClasses;
 }
@@ -642,16 +644,16 @@ int Gia_GiarfStorePatternTry( Vec_Ptr_t * vInfo, Vec_Ptr_t * vPres, int iBit, in
     int i;
     for ( i = 0; i < nLits; i++ )
     {
-        pInfo = Vec_PtrEntry(vInfo, Gia_Lit2Var(pLits[i]));
-        pPres = Vec_PtrEntry(vPres, Gia_Lit2Var(pLits[i]));
+        pInfo = (unsigned *)Vec_PtrEntry(vInfo, Gia_Lit2Var(pLits[i]));
+        pPres = (unsigned *)Vec_PtrEntry(vPres, Gia_Lit2Var(pLits[i]));
         if ( Gia_InfoHasBit( pPres, iBit ) && 
              Gia_InfoHasBit( pInfo, iBit ) == Gia_LitIsCompl(pLits[i]) )
              return 0;
     }
     for ( i = 0; i < nLits; i++ )
     {
-        pInfo = Vec_PtrEntry(vInfo, Gia_Lit2Var(pLits[i]));
-        pPres = Vec_PtrEntry(vPres, Gia_Lit2Var(pLits[i]));
+        pInfo = (unsigned *)Vec_PtrEntry(vInfo, Gia_Lit2Var(pLits[i]));
+        pPres = (unsigned *)Vec_PtrEntry(vPres, Gia_Lit2Var(pLits[i]));
         Gia_InfoSetBit( pPres, iBit );
         if ( Gia_InfoHasBit( pInfo, iBit ) == Gia_LitIsCompl(pLits[i]) )
             Gia_InfoXorBit( pInfo, iBit );
@@ -733,8 +735,12 @@ void Gia_GiarfPrintClasses( Gia_Man_t * pGia )
         nFails, nProves, nBoth, nTotal );
 }
 
+ABC_NAMESPACE_IMPL_END
 
 #include "cecInt.h"
+
+ABC_NAMESPACE_IMPL_START
+
 
 /**Function*************************************************************
 
@@ -774,7 +780,7 @@ int Gia_ComputeEquivalencesLevel( Hcd_Man_t * p, Gia_Man_t * pGiaLev, Vec_Ptr_t 
     vMembers = Vec_PtrAlloc( 100 );
     Vec_PtrCleanSimInfo( p->vSimPres, 0, 1 );
     // resolve constants
-    Vec_PtrForEachEntry( vOldRoots, pRoot, i )
+    Vec_PtrForEachEntry( Gia_Obj_t *, vOldRoots, pRoot, i )
     {
         iRoot = Gia_ObjId( p->pGia, pRoot );
         if ( !Gia_ObjIsConst( p->pGia, iRoot ) )
@@ -848,7 +854,7 @@ int Gia_ComputeEquivalencesLevel( Hcd_Man_t * p, Gia_Man_t * pGiaLev, Vec_Ptr_t 
         Vec_PtrClear( vClasses );
         Vec_PtrClear( vOldRootsNew );
         Gia_ManConst0( p->pGia )->fMark0 = 1;
-        Vec_PtrForEachEntry( vOldRoots, pRoot, i )
+        Vec_PtrForEachEntry( Gia_Obj_t *, vOldRoots, pRoot, i )
         {
             iRoot = Gia_ObjId( p->pGia, pRoot );
             if ( Gia_ObjIsHead( p->pGia, iRoot ) )
@@ -871,8 +877,8 @@ int Gia_ComputeEquivalencesLevel( Hcd_Man_t * p, Gia_Man_t * pGiaLev, Vec_Ptr_t 
                 continue;
             // try proving the members
             fOneFailed = 0;
-            pMemberPrev = Vec_PtrEntryLast( vMembers );
-            Vec_PtrForEachEntry( vMembers, pMember, k )
+            pMemberPrev = (Gia_Obj_t *)Vec_PtrEntryLast( vMembers );
+            Vec_PtrForEachEntry( Gia_Obj_t *, vMembers, pMember, k )
             {
                 iMemberPrev = Gia_LitNotCond( pMemberPrev->Value,  pMemberPrev->fPhase ); 
                 iMember     = Gia_LitNotCond( pMember->Value,     !pMember->fPhase ); 
@@ -956,7 +962,7 @@ int Gia_ComputeEquivalencesLevel( Hcd_Man_t * p, Gia_Man_t * pGiaLev, Vec_Ptr_t 
             if ( fOneFailed )
             {
                 nClassRefs++;
-                Vec_PtrForEachEntry( vMembers, pMember, k )
+                Vec_PtrForEachEntry( Gia_Obj_t *, vMembers, pMember, k )
                     if ( pMember != pTempRepr && !Gia_ObjFailed(p->pGia, Gia_ObjId(p->pGia, pMember)) )
                         Vec_PtrPush( vOldRootsNew, pMember );
                 clk = clock();
@@ -965,14 +971,14 @@ int Gia_ComputeEquivalencesLevel( Hcd_Man_t * p, Gia_Man_t * pGiaLev, Vec_Ptr_t 
             }
             else
             {
-                Vec_PtrForEachEntry( vMembers, pMember, k )
+                Vec_PtrForEachEntry( Gia_Obj_t *, vMembers, pMember, k )
                     Gia_ObjSetProved( p->pGia, Gia_ObjId(p->pGia, pMember) );
 /*
 //            }
 //            else
 //            {
                 printf( "Proved equivalent: " );
-                Vec_PtrForEachEntry( vMembers, pMember, k )
+                Vec_PtrForEachEntry( Gia_Obj_t *, vMembers, pMember, k )
                     printf( "%d(L=%d)  ", Gia_ObjId(p->pGia, pMember), p->pGia->pLevels[Gia_ObjId(p->pGia, pMember)] );
                 printf( "\n" );
 */
@@ -980,11 +986,11 @@ int Gia_ComputeEquivalencesLevel( Hcd_Man_t * p, Gia_Man_t * pGiaLev, Vec_Ptr_t 
 
         }
         Vec_PtrClear( vOldRoots );
-        Vec_PtrForEachEntry( vOldRootsNew, pMember, i )
+        Vec_PtrForEachEntry( Gia_Obj_t *, vOldRootsNew, pMember, i )
             Vec_PtrPush( vOldRoots, pMember );
         // clean up
         Gia_ManConst0( p->pGia )->fMark0 = 0;
-        Vec_PtrForEachEntry( vClasses, pRepr, i )
+        Vec_PtrForEachEntry( Gia_Obj_t *, vClasses, pRepr, i )
             pRepr->fMark0 = 0;
     }
     Vec_PtrFree( vClasses );
@@ -1066,4 +1072,6 @@ void Gia_ComputeEquivalences( Gia_Man_t * pGia, int nBTLimit, int fUseMiniSat, i
 ///                       END OF FILE                                ///
 ////////////////////////////////////////////////////////////////////////
 
+
+ABC_NAMESPACE_IMPL_END
 

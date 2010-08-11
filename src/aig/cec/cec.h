@@ -21,6 +21,7 @@
 #ifndef __CEC_H__
 #define __CEC_H__
 
+
 ////////////////////////////////////////////////////////////////////////
 ///                          INCLUDES                                ///
 ////////////////////////////////////////////////////////////////////////
@@ -29,9 +30,10 @@
 ///                         PARAMETERS                               ///
 ////////////////////////////////////////////////////////////////////////
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+
+
+ABC_NAMESPACE_HEADER_START
+
 
 ////////////////////////////////////////////////////////////////////////
 ///                         BASIC TYPES                              ///
@@ -208,15 +210,18 @@ extern void          Cec_ManSimulation( Gia_Man_t * pAig, Cec_ParSim_t * pPars )
 /*=== cecSeq.c ==========================================================*/
 extern int           Cec_ManSeqResimulateCounter( Gia_Man_t * pAig, Cec_ParSim_t * pPars, Abc_Cex_t * pCex );
 extern int           Cec_ManSeqSemiformal( Gia_Man_t * pAig, Cec_ParSmf_t * pPars );
+extern int           Cec_ManCheckNonTrivialCands( Gia_Man_t * pAig );
 /*=== cecSynth.c ==========================================================*/
 extern int           Cec_SeqReadMinDomSize( Cec_ParSeq_t * p );
 extern int           Cec_SeqReadVerbose( Cec_ParSeq_t * p );
 extern void          Cec_SeqSynthesisSetDefaultParams( Cec_ParSeq_t * pPars );
 extern int           Cec_SequentialSynthesisPart( Gia_Man_t * p, Cec_ParSeq_t * pPars );
 
-#ifdef __cplusplus
-}
-#endif
+
+
+ABC_NAMESPACE_HEADER_END
+
+
 
 #endif
 

@@ -1,10 +1,34 @@
+/**CFile****************************************************************
+
+  FileName    [liveness.c]
+
+  SystemName  [ABC: Logic synthesis and verification system.]
+
+  PackageName [Liveness property checking.]
+
+  Synopsis    [Main implementation module.]
+
+  Author      [Sayak Ray]
+  
+  Affiliation [UC Berkeley]
+
+  Date        [Ver. 1.0. Started - January 1, 2009.]
+
+  Revision    [$Id: liveness.c,v 1.00 2009/01/01 00:00:00 alanmi Exp $]
+
+***********************************************************************/
+
 #include <stdio.h>
 #include "main.h"
 #include "aig.h"
 #include "saig.h"
 #include <string.h>
+#include "mainInt.h"
+
+ABC_NAMESPACE_IMPL_START
 
 #define PROPAGATE_NAMES
+#define MULTIPLE_LTL_FORMULA
 
 #define FULL_BIERE_MODE 0
 #define IGNORE_LIVENESS_KEEP_SAFETY_MODE 1
@@ -16,6 +40,26 @@
 extern Aig_Man_t * Abc_NtkToDar( Abc_Ntk_t * pNtk, int fExors, int fRegisters );
 extern Abc_Ntk_t * Abc_NtkFromAigPhase( Aig_Man_t * pMan );
 //char *strdup(const char *string);
+
+//******************************************
+//external functions defined in ltl_parser.c
+//******************************************
+typedef struct ltlNode_t ltlNode;
+extern ltlNode *readLtlFormula( char *formula );
+extern void traverseAbstractSyntaxTree( ltlNode *node );
+extern ltlNode *parseFormulaCreateAST( char *inputFormula );
+extern int isWellFormed( ltlNode *topNode );
+extern int checkSignalNameExistence( Abc_Ntk_t *pNtk, ltlNode *topASTNode );
+extern void populateBoolWithAigNodePtr( Abc_Ntk_t *pNtk, Aig_Man_t *pAigOld, Aig_Man_t *pAigNew, ltlNode *topASTNode );
+extern int checkAllBoolHaveAIGPointer( ltlNode *topASTNode );
+extern void populateAigPointerUnitGF( Aig_Man_t *pAigNew, ltlNode *topASTNode, Vec_Ptr_t *vSignal, Vec_Vec_t *vAigGFMap );
+extern void setAIGNodePtrOfGloballyNode( ltlNode *astNode, Aig_Obj_t *pObjLo );
+extern Aig_Obj_t *buildLogicFromLTLNode( Aig_Man_t *pAig, ltlNode *pLtlNode );
+extern Aig_Obj_t *retriveAIGPointerFromLTLNode( ltlNode *astNode );
+extern void traverseAbstractSyntaxTree_postFix( ltlNode *node );
+//**********************************
+//external function declaration ends
+//**********************************
 
  
 /*******************************************************************
@@ -310,9 +354,9 @@ Aig_Man_t * LivenessToSafetyTransformation( int mode, Abc_Ntk_t * pNtk, Aig_Man_
 		if( Vec_PtrSize( vAssertSafety ) != 0 && Vec_PtrSize( vAssumeSafety ) == 0 )
 		{
 			pObjAndAcc = Aig_ManConst1( pNew );
-			Vec_PtrForEachEntry( vAssertSafety, pObj, i )
+			Vec_PtrForEachEntry( Aig_Obj_t *, vAssertSafety, pObj, i )
 			{
-				pArgument = Aig_NotCond( Aig_ObjFanin0(pObj)->pData, Aig_ObjFaninC0( pObj ) );
+				pArgument = Aig_NotCond( (Aig_Obj_t *)Aig_ObjFanin0(pObj)->pData, Aig_ObjFaninC0( pObj ) );
 				pObjAndAcc = Aig_And( pNew, pArgument, pObjAndAcc );
 			}
 			pObjOriginalSafetyPropertyOutput = Aig_ObjCreatePo( pNew, Aig_Not(pObjAndAcc) );
@@ -320,17 +364,17 @@ Aig_Man_t * LivenessToSafetyTransformation( int mode, Abc_Ntk_t * pNtk, Aig_Man_
 		else if( Vec_PtrSize( vAssertSafety ) != 0 && Vec_PtrSize( vAssumeSafety ) != 0 )
 		{
 			pObjAndAcc = Aig_ManConst1( pNew );
-			Vec_PtrForEachEntry( vAssertSafety, pObj, i )
+			Vec_PtrForEachEntry( Aig_Obj_t *, vAssertSafety, pObj, i )
 			{
-				pArgument = Aig_NotCond( Aig_ObjFanin0(pObj)->pData, Aig_ObjFaninC0( pObj ) );
+				pArgument = Aig_NotCond( (Aig_Obj_t *)Aig_ObjFanin0(pObj)->pData, Aig_ObjFaninC0( pObj ) );
 				pObjAndAcc = Aig_And( pNew, pArgument, pObjAndAcc );
 			}
 			collectiveAssertSafety = pObjAndAcc;
 
 			pObjAndAcc = Aig_ManConst1( pNew );
-			Vec_PtrForEachEntry( vAssumeSafety, pObj, i )
+			Vec_PtrForEachEntry( Aig_Obj_t *, vAssumeSafety, pObj, i )
 			{
-				pArgument = Aig_NotCond( Aig_ObjFanin0(pObj)->pData, Aig_ObjFaninC0( pObj ) );
+				pArgument = Aig_NotCond( (Aig_Obj_t *)Aig_ObjFanin0(pObj)->pData, Aig_ObjFaninC0( pObj ) );
 				pObjAndAcc = Aig_And( pNew, pArgument, pObjAndAcc );
 			}
 			collectiveAssumeSafety = pObjAndAcc;
@@ -349,7 +393,7 @@ Aig_Man_t * LivenessToSafetyTransformation( int mode, Abc_Ntk_t * pNtk, Aig_Man_
 	//********************************************************************
 	if( mode == FULL_BIERE_MODE || mode == IGNORE_SAFETY_KEEP_LIVENESS_MODE )
 	{
-		pObjSafetyPropertyOutput = Aig_ObjCreatePo( pNew, Aig_ObjFanin0(pObj)->pData );
+		pObjSafetyPropertyOutput = Aig_ObjCreatePo( pNew, (Aig_Obj_t *)Aig_ObjFanin0(pObj)->pData );
 	}
 
 	// create register inputs for the original registers
@@ -358,7 +402,7 @@ Aig_Man_t * LivenessToSafetyTransformation( int mode, Abc_Ntk_t * pNtk, Aig_Man_
 	Saig_ManForEachLo( p, pObj, i )
 	{
 		pMatch = Saig_ObjLoToLi( p, pObj );
-		Aig_ObjCreatePo( pNew, Aig_NotCond(Aig_ObjFanin0(pMatch)->pData, Aig_ObjFaninC0( pMatch ) ) );
+		Aig_ObjCreatePo( pNew, Aig_NotCond((Aig_Obj_t *)Aig_ObjFanin0(pMatch)->pData, Aig_ObjFaninC0( pMatch ) ) );
 		nRegCount++;
 		liCopied++;
 	}
@@ -388,12 +432,12 @@ Aig_Man_t * LivenessToSafetyTransformation( int mode, Abc_Ntk_t * pNtk, Aig_Man_
 					Vec_PtrPush( vecLoNames, nodeName );
 				#endif
 
-				pObjShadowLiDriver = Aig_Mux( pNew, pObjSaveAndNotSaved, pObj->pData, pObjShadowLo );
+				pObjShadowLiDriver = Aig_Mux( pNew, pObjSaveAndNotSaved, (Aig_Obj_t *)pObj->pData, pObjShadowLo );
 				pObjShadowLi = Aig_ObjCreatePo( pNew, pObjShadowLiDriver );
 				nRegCount++;
 				loCreated++; liCreated++;
 		
-				pObjXor = Aig_Exor( pNew, pObj->pData, pObjShadowLo );
+				pObjXor = Aig_Exor( pNew, (Aig_Obj_t *)pObj->pData, pObjShadowLo );
 				pObjXnor = Aig_Not( pObjXor );
 				
 				pObjAndAcc = Aig_And( pNew, pObjXnor, pObjAndAcc );
@@ -410,10 +454,10 @@ Aig_Man_t * LivenessToSafetyTransformation( int mode, Abc_Ntk_t * pNtk, Aig_Man_
 			}
 			else
 			{
-				Vec_PtrForEachEntry( vLive, pObj, i )
+				Vec_PtrForEachEntry( Aig_Obj_t *, vLive, pObj, i )
 				{
 					liveLatch++;
-					pDriverImage = Aig_NotCond(Aig_Regular(Aig_ObjChild0( pObj ))->pData, Aig_ObjFaninC0(pObj));
+					pDriverImage = Aig_NotCond((Aig_Obj_t *)Aig_Regular(Aig_ObjChild0( pObj ))->pData, Aig_ObjFaninC0(pObj));
 					pObjShadowLo = Aig_ObjCreatePi( pNew );
 
 					#ifdef PROPAGATE_NAMES
@@ -439,10 +483,10 @@ Aig_Man_t * LivenessToSafetyTransformation( int mode, Abc_Ntk_t * pNtk, Aig_Man_
 				printf("Circuit without any fairness property\n");
 			else
 			{
-				Vec_PtrForEachEntry( vFair, pObj, i )
+				Vec_PtrForEachEntry( Aig_Obj_t *, vFair, pObj, i )
 				{
 					fairLatch++;
-					pDriverImage = Aig_NotCond(Aig_Regular(Aig_ObjChild0( pObj ))->pData, Aig_ObjFaninC0(pObj));
+					pDriverImage = Aig_NotCond((Aig_Obj_t *)Aig_Regular(Aig_ObjChild0( pObj ))->pData, Aig_ObjFaninC0(pObj));
 					pObjShadowLo = Aig_ObjCreatePi( pNew );
 
 					#ifdef PROPAGATE_NAMES
@@ -607,9 +651,9 @@ Aig_Man_t * LivenessToSafetyTransformationAbs( int mode, Abc_Ntk_t * pNtk, Aig_M
 		if( Vec_PtrSize( vAssertSafety ) != 0 && Vec_PtrSize( vAssumeSafety ) == 0 )
 		{
 			pObjAndAcc = Aig_ManConst1( pNew );
-			Vec_PtrForEachEntry( vAssertSafety, pObj, i )
+			Vec_PtrForEachEntry( Aig_Obj_t *, vAssertSafety, pObj, i )
 			{
-				pArgument = Aig_NotCond( Aig_ObjFanin0(pObj)->pData, Aig_ObjFaninC0( pObj ) );
+				pArgument = Aig_NotCond( (Aig_Obj_t *)Aig_ObjFanin0(pObj)->pData, Aig_ObjFaninC0( pObj ) );
 				pObjAndAcc = Aig_And( pNew, pArgument, pObjAndAcc );
 			}
 			Aig_ObjCreatePo( pNew, Aig_Not(pObjAndAcc) );
@@ -617,17 +661,17 @@ Aig_Man_t * LivenessToSafetyTransformationAbs( int mode, Abc_Ntk_t * pNtk, Aig_M
 		else if( Vec_PtrSize( vAssertSafety ) != 0 && Vec_PtrSize( vAssumeSafety ) != 0 )
 		{
 			pObjAndAcc = Aig_ManConst1( pNew );
-			Vec_PtrForEachEntry( vAssertSafety, pObj, i )
+			Vec_PtrForEachEntry( Aig_Obj_t *, vAssertSafety, pObj, i )
 			{
-				pArgument = Aig_NotCond( Aig_ObjFanin0(pObj)->pData, Aig_ObjFaninC0( pObj ) );
+				pArgument = Aig_NotCond( (Aig_Obj_t *)Aig_ObjFanin0(pObj)->pData, Aig_ObjFaninC0( pObj ) );
 				pObjAndAcc = Aig_And( pNew, pArgument, pObjAndAcc );
 			}
 			collectiveAssertSafety = pObjAndAcc;
 
 			pObjAndAcc = Aig_ManConst1( pNew );
-			Vec_PtrForEachEntry( vAssumeSafety, pObj, i )
+			Vec_PtrForEachEntry( Aig_Obj_t *, vAssumeSafety, pObj, i )
 			{
-				pArgument = Aig_NotCond( Aig_ObjFanin0(pObj)->pData, Aig_ObjFaninC0( pObj ) );
+				pArgument = Aig_NotCond( (Aig_Obj_t *)Aig_ObjFanin0(pObj)->pData, Aig_ObjFaninC0( pObj ) );
 				pObjAndAcc = Aig_And( pNew, pArgument, pObjAndAcc );
 			}
 			collectiveAssumeSafety = pObjAndAcc;
@@ -646,7 +690,7 @@ Aig_Man_t * LivenessToSafetyTransformationAbs( int mode, Abc_Ntk_t * pNtk, Aig_M
 	//********************************************************************
 	if( mode == FULL_BIERE_MODE || mode == IGNORE_SAFETY_KEEP_LIVENESS_MODE )
 	{
-		pObjSafetyPropertyOutput = Aig_ObjCreatePo( pNew, Aig_ObjFanin0(pObj)->pData );
+		pObjSafetyPropertyOutput = Aig_ObjCreatePo( pNew, (Aig_Obj_t *)Aig_ObjFanin0(pObj)->pData );
 	}
 
 	// create register inputs for the original registers
@@ -655,7 +699,7 @@ Aig_Man_t * LivenessToSafetyTransformationAbs( int mode, Abc_Ntk_t * pNtk, Aig_M
 	Saig_ManForEachLo( p, pObj, i )
 	{
 		pMatch = Saig_ObjLoToLi( p, pObj );
-		Aig_ObjCreatePo( pNew, Aig_NotCond(Aig_ObjFanin0(pMatch)->pData, Aig_ObjFaninC0( pMatch ) ) );
+		Aig_ObjCreatePo( pNew, Aig_NotCond((Aig_Obj_t *)Aig_ObjFanin0(pMatch)->pData, Aig_ObjFaninC0( pMatch ) ) );
 		nRegCount++;
 		liCopied++;
 	}
@@ -691,12 +735,12 @@ Aig_Man_t * LivenessToSafetyTransformationAbs( int mode, Abc_Ntk_t * pNtk, Aig_M
 					Vec_PtrPush( vecLoNames, nodeName );
 				#endif
 
-				pObjShadowLiDriver = Aig_Mux( pNew, pObjSaveAndNotSaved, pObj->pData, pObjShadowLo );
+				pObjShadowLiDriver = Aig_Mux( pNew, pObjSaveAndNotSaved, (Aig_Obj_t *)pObj->pData, pObjShadowLo );
 				pObjShadowLi = Aig_ObjCreatePo( pNew, pObjShadowLiDriver );
 				nRegCount++;
 				loCreated++; liCreated++;
 		
-				pObjXor = Aig_Exor( pNew, pObj->pData, pObjShadowLo );
+				pObjXor = Aig_Exor( pNew, (Aig_Obj_t *)pObj->pData, pObjShadowLo );
 				pObjXnor = Aig_Not( pObjXor );
 				
 				pObjAndAcc = Aig_And( pNew, pObjXnor, pObjAndAcc );
@@ -713,10 +757,10 @@ Aig_Man_t * LivenessToSafetyTransformationAbs( int mode, Abc_Ntk_t * pNtk, Aig_M
 			}
 			else
 			{
-				Vec_PtrForEachEntry( vLive, pObj, i )
+				Vec_PtrForEachEntry( Aig_Obj_t *, vLive, pObj, i )
 				{
 					liveLatch++;
-					pDriverImage = Aig_NotCond(Aig_Regular(Aig_ObjChild0( pObj ))->pData, Aig_ObjFaninC0(pObj));
+					pDriverImage = Aig_NotCond((Aig_Obj_t *)Aig_Regular(Aig_ObjChild0( pObj ))->pData, Aig_ObjFaninC0(pObj));
 					pObjShadowLo = Aig_ObjCreatePi( pNew );
 
 					#ifdef PROPAGATE_NAMES
@@ -742,10 +786,10 @@ Aig_Man_t * LivenessToSafetyTransformationAbs( int mode, Abc_Ntk_t * pNtk, Aig_M
 				printf("Circuit without any fairness property\n");
 			else
 			{
-				Vec_PtrForEachEntry( vFair, pObj, i )
+				Vec_PtrForEachEntry( Aig_Obj_t *, vFair, pObj, i )
 				{
 					fairLatch++;
-					pDriverImage = Aig_NotCond(Aig_Regular(Aig_ObjChild0( pObj ))->pData, Aig_ObjFaninC0(pObj));
+					pDriverImage = Aig_NotCond((Aig_Obj_t *)Aig_Regular(Aig_ObjChild0( pObj ))->pData, Aig_ObjFaninC0(pObj));
 					pObjShadowLo = Aig_ObjCreatePi( pNew );
 
 					#ifdef PROPAGATE_NAMES
@@ -907,7 +951,7 @@ Aig_Man_t * LivenessToSafetyTransformationOneStepLoop( int mode, Abc_Ntk_t * pNt
 	//********************************************************************
 	// Step 8.x : create PO for each safety assertions
 	//********************************************************************
-	Vec_PtrForEachEntry( vAssertSafety, pObj, i )
+	Vec_PtrForEachEntry( Aig_Obj_t *, vAssertSafety, pObj, i )
 	{
 		pObj->pData = Aig_ObjCreatePo( pNew, Aig_NotCond(Aig_ObjFanin0(pObj)->pData, Aig_ObjFaninC0( pObj ) ) );
 	}
@@ -918,10 +962,10 @@ Aig_Man_t * LivenessToSafetyTransformationOneStepLoop( int mode, Abc_Ntk_t * pNt
 		if( Vec_PtrSize( vAssertSafety ) != 0 && Vec_PtrSize( vAssumeSafety ) == 0 )
 		{
 			pObjAndAcc = NULL;
-			Vec_PtrForEachEntry( vAssertSafety, pObj, i )
+			Vec_PtrForEachEntry( Aig_Obj_t *, vAssertSafety, pObj, i )
 			{
 				//pObj->pData = Aig_ObjCreatePo( pNew, Aig_NotCond(Aig_ObjFanin0(pObj)->pData, Aig_ObjFaninC0( pObj ) ) );
-				pArgument = Aig_NotCond( Aig_ObjFanin0(pObj)->pData, Aig_ObjFaninC0( pObj ) );
+				pArgument = Aig_NotCond( (Aig_Obj_t *)Aig_ObjFanin0(pObj)->pData, Aig_ObjFaninC0( pObj ) );
 				if( pObjAndAcc == NULL )
 					pObjAndAcc = pArgument;
 				else
@@ -935,10 +979,10 @@ Aig_Man_t * LivenessToSafetyTransformationOneStepLoop( int mode, Abc_Ntk_t * pNt
 		else if( Vec_PtrSize( vAssertSafety ) != 0 && Vec_PtrSize( vAssumeSafety ) != 0 )
 		{
 			pObjAndAcc = NULL;
-			Vec_PtrForEachEntry( vAssertSafety, pObj, i )
+			Vec_PtrForEachEntry( Aig_Obj_t *, vAssertSafety, pObj, i )
 			{
 				//pObj->pData = Aig_ObjCreatePo( pNew, Aig_NotCond(Aig_ObjFanin0(pObj)->pData, Aig_ObjFaninC0( pObj ) ) );
-				pArgument = Aig_NotCond( Aig_ObjFanin0(pObj)->pData, Aig_ObjFaninC0( pObj ) );
+				pArgument = Aig_NotCond( (Aig_Obj_t *)Aig_ObjFanin0(pObj)->pData, Aig_ObjFaninC0( pObj ) );
 				if( pObjAndAcc == NULL )
 					pObjAndAcc = pArgument;
 				else
@@ -949,10 +993,10 @@ Aig_Man_t * LivenessToSafetyTransformationOneStepLoop( int mode, Abc_Ntk_t * pNt
 			}
 			collectiveAssertSafety = pObjAndAcc;
 			pObjAndAcc = NULL;
-			Vec_PtrForEachEntry( vAssumeSafety, pObj, i )
+			Vec_PtrForEachEntry( Aig_Obj_t *, vAssumeSafety, pObj, i )
 			{
 				//pObj->pData = Aig_ObjCreatePo( pNew, Aig_NotCond(Aig_ObjFanin0(pObj)->pData, Aig_ObjFaninC0( pObj ) ) );
-				pArgument = Aig_NotCond( Aig_ObjFanin0(pObj)->pData, Aig_ObjFaninC0( pObj ) );
+				pArgument = Aig_NotCond( (Aig_Obj_t *)Aig_ObjFanin0(pObj)->pData, Aig_ObjFaninC0( pObj ) );
 				if( pObjAndAcc == NULL )
 					pObjAndAcc = pArgument;
 				else
@@ -976,7 +1020,7 @@ Aig_Man_t * LivenessToSafetyTransformationOneStepLoop( int mode, Abc_Ntk_t * pNt
 
 	if( mode == FULL_BIERE_ONE_LOOP_MODE || mode == IGNORE_SAFETY_KEEP_LIVENESS_ONE_LOOP_MODE )
 	{
-		pObjSafetyPropertyOutput = Aig_ObjCreatePo( pNew, Aig_ObjFanin0(pObj)->pData );
+		pObjSafetyPropertyOutput = Aig_ObjCreatePo( pNew, (Aig_Obj_t *)Aig_ObjFanin0(pObj)->pData );
 	}
 
 	// create register inputs for the original registers
@@ -986,7 +1030,7 @@ Aig_Man_t * LivenessToSafetyTransformationOneStepLoop( int mode, Abc_Ntk_t * pNt
     {
 		pMatch = Saig_ObjLoToLi( p, pObj );
         //Aig_ObjCreatePo( pNew, Aig_ObjChild0Copy(pMatch) );
-		Aig_ObjCreatePo( pNew, Aig_NotCond(Aig_ObjFanin0(pMatch)->pData, Aig_ObjFaninC0( pMatch ) ) );
+		Aig_ObjCreatePo( pNew, Aig_NotCond((Aig_Obj_t *)Aig_ObjFanin0(pMatch)->pData, Aig_ObjFaninC0( pMatch ) ) );
         nRegCount++;
 		liCopied++;
     }
@@ -1011,7 +1055,7 @@ Aig_Man_t * LivenessToSafetyTransformationOneStepLoop( int mode, Abc_Ntk_t * pNt
 		{
 			pObjCorrespondingLi = Saig_ObjLoToLi( p, pObj );
 		
-			pObjXor = Aig_Exor( pNew, pObj->pData,  Aig_NotCond( Aig_ObjFanin0( pObjCorrespondingLi )->pData, Aig_ObjFaninC0( pObjCorrespondingLi ) ) );
+			pObjXor = Aig_Exor( pNew, (Aig_Obj_t *)pObj->pData,  Aig_NotCond( (Aig_Obj_t *)Aig_ObjFanin0( pObjCorrespondingLi )->pData, Aig_ObjFaninC0( pObjCorrespondingLi ) ) );
 			pObjXnor = Aig_Not( pObjXor );
 		
 			if( pObjAndAcc == NULL )
@@ -1032,9 +1076,9 @@ Aig_Man_t * LivenessToSafetyTransformationOneStepLoop( int mode, Abc_Ntk_t * pNt
 			printf("Circuit without any liveness property\n");
 		else
 		{
-			Vec_PtrForEachEntry( vLive, pObj, i )
+			Vec_PtrForEachEntry( Aig_Obj_t *, vLive, pObj, i )
 			{
-				pDriverImage = Aig_NotCond(Aig_Regular(Aig_ObjChild0( pObj ))->pData, Aig_ObjFaninC0(pObj));
+				pDriverImage = Aig_NotCond((Aig_Obj_t *)Aig_Regular(Aig_ObjChild0( pObj ))->pData, Aig_ObjFaninC0(pObj));
 				if( pObjAndAcc == NULL )
 					pObjAndAcc = pDriverImage;
 				else
@@ -1056,9 +1100,9 @@ Aig_Man_t * LivenessToSafetyTransformationOneStepLoop( int mode, Abc_Ntk_t * pNt
 			printf("Circuit without any fairness property\n");
 		else
 		{
-			Vec_PtrForEachEntry( vFair, pObj, i )
+			Vec_PtrForEachEntry( Aig_Obj_t *, vFair, pObj, i )
 			{
-				pDriverImage = Aig_NotCond(Aig_Regular(Aig_ObjChild0( pObj ))->pData, Aig_ObjFaninC0(pObj));
+				pDriverImage = Aig_NotCond((Aig_Obj_t *)Aig_Regular(Aig_ObjChild0( pObj ))->pData, Aig_ObjFaninC0(pObj));
 				if( pObjAndAcc == NULL )
 					pObjAndAcc = pDriverImage;
 				else
@@ -1181,7 +1225,7 @@ void updateNewNetworkNameManager( Abc_Ntk_t *pNtk, Aig_Man_t *pAig, Vec_Ptr_t *v
 		{
 			ntkObjId = Abc_NtkCi( pNtk, i )->Id;
 			//printf("Pi %d, Saved Name = %s, id = %d\n", i, Nm_ManStoreIdName( pNtk->pManName, ntkObjId, Aig_ObjType(pObj), Vec_PtrEntry(vPiNames, i), NULL ), ntkObjId);  
-			Nm_ManStoreIdName( pNtk->pManName, ntkObjId, Aig_ObjType(pObj), Vec_PtrEntry(vPiNames, i), NULL );
+			Nm_ManStoreIdName( pNtk->pManName, ntkObjId, Aig_ObjType(pObj), (char *)Vec_PtrEntry(vPiNames, i), NULL );
 		}
 	}
 	if( vLoNames )
@@ -1190,7 +1234,7 @@ void updateNewNetworkNameManager( Abc_Ntk_t *pNtk, Aig_Man_t *pAig, Vec_Ptr_t *v
 		{
 			ntkObjId = Abc_NtkCi( pNtk, Saig_ManPiNum( pAig ) + i )->Id;
 			//printf("Lo %d, Saved name = %s, id = %d\n", i, Nm_ManStoreIdName( pNtk->pManName, ntkObjId, Aig_ObjType(pObj), Vec_PtrEntry(vLoNames, i), NULL ), ntkObjId);  
-			Nm_ManStoreIdName( pNtk->pManName, ntkObjId, Aig_ObjType(pObj), Vec_PtrEntry(vLoNames, i), NULL );
+			Nm_ManStoreIdName( pNtk->pManName, ntkObjId, Aig_ObjType(pObj), (char *)Vec_PtrEntry(vLoNames, i), NULL );
 		}
 	}
 
@@ -1749,3 +1793,1025 @@ usage:
 	fprintf( stdout, "\t-h : print command usage\n");
     return 1;
 }
+
+Aig_Man_t * LivenessToSafetyTransformationWithLTL( int mode, Abc_Ntk_t * pNtk, Aig_Man_t * p, 
+										   Vec_Ptr_t *vLive, Vec_Ptr_t *vFair, Vec_Ptr_t *vAssertSafety, Vec_Ptr_t *vAssumeSafety,
+										   int *numLtlProcessed, Vec_Ptr_t *ltlBuffer )
+{
+	Aig_Man_t * pNew;
+	int i, ii, iii, nRegCount;
+	Aig_Obj_t * pObjSavePi;
+	Aig_Obj_t *pObjSavedLo, *pObjSavedLi;
+	Aig_Obj_t *pObj, *pMatch;
+	Aig_Obj_t *pObjSaveOrSaved, *pObjSaveAndNotSaved, *pObjSavedLoAndEquality;
+	Aig_Obj_t *pObjShadowLo, *pObjShadowLi, *pObjShadowLiDriver;
+	Aig_Obj_t *pObjXor, *pObjXnor, *pObjAndAcc;
+	Aig_Obj_t *pObjLive, *pObjSafetyGate;
+	Aig_Obj_t *pObjSafetyPropertyOutput;
+	Aig_Obj_t *pObjOriginalSafetyPropertyOutput;
+	Aig_Obj_t *pDriverImage, *pArgument, *collectiveAssertSafety, *collectiveAssumeSafety;
+	char *nodeName, *pFormula;
+	int piCopied = 0, liCopied = 0, loCopied = 0, liCreated = 0, loCreated = 0, piVecIndex = 0, liveLatch = 0, fairLatch = 0;
+	Vec_Ptr_t *vSignal, *vTopASTNodeArray;
+	ltlNode *pEnrtyGLOBALLY;
+	ltlNode *topNodeOfAST, *tempTopASTNode;
+	Vec_Vec_t *vAigGFMap;
+	Vec_Ptr_t *vSignalMemory, *vGFFlopMemory, *vPoForLtlProps;
+	Vec_Ptr_t *vecInputLtlFormulae;
+	
+	vecPis = Vec_PtrAlloc( Saig_ManPiNum( p ) + 1);
+	vecPiNames = Vec_PtrAlloc( Saig_ManPiNum( p ) + 1);
+
+	vecLos = Vec_PtrAlloc( Saig_ManRegNum( p )*2 + 1 + Vec_PtrSize( vLive ) + Vec_PtrSize( vFair ) );
+	vecLoNames = Vec_PtrAlloc( Saig_ManRegNum( p )*2 + 1 + Vec_PtrSize( vLive ) + Vec_PtrSize( vFair ) );
+
+	//****************************************************************
+	//step0: Parsing the LTL formula
+	//****************************************************************
+	//Vec_PtrForEachEntry( char *, pNtk->vLtlProperties, pFormula, i )
+	//	printf("\ninput LTL formula [%d] = %s\n", i, pFormula );
+
+
+#ifdef MULTIPLE_LTL_FORMULA
+
+
+	//***************************************************************************
+	//Reading input LTL formulae from Ntk data-structure and creating 
+	//AST for them, Steps involved: 
+	//		parsing -> AST creation -> well-formedness check -> signal name check
+	//***************************************************************************
+
+	//resetting numLtlProcessed
+	*numLtlProcessed = 0;
+	
+	if( mode == FULL_BIERE_MODE || mode == IGNORE_SAFETY_KEEP_LIVENESS_MODE )
+	{
+		//if( ltlBuffer )
+		vecInputLtlFormulae = ltlBuffer;
+		//vecInputLtlFormulae = pNtk->vLtlProperties;
+		if( vecInputLtlFormulae )
+		{
+			vTopASTNodeArray = Vec_PtrAlloc( Vec_PtrSize( vecInputLtlFormulae ) );
+			printf("\n");
+			Vec_PtrForEachEntry( char *, vecInputLtlFormulae, pFormula, i )
+			{
+				tempTopASTNode = parseFormulaCreateAST( pFormula );
+				//traverseAbstractSyntaxTree_postFix( tempTopASTNode );
+				if( tempTopASTNode )
+				{
+					printf("Formula %d: AST is created, ", i+1);
+					if( isWellFormed( tempTopASTNode ) )
+						printf("Well-formedness check PASSED, ");
+					else
+					{
+						printf("Well-formedness check FAILED!!\n");
+						printf("AST will be ignored for formula %d, no extra logic will be added for this formula\n", i+1 );
+						//do memory management to free the created AST
+						continue;
+					}
+					if( checkSignalNameExistence( pNtk, tempTopASTNode ) )
+						printf("Signal check PASSED\n");
+					else
+					{
+						printf("Signal check FAILED!!");
+						printf("AST will be ignored for formula %d, no extra logic will be added for this formula\n", i+1 );
+						//do memory management to free the created AST
+						continue;
+					}
+					Vec_PtrPush( vTopASTNodeArray, tempTopASTNode );
+					(*numLtlProcessed)++;
+				}
+				else
+					printf("\nNo AST has been created for formula %d, no extra logic will be added\n", i+1 );
+			}
+		}
+		printf("\n");
+		if( Vec_PtrSize( vTopASTNodeArray ) == 0 )
+		{
+			//printf("\nNo AST has been created for any formula; hence the circuit is left untouched\n");
+			printf("\nCurrently aborting, need to take care when Vec_PtrSize( vTopASTNodeArray ) == 0\n");
+			exit(0);
+		}
+	}
+
+		//****************************************************************
+		// Step1: create the new manager
+		// Note: The new manager is created with "2 * Aig_ManObjNumMax(p)"
+		// nodes, but this selection is arbitrary - need to be justified
+		//****************************************************************
+		pNew = Aig_ManStart( 2 * Aig_ManObjNumMax(p) );
+		pNew->pName = (char *)malloc( strlen( pNtk->pName ) + strlen("_l2s") + 1 );
+		sprintf(pNew->pName, "%s_%s", pNtk->pName, "l2s");
+		pNew->pSpec = NULL;
+    
+		//****************************************************************
+		// Step 2: map constant nodes
+		//****************************************************************
+		pObj = Aig_ManConst1( p );
+		pObj->pData = Aig_ManConst1( pNew );
+
+		//****************************************************************
+		// Step 3: create true PIs
+		//****************************************************************
+		Saig_ManForEachPi( p, pObj, i )
+		{
+			piCopied++;
+			pObj->pData = Aig_ObjCreatePi(pNew);
+			Vec_PtrPush( vecPis, pObj->pData );
+			nodeName = Aig_UtilStrsav(Abc_ObjName( Abc_NtkPi( pNtk, i ) ));
+			Vec_PtrPush( vecPiNames, nodeName );
+		}
+
+		//****************************************************************
+		// Step 4: create the special Pi corresponding to SAVE
+		//****************************************************************
+		if( mode == FULL_BIERE_MODE || mode == IGNORE_SAFETY_KEEP_LIVENESS_MODE )
+		{
+			pObjSavePi = Aig_ObjCreatePi( pNew );
+			nodeName = "SAVE_BIERE",
+			Vec_PtrPush( vecPiNames, nodeName );
+		}
+		
+		//****************************************************************
+		// Step 5: create register outputs
+		//****************************************************************
+		Saig_ManForEachLo( p, pObj, i )
+		{
+			loCopied++;
+			pObj->pData = Aig_ObjCreatePi(pNew);
+			Vec_PtrPush( vecLos, pObj->pData );
+			nodeName = Aig_UtilStrsav(Abc_ObjName( Abc_NtkCi( pNtk, Abc_NtkPiNum(pNtk) + i ) ));
+			Vec_PtrPush( vecLoNames, nodeName );
+		}
+
+		//****************************************************************
+		// Step 6: create "saved" register output
+		//****************************************************************
+		if( mode == FULL_BIERE_MODE || mode == IGNORE_SAFETY_KEEP_LIVENESS_MODE )
+		{
+			loCreated++;
+			pObjSavedLo = Aig_ObjCreatePi( pNew );
+			Vec_PtrPush( vecLos, pObjSavedLo );
+			nodeName = "SAVED_LO";
+			Vec_PtrPush( vecLoNames, nodeName );
+		}
+
+		//****************************************************************
+		// Step 7: create the OR gate and the AND gate directly fed by "SAVE" Pi
+		//****************************************************************
+		if( mode == FULL_BIERE_MODE || mode == IGNORE_SAFETY_KEEP_LIVENESS_MODE )
+		{
+			pObjSaveOrSaved = Aig_Or( pNew, pObjSavePi, pObjSavedLo );
+			pObjSaveAndNotSaved = Aig_And( pNew, pObjSavePi, Aig_Not(pObjSavedLo) );
+		}
+
+		//********************************************************************
+		// Step 8: create internal nodes
+		//********************************************************************
+		Aig_ManForEachNode( p, pObj, i )
+		{
+			pObj->pData = Aig_And( pNew, Aig_ObjChild0Copy(pObj), Aig_ObjChild1Copy(pObj) );
+		}
+
+		
+		//********************************************************************
+		// Step 8.x : create PO for each safety assertions
+		// NOTE : Here the output is purposely inverted as it will be thrown to 
+		// dprove
+		//********************************************************************
+		if( mode == FULL_BIERE_MODE || mode == IGNORE_LIVENESS_KEEP_SAFETY_MODE )
+		{
+			if( Vec_PtrSize( vAssertSafety ) != 0 && Vec_PtrSize( vAssumeSafety ) == 0 )
+			{
+				pObjAndAcc = Aig_ManConst1( pNew );
+				Vec_PtrForEachEntry( Aig_Obj_t *, vAssertSafety, pObj, i )
+				{
+					pArgument = Aig_NotCond( (Aig_Obj_t *)Aig_ObjFanin0(pObj)->pData, Aig_ObjFaninC0( pObj ) );
+					pObjAndAcc = Aig_And( pNew, pArgument, pObjAndAcc );
+				}
+				pObjOriginalSafetyPropertyOutput = Aig_ObjCreatePo( pNew, Aig_Not(pObjAndAcc) );
+			}
+			else if( Vec_PtrSize( vAssertSafety ) != 0 && Vec_PtrSize( vAssumeSafety ) != 0 )
+			{
+				pObjAndAcc = Aig_ManConst1( pNew );
+				Vec_PtrForEachEntry( Aig_Obj_t *, vAssertSafety, pObj, i )
+				{
+					pArgument = Aig_NotCond( (Aig_Obj_t *)Aig_ObjFanin0(pObj)->pData, Aig_ObjFaninC0( pObj ) );
+					pObjAndAcc = Aig_And( pNew, pArgument, pObjAndAcc );
+				}
+				collectiveAssertSafety = pObjAndAcc;
+
+				pObjAndAcc = Aig_ManConst1( pNew );
+				Vec_PtrForEachEntry( Aig_Obj_t *, vAssumeSafety, pObj, i )
+				{
+					pArgument = Aig_NotCond( (Aig_Obj_t *)Aig_ObjFanin0(pObj)->pData, Aig_ObjFaninC0( pObj ) );
+					pObjAndAcc = Aig_And( pNew, pArgument, pObjAndAcc );
+				}
+				collectiveAssumeSafety = pObjAndAcc;
+				pObjOriginalSafetyPropertyOutput = Aig_ObjCreatePo( pNew, Aig_And( pNew, Aig_Not(collectiveAssertSafety), collectiveAssumeSafety ) );
+			}
+			else
+			{
+				printf("WARNING!! No safety property is found, a new (negated) constant 1 output is created\n");
+				pObjOriginalSafetyPropertyOutput = Aig_ObjCreatePo( pNew, Aig_Not( Aig_ManConst1(pNew) ) );
+			}
+		}
+
+		//********************************************************************
+		// Step 9: create the safety property output gate for the liveness properties
+		// discuss with Sat/Alan for an alternative implementation
+		//********************************************************************
+		if( mode == FULL_BIERE_MODE || mode == IGNORE_SAFETY_KEEP_LIVENESS_MODE )
+		{
+			vPoForLtlProps = Vec_PtrAlloc( Vec_PtrSize( vTopASTNodeArray ) );
+			if( Vec_PtrSize( vTopASTNodeArray ) )
+			{
+				//no effective AST for any input LTL property
+				//must do something graceful
+			}
+			for( i=0; i<Vec_PtrSize( vTopASTNodeArray ); i++ )
+			{
+				pObjSafetyPropertyOutput = Aig_ObjCreatePo( pNew, (Aig_Obj_t *)Aig_ObjFanin0(pObj)->pData );
+				Vec_PtrPush( vPoForLtlProps, pObjSafetyPropertyOutput );
+			}
+		}
+
+		//*************************************************************************************
+		// Step 10: Placeholder PO's were created for Liveness property outputs in the
+		// last step. FYI, # of new liveness property outputs = # of LTL properties in the circuit
+		// It is time for creation of loop LI's and other stuff
+		// Now creating register inputs for the original flops
+		//*************************************************************************************
+		nRegCount = 0;
+		
+		Saig_ManForEachLo( p, pObj, i )
+		{
+			pMatch = Saig_ObjLoToLi( p, pObj );
+			Aig_ObjCreatePo( pNew, Aig_NotCond((Aig_Obj_t *)Aig_ObjFanin0(pMatch)->pData, Aig_ObjFaninC0( pMatch ) ) );
+			nRegCount++;
+			liCopied++;
+		}
+
+		//*************************************************************************************
+		// Step 11: create register input corresponding to the register "saved"
+		//*************************************************************************************
+		if( mode == FULL_BIERE_MODE || mode == IGNORE_SAFETY_KEEP_LIVENESS_MODE )
+		{
+			#ifndef DUPLICATE_CKT_DEBUG
+				pObjSavedLi = Aig_ObjCreatePo( pNew, pObjSaveOrSaved );
+				nRegCount++;
+				liCreated++;
+
+				pObjAndAcc = Aig_ManConst1( pNew );
+
+				//*************************************************************************************
+				// Step 11: create the family of shadow registers, then create the cascade of Xnor 
+				// and And gates for the comparator 
+				//*************************************************************************************
+				Saig_ManForEachLo( p, pObj, i )
+				{
+				//printf("\nKEMON RENDY = %s", Abc_ObjName( Abc_NtkCi( pNtk, Abc_NtkPiNum(pNtk) + i )) );
+				//top|route0_target0_queue_with_credit0_queue0
+				//top|route0_master0_queue2
+				//	if( strcmp(  Abc_ObjName( Abc_NtkCi( pNtk, Abc_NtkPiNum(pNtk) + i ) ), "top|route0_queue1_num[0]" ) == 0 
+				//			|| strcmp(  Abc_ObjName( Abc_NtkCi( pNtk, Abc_NtkPiNum(pNtk) + i ) ), "top|route0_queue1_num[1]" ) == 0 || strcmp(  Abc_ObjName( Abc_NtkCi( pNtk, Abc_NtkPiNum(pNtk) + i ) ), "top|route0_queue1_num[2]" ) == 0 )
+					{		
+						pObjShadowLo = Aig_ObjCreatePi( pNew );
+
+					#ifdef PROPAGATE_NAMES
+						Vec_PtrPush( vecLos, pObjShadowLo );
+						nodeName = (char *)malloc( strlen( Abc_ObjName( Abc_NtkCi( pNtk, Abc_NtkPiNum(pNtk) + i ) ) ) + 10 );
+						sprintf( nodeName, "%s__%s", Abc_ObjName( Abc_NtkCi( pNtk, Abc_NtkPiNum(pNtk) + i ) ), "SHADOW" );
+						
+						Vec_PtrPush( vecLoNames, nodeName );
+					#endif
+
+						pObjShadowLiDriver = Aig_Mux( pNew, pObjSaveAndNotSaved, (Aig_Obj_t *)pObj->pData, pObjShadowLo );
+						pObjShadowLi = Aig_ObjCreatePo( pNew, pObjShadowLiDriver );
+						nRegCount++;
+						loCreated++; liCreated++;
+			
+						pObjXor = Aig_Exor( pNew, (Aig_Obj_t *)pObj->pData, pObjShadowLo );
+						pObjXnor = Aig_Not( pObjXor );
+					
+						pObjAndAcc = Aig_And( pNew, pObjXnor, pObjAndAcc );
+					}
+				}
+
+				// create the AND gate whose output will be the signal "looped"
+				pObjSavedLoAndEquality = Aig_And( pNew, pObjSavedLo, pObjAndAcc );
+
+				// create the master AND gate and corresponding AND and OR logic for the liveness properties
+				
+				//*************************************************************************************
+				// Step 11: logic for LTL properties:- (looped & ~theta) where theta is the input ltl 
+				// property
+				// Description of some data-structure:
+				//-------------------------------------------------------------------------------------
+				// Name          | Type            | Purpose
+				//-------------------------------------------------------------------------------------
+				// vSignalMemory | Vec_Ptr_t *     | A vector across all ASTs of the LTL properties
+				//				 |				   | It remembers if OR+Latch for GF node has already been
+				//				 |				   | created for a particular signal.
+				//               |                 |
+				// vGFFlopMemory | Vec_Ptr_t *     | A vector across all ASTs of the LTL properties
+				//				 |                 | remembers if OR+Latch of a GF node has already been created
+				//				 |                 |
+				// vSignal		 | Vec_Ptr_t *     | vector for each AST; contains pointers from GF nodes
+				//               |                 | to AIG signals
+				//				 |				   |
+				// vAigGFMap	 | Vec_Vec_t *     | vAigGFMap[ index ] = vector of GF nodes pointing to
+				//               |                 | the same AIG node; "index" is the index of that
+				//               |                 | AIG node in the vector vSignal
+				//*************************************************************************************
+				
+				vSignalMemory = Vec_PtrAlloc(10);
+				vGFFlopMemory = Vec_PtrAlloc(10);
+
+				Vec_PtrForEachEntry( ltlNode *, vTopASTNodeArray, topNodeOfAST, iii )
+				{
+									vSignal = Vec_PtrAlloc( 10 );
+									vAigGFMap = Vec_VecAlloc( 10 );
+									
+									//*************************************************************************************
+									//Step 11a: for the current AST, find out the leaf level Boolean signal pointers from 
+									// the NEW aig.
+									//*************************************************************************************
+									populateBoolWithAigNodePtr( pNtk, p, pNew, topNodeOfAST );
+									assert( checkAllBoolHaveAIGPointer( topNodeOfAST ) );
+
+									//*************************************************************************************
+									//Step 11b: for each GF node, compute the pointer in AIG that it should point to
+									// In particular, if the subtree below GF is some Boolean crown (including the case
+									// of simple negation, create new logic and populate the AIG pointer in GF node
+									// accordingly
+									//*************************************************************************************
+									populateAigPointerUnitGF( pNew, topNodeOfAST, vSignal, vAigGFMap );
+									
+									//*************************************************************************************
+									//Step 11c: everything below GF are computed. Now, it is time to create logic for individual 
+									// GF nodes (i.e. the OR gate and the latch and the Boolean crown of the AST
+									//*************************************************************************************
+									Vec_PtrForEachEntry( Aig_Obj_t *, vSignal, pObj, i )
+									{
+										//*********************************************************
+										// Step 11c.1: if the OR+Latch of the particular signal is
+										// not already created, create it. It may have already been 
+										// created from another property, so check it before creation
+										//*********************************************************
+										if( Vec_PtrFind( vSignalMemory, pObj ) == -1 )
+										{
+											liveLatch++;
+
+											pDriverImage = pObj;
+											pObjShadowLo = Aig_ObjCreatePi( pNew );
+											pObjShadowLiDriver = Aig_Or( pNew, pObjShadowLo, Aig_And( pNew, pDriverImage, pObjSaveOrSaved ) );
+											pObjShadowLi = Aig_ObjCreatePo( pNew, pObjShadowLiDriver );
+
+											nRegCount++;
+											loCreated++; liCreated++;
+
+											Vec_PtrPush( vSignalMemory, pObj );
+											Vec_PtrPush( vGFFlopMemory, pObjShadowLo );
+										}
+										else
+											pObjShadowLo = (Aig_Obj_t *)Vec_PtrEntry( vGFFlopMemory, Vec_PtrFind( vSignalMemory, pObj ) );
+																				
+										Vec_VecForEachEntryLevel( ltlNode *, vAigGFMap, pEnrtyGLOBALLY, ii, i )
+											setAIGNodePtrOfGloballyNode( pEnrtyGLOBALLY, pObjShadowLo);
+											
+
+										//#ifdef PROPAGATE_NAMES
+										//	Vec_PtrPush( vecLos, pObjShadowLo );
+										//	nodeName = (char *)malloc( strlen( Abc_ObjName( Abc_NtkPo( pNtk, getPoIndex( p, pObj ) ) ) ) + 12 );
+										//	sprintf( nodeName, "%s__%s", Abc_ObjName( Abc_NtkPo( pNtk, getPoIndex( p, pObj ) ) ), "LIVENESS" );
+										//	Vec_PtrPush( vecLoNames, nodeName );
+										//#endif
+										
+									}
+									
+									//*********************************************************
+									//Step 11c.2: creating the Boolean crown
+									//*********************************************************
+									buildLogicFromLTLNode( pNew, topNodeOfAST );
+
+									//*********************************************************
+									//Step 11c.3: creating logic for (looped & ~theta) and patching
+									// it with the proper PO
+									//*********************************************************
+									pObjLive = retriveAIGPointerFromLTLNode( topNodeOfAST );
+									pObjSafetyGate = Aig_And( pNew, pObjSavedLoAndEquality, Aig_Not(pObjLive) );
+									pObjSafetyPropertyOutput = (Aig_Obj_t *)Vec_PtrEntry( vPoForLtlProps, iii );
+									Aig_ObjPatchFanin0( pNew, pObjSafetyPropertyOutput, pObjSafetyGate );
+
+									//refreshing vSignal and vAigGFMap arrays
+									Vec_PtrFree( vSignal );
+									Vec_VecFree( vAigGFMap );
+				}
+								
+			#endif
+		}
+#endif
+
+#ifndef MULTIPLE_LTL_FORMULA
+
+
+	if( ltlInputFormula )
+	{
+		topNodeOfAST = parseFormulaCreateAST( ltlInputFormula );
+		traverseAbstractSyntaxTree_postFix( topNodeOfAST );
+		if( isWellFormed( topNodeOfAST ) )
+			printf("\nWell-formedness check PASSED...\n");
+		else
+		{
+			printf("\nWell-formedness check FAILED: aborting...\n");
+			exit(0);
+		}
+		if( checkSignalNameExistence( pNtk, topNodeOfAST ) )
+		{
+			//assert( checkAllBoolHaveAIGPointer( topNodeOfAST ) );
+			printf("Signal name sanity check PASSED...\n");
+		}
+		else
+		{
+			printf("Signal name sanity check FAILED: aborting...\n");
+			exit(0);
+		}
+	}
+	printf("\n");
+
+	//****************************************************************
+	// Step1: create the new manager
+	// Note: The new manager is created with "2 * Aig_ManObjNumMax(p)"
+	// nodes, but this selection is arbitrary - need to be justified
+	//****************************************************************
+	pNew = Aig_ManStart( 2 * Aig_ManObjNumMax(p) );
+	pNew->pName = (char *)malloc( strlen( pNtk->pName ) + strlen("_l2s") + 1 );
+	sprintf(pNew->pName, "%s_%s", pNtk->pName, "l2s");
+    pNew->pSpec = NULL;
+    
+	//****************************************************************
+	// Step 2: map constant nodes
+	//****************************************************************
+    pObj = Aig_ManConst1( p );
+    pObj->pData = Aig_ManConst1( pNew );
+
+	//****************************************************************
+    // Step 3: create true PIs
+	//****************************************************************
+    Saig_ManForEachPi( p, pObj, i )
+	{
+		piCopied++;
+		pObj->pData = Aig_ObjCreatePi(pNew);
+		Vec_PtrPush( vecPis, pObj->pData );
+		nodeName = Aig_UtilStrsav(Abc_ObjName( Abc_NtkPi( pNtk, i ) ));
+		Vec_PtrPush( vecPiNames, nodeName );
+	}
+
+	//****************************************************************
+	// Step 4: create the special Pi corresponding to SAVE
+	//****************************************************************
+	if( mode == FULL_BIERE_MODE || mode == IGNORE_SAFETY_KEEP_LIVENESS_MODE )
+	{
+		pObjSavePi = Aig_ObjCreatePi( pNew );
+		nodeName = "SAVE_BIERE",
+		Vec_PtrPush( vecPiNames, nodeName );
+	}
+		
+	//****************************************************************
+	// Step 5: create register outputs
+	//****************************************************************
+    Saig_ManForEachLo( p, pObj, i )
+    {
+		loCopied++;
+		pObj->pData = Aig_ObjCreatePi(pNew);
+		Vec_PtrPush( vecLos, pObj->pData );
+		nodeName = Aig_UtilStrsav(Abc_ObjName( Abc_NtkCi( pNtk, Abc_NtkPiNum(pNtk) + i ) ));
+		Vec_PtrPush( vecLoNames, nodeName );
+    }
+
+	//****************************************************************
+	// Step 6: create "saved" register output
+	//****************************************************************
+	if( mode == FULL_BIERE_MODE || mode == IGNORE_SAFETY_KEEP_LIVENESS_MODE )
+	{
+		loCreated++;
+		pObjSavedLo = Aig_ObjCreatePi( pNew );
+		Vec_PtrPush( vecLos, pObjSavedLo );
+		nodeName = "SAVED_LO";
+		Vec_PtrPush( vecLoNames, nodeName );
+	}
+
+	//****************************************************************
+	// Step 7: create the OR gate and the AND gate directly fed by "SAVE" Pi
+	//****************************************************************
+	if( mode == FULL_BIERE_MODE || mode == IGNORE_SAFETY_KEEP_LIVENESS_MODE )
+	{
+		pObjSaveOrSaved = Aig_Or( pNew, pObjSavePi, pObjSavedLo );
+		pObjSaveAndNotSaved = Aig_And( pNew, pObjSavePi, Aig_Not(pObjSavedLo) );
+	}
+
+	//********************************************************************
+	// Step 8: create internal nodes
+	//********************************************************************
+    Aig_ManForEachNode( p, pObj, i )
+	{
+		pObj->pData = Aig_And( pNew, Aig_ObjChild0Copy(pObj), Aig_ObjChild1Copy(pObj) );
+	}
+
+	
+	//********************************************************************
+	// Step 8.x : create PO for each safety assertions
+	// NOTE : Here the output is purposely inverted as it will be thrown to 
+	// dprove
+	//********************************************************************
+	if( mode == FULL_BIERE_MODE || mode == IGNORE_LIVENESS_KEEP_SAFETY_MODE )
+	{
+		if( Vec_PtrSize( vAssertSafety ) != 0 && Vec_PtrSize( vAssumeSafety ) == 0 )
+		{
+			pObjAndAcc = Aig_ManConst1( pNew );
+			Vec_PtrForEachEntry( Aig_Obj_t *, vAssertSafety, pObj, i )
+			{
+				pArgument = Aig_NotCond( Aig_ObjFanin0(pObj)->pData, Aig_ObjFaninC0( pObj ) );
+				pObjAndAcc = Aig_And( pNew, pArgument, pObjAndAcc );
+			}
+			pObjOriginalSafetyPropertyOutput = Aig_ObjCreatePo( pNew, Aig_Not(pObjAndAcc) );
+		}
+		else if( Vec_PtrSize( vAssertSafety ) != 0 && Vec_PtrSize( vAssumeSafety ) != 0 )
+		{
+			pObjAndAcc = Aig_ManConst1( pNew );
+			Vec_PtrForEachEntry( Aig_Obj_t *, vAssertSafety, pObj, i )
+			{
+				pArgument = Aig_NotCond( Aig_ObjFanin0(pObj)->pData, Aig_ObjFaninC0( pObj ) );
+				pObjAndAcc = Aig_And( pNew, pArgument, pObjAndAcc );
+			}
+			collectiveAssertSafety = pObjAndAcc;
+
+			pObjAndAcc = Aig_ManConst1( pNew );
+			Vec_PtrForEachEntry( Aig_Obj_t *, vAssumeSafety, pObj, i )
+			{
+				pArgument = Aig_NotCond( Aig_ObjFanin0(pObj)->pData, Aig_ObjFaninC0( pObj ) );
+				pObjAndAcc = Aig_And( pNew, pArgument, pObjAndAcc );
+			}
+			collectiveAssumeSafety = pObjAndAcc;
+			pObjOriginalSafetyPropertyOutput = Aig_ObjCreatePo( pNew, Aig_And( pNew, Aig_Not(collectiveAssertSafety), collectiveAssumeSafety ) );
+		}
+		else
+		{
+			printf("WARNING!! No safety property is found, a new (negated) constant 1 output is created\n");
+			pObjOriginalSafetyPropertyOutput = Aig_ObjCreatePo( pNew, Aig_Not( Aig_ManConst1(pNew) ) );
+		}
+	}
+
+	//********************************************************************
+	// Step 9: create the safety property output gate for the liveness properties
+	// discuss with Sat/Alan for an alternative implementation
+	//********************************************************************
+	if( mode == FULL_BIERE_MODE || mode == IGNORE_SAFETY_KEEP_LIVENESS_MODE )
+	{
+		pObjSafetyPropertyOutput = Aig_ObjCreatePo( pNew, Aig_ObjFanin0(pObj)->pData );
+	}
+
+	// create register inputs for the original registers
+	nRegCount = 0;
+	
+	Saig_ManForEachLo( p, pObj, i )
+	{
+		pMatch = Saig_ObjLoToLi( p, pObj );
+		Aig_ObjCreatePo( pNew, Aig_NotCond(Aig_ObjFanin0(pMatch)->pData, Aig_ObjFaninC0( pMatch ) ) );
+		nRegCount++;
+		liCopied++;
+	}
+
+	// create register input corresponding to the register "saved"
+	if( mode == FULL_BIERE_MODE || mode == IGNORE_SAFETY_KEEP_LIVENESS_MODE )
+	{
+		#ifndef DUPLICATE_CKT_DEBUG
+			pObjSavedLi = Aig_ObjCreatePo( pNew, pObjSaveOrSaved );
+			nRegCount++;
+			liCreated++;
+
+			//Changed on October 13, 2009
+			//pObjAndAcc = NULL;
+			pObjAndAcc = Aig_ManConst1( pNew );
+
+	// create the family of shadow registers, then create the cascade of Xnor and And gates for the comparator 
+			Saig_ManForEachLo( p, pObj, i )
+			{
+				pObjShadowLo = Aig_ObjCreatePi( pNew );
+
+				#ifdef PROPAGATE_NAMES
+					Vec_PtrPush( vecLos, pObjShadowLo );
+					nodeName = (char *)malloc( strlen( Abc_ObjName( Abc_NtkCi( pNtk, Abc_NtkPiNum(pNtk) + i ) ) ) + 10 );
+					sprintf( nodeName, "%s__%s", Abc_ObjName( Abc_NtkCi( pNtk, Abc_NtkPiNum(pNtk) + i ) ), "SHADOW" );
+					
+					Vec_PtrPush( vecLoNames, nodeName );
+				#endif
+
+				pObjShadowLiDriver = Aig_Mux( pNew, pObjSaveAndNotSaved, pObj->pData, pObjShadowLo );
+				pObjShadowLi = Aig_ObjCreatePo( pNew, pObjShadowLiDriver );
+				nRegCount++;
+				loCreated++; liCreated++;
+		
+				pObjXor = Aig_Exor( pNew, pObj->pData, pObjShadowLo );
+				pObjXnor = Aig_Not( pObjXor );
+				
+				pObjAndAcc = Aig_And( pNew, pObjXnor, pObjAndAcc );
+			}
+
+			// create the AND gate whose output will be the signal "looped"
+			pObjSavedLoAndEquality = Aig_And( pNew, pObjSavedLo, pObjAndAcc );
+
+			// create the master AND gate and corresponding AND and OR logic for the liveness properties
+			
+			vSignal = Vec_PtrAlloc( 100 );
+			vAigGFMap = Vec_VecAlloc( 100 );
+			populateBoolWithAigNodePtr( pNtk, p, topNodeOfAST );
+			assert( checkAllBoolHaveAIGPointer( topNodeOfAST ) );
+			populateAigPointerUnitGF( pNew, topNodeOfAST, vSignal, vAigGFMap );
+			
+			Vec_PtrForEachEntry( Aig_Obj_t *, vSignal, pObj, i )
+			{	
+				Aig_ObjPrint( p, pObj );
+				printf("\n");
+			}
+
+			pObjAndAcc = Aig_ManConst1( pNew );
+			Vec_PtrForEachEntry( Aig_Obj_t *, vSignal, pObj, i )
+			{
+				liveLatch++;
+				pDriverImage = pObj;
+				pObjShadowLo = Aig_ObjCreatePi( pNew );
+				
+				//due to the final crown
+				//correspondingLtlNode = Vec_PtrEntry( vGLOBALLY, i );
+				//setAIGNodePtrOfGloballyNode( correspondingLtlNode, pObjShadowLo);
+
+				Vec_VecForEachEntryLevel( vAigGFMap, pEnrtyGLOBALLY, ii, i )
+					setAIGNodePtrOfGloballyNode( pEnrtyGLOBALLY, pObjShadowLo);
+					
+
+				//End
+
+				//#ifdef PROPAGATE_NAMES
+				//	Vec_PtrPush( vecLos, pObjShadowLo );
+				//	nodeName = (char *)malloc( strlen( Abc_ObjName( Abc_NtkPo( pNtk, getPoIndex( p, pObj ) ) ) ) + 12 );
+				//	sprintf( nodeName, "%s__%s", Abc_ObjName( Abc_NtkPo( pNtk, getPoIndex( p, pObj ) ) ), "LIVENESS" );
+				//	Vec_PtrPush( vecLoNames, nodeName );
+				//#endif
+				pObjShadowLiDriver = Aig_Or( pNew, pObjShadowLo, Aig_And( pNew, pDriverImage, pObjSaveOrSaved ) );
+				pObjShadowLi = Aig_ObjCreatePo( pNew, pObjShadowLiDriver );
+				nRegCount++;
+				loCreated++; liCreated++;
+				
+				//Due to final crown, comment
+				//pObjAndAcc = Aig_And( pNew, pObjShadowLo, pObjAndAcc );
+			}
+			//Due to final crown, comment
+			//pObjLive = pObjAndAcc;
+
+			buildLogicFromLTLNode( pNew, topNodeOfAST );
+			pObjLive = retriveAIGPointerFromLTLNode( topNodeOfAST );
+							
+			//pObjSafetyGate = Aig_Exor( pNew, Aig_Not(Aig_ManConst1( pNew )), Aig_And( pNew, pObjSavedLoAndEquality, Aig_And( pNew, pObjFair, Aig_Not( pObjLive ) ) ) );
+			//Following is the actual Biere translation
+			pObjSafetyGate = Aig_And( pNew, pObjSavedLoAndEquality, Aig_Not(pObjLive) );
+
+			Aig_ObjPatchFanin0( pNew, pObjSafetyPropertyOutput, pObjSafetyGate );
+		#endif
+	}
+#endif
+
+	Aig_ManSetRegNum( pNew, nRegCount );
+
+	Aig_ManPiCleanupBiere( pNew );
+	Aig_ManPoCleanupBiere( pNew );
+	
+	Aig_ManCleanup( pNew );
+	
+	assert( Aig_ManCheck( pNew ) );
+	
+	if( mode == FULL_BIERE_MODE || mode == IGNORE_SAFETY_KEEP_LIVENESS_MODE )
+	{
+			assert((Aig_Obj_t *)Vec_PtrEntry(pNew->vPos, Saig_ManPoNum(pNew)+Aig_ObjPioNum(pObjSavedLo)-Saig_ManPiNum(p)-1) == pObjSavedLi);
+			assert( Saig_ManPiNum( p ) + 1 == Saig_ManPiNum( pNew ) );
+			//assert( Saig_ManRegNum( pNew ) == Saig_ManRegNum( p ) * 2 + 1 + liveLatch + fairLatch );
+	}
+
+
+	return pNew;
+}
+
+
+
+
+
+
+int Abc_CommandAbcLivenessToSafetyWithLTL( Abc_Frame_t * pAbc, int argc, char ** argv )
+{
+	FILE * pOut, * pErr;
+    Abc_Ntk_t * pNtk, * pNtkTemp, *pNtkNew, *pNtkOld;
+	Aig_Man_t * pAig, *pAigNew;
+	int c;
+	Vec_Ptr_t * vLive, * vFair, *vAssertSafety, *vAssumeSafety;
+	int directive = -1;
+	char *ltfFormulaString = NULL;
+	int LTL_FLAG = 0, numOfLtlPropOutput;
+	Vec_Ptr_t *ltlBuffer;
+		        
+	pNtk = Abc_FrameReadNtk(pAbc);
+    pOut = Abc_FrameReadOut(pAbc);
+    pErr = Abc_FrameReadErr(pAbc);
+
+	if( argc == 1 )
+	{
+		assert( directive == -1 );
+		directive = FULL_BIERE_MODE;
+	}
+	else
+	{
+		Extra_UtilGetoptReset();
+		while ( ( c = Extra_UtilGetopt( argc, argv, "1slhf" ) ) != EOF )
+		{
+			switch( c )
+			{
+			case '1': 
+				if( directive == -1 )
+					directive = FULL_BIERE_ONE_LOOP_MODE;
+				else
+				{
+					assert( directive == IGNORE_LIVENESS_KEEP_SAFETY_MODE || directive == IGNORE_SAFETY_KEEP_LIVENESS_MODE );
+					if( directive == IGNORE_LIVENESS_KEEP_SAFETY_MODE )
+						directive = IGNORE_LIVENESS_KEEP_SAFETY_MODE;
+					else
+						directive = IGNORE_SAFETY_KEEP_LIVENESS_ONE_LOOP_MODE;
+				}
+				break;
+			case 's':
+				if( directive == -1 )
+					directive = IGNORE_SAFETY_KEEP_LIVENESS_MODE;
+				else
+				{
+					if( directive != FULL_BIERE_ONE_LOOP_MODE )
+						goto usage;
+					assert(directive == FULL_BIERE_ONE_LOOP_MODE);
+					directive = IGNORE_SAFETY_KEEP_LIVENESS_ONE_LOOP_MODE;
+				}
+				break;
+			case 'l':
+				if( directive == -1 )
+					directive = IGNORE_LIVENESS_KEEP_SAFETY_MODE;
+				else
+				{
+					if( directive != FULL_BIERE_ONE_LOOP_MODE )
+						goto usage;
+					assert(directive == FULL_BIERE_ONE_LOOP_MODE);
+					directive = IGNORE_LIVENESS_KEEP_SAFETY_MODE;
+				}
+				break;
+			case 'f':
+				//assert( argc >= 3 );
+				//vecLtlFormula = Vec_PtrAlloc( argc - 2 );
+				//if( argc >= 3 )
+				//{
+				//	for( t=3; t<=argc; t++ )
+				//	{
+				//		printf("argv[%d] = %s\n", t-1, argv[t-1]);
+				//		Vec_PtrPush( vecLtlFormula, argv[t-1] );
+				//	}
+				//}
+				//printf("argv[argc] = %s\n", argv[argc-1]);
+				//ltfFormulaString = argv[2];
+				
+				//LTL_FLAG = 1;
+				printf("\nILLEGAL FLAG: aborting....\n");
+				exit(0);
+				break;
+			case 'h':
+				goto usage;
+			default:
+				goto usage;
+			}
+		}
+	}
+
+	if ( pNtk == NULL )
+	{
+		fprintf( pErr, "Empty network.\n" );
+		return 1;
+	}
+	if( !Abc_NtkIsStrash( pNtk ) )
+	{
+		printf("The input network was not strashed, strashing....\n");
+		pNtkTemp = Abc_NtkStrash( pNtk, 0, 0, 0 );
+		pNtkOld = pNtkTemp;
+		pAig = Abc_NtkToDar( pNtkTemp, 0, 1 );
+		vLive = populateLivenessVector( pNtk, pAig );
+		vFair = populateFairnessVector( pNtk, pAig );
+		vAssertSafety = populateSafetyAssertionVector( pNtk, pAig );
+		vAssumeSafety = populateSafetyAssumptionVector( pNtk, pAig );
+	}
+	else
+	{
+		pAig = Abc_NtkToDar( pNtk, 0, 1 );
+		pNtkOld = pNtk;
+		vLive = populateLivenessVector( pNtk, pAig );
+		vFair = populateFairnessVector( pNtk, pAig );
+		vAssertSafety = populateSafetyAssertionVector( pNtk, pAig );
+		vAssumeSafety = populateSafetyAssumptionVector( pNtk, pAig );
+	}
+
+	if( pAbc->vLTLProperties_global != NULL )
+		ltlBuffer = pAbc->vLTLProperties_global;
+	else
+		ltlBuffer = NULL;
+
+	switch( directive )
+	{
+	case FULL_BIERE_MODE:
+			pAigNew = LivenessToSafetyTransformationWithLTL( FULL_BIERE_MODE, pNtk, pAig, vLive, vFair, vAssertSafety, vAssumeSafety, &numOfLtlPropOutput, ltlBuffer );
+			if( Aig_ManRegNum(pAigNew) != 0 )
+				printf("A new circuit is produced with\n\t%d POs - one for safety and %d for liveness.\n\tone additional input is added (due to Biere's nondeterminism)\n\tshadow flops are not created if the original circuit is combinational\n\tnon-property POs are suppressed\n", numOfLtlPropOutput+1, numOfLtlPropOutput);
+			break;
+		
+	case FULL_BIERE_ONE_LOOP_MODE:
+			pAigNew = LivenessToSafetyTransformationOneStepLoop( FULL_BIERE_ONE_LOOP_MODE, pNtk, pAig, vLive, vFair, vAssertSafety, vAssumeSafety );
+			if( Aig_ManRegNum(pAigNew) != 0 )
+				printf("A new circuit is produced with\n\t2 POs - one for safety and one for liveness.\n\tone additional input is added (due to Biere's nondeterminism)\n\tshadow flops are not created\n\tnon-property POs are suppressed\n");
+			break;
+		
+	case IGNORE_LIVENESS_KEEP_SAFETY_MODE:
+			pAigNew = LivenessToSafetyTransformationWithLTL( IGNORE_LIVENESS_KEEP_SAFETY_MODE, pNtk, pAig, vLive, vFair, vAssertSafety, vAssumeSafety, &numOfLtlPropOutput, ltlBuffer );
+			assert( numOfLtlPropOutput == 0 );
+			if( Aig_ManRegNum(pAigNew) != 0 )
+				printf("A new circuit is produced with\n\t1 PO - only for safety property; liveness properties are ignored, if any.\n\tno additional input is added (due to Biere's nondeterminism)\n\tshadow flops are not created\n\tnon-property POs are suppressed\n");
+			break;
+		
+	case IGNORE_SAFETY_KEEP_LIVENESS_MODE:
+			pAigNew = LivenessToSafetyTransformationWithLTL( IGNORE_SAFETY_KEEP_LIVENESS_MODE, pNtk, pAig, vLive, vFair, vAssertSafety, vAssumeSafety, &numOfLtlPropOutput, ltlBuffer );
+			if( Aig_ManRegNum(pAigNew) != 0 )
+				printf("A new circuit is produced with\n\t%d PO - only for liveness property; safety properties are ignored, if any.\n\tone additional input is added (due to Biere's nondeterminism)\n\tshadow flops are not created if the original circuit is combinational\n\tnon-property POs are suppressed\n", numOfLtlPropOutput);
+			break;
+		
+	case IGNORE_SAFETY_KEEP_LIVENESS_ONE_LOOP_MODE:
+			pAigNew = LivenessToSafetyTransformationOneStepLoop( IGNORE_SAFETY_KEEP_LIVENESS_ONE_LOOP_MODE, pNtk, pAig, vLive, vFair, vAssertSafety, vAssumeSafety );
+			if( Aig_ManRegNum(pAigNew) != 0 )
+				printf("New circuit is produced ignoring safety outputs!\nOnly liveness and fairness outputs are considered.\nShadow registers are not created\n");
+			break;
+	}
+
+#if 0
+	if( argc == 1 )
+	{
+		pAigNew = LivenessToSafetyTransformation( FULL_BIERE_MODE, pNtk, pAig, vLive, vFair, vAssertSafety, vAssumeSafety );
+		if( Aig_ManRegNum(pAigNew) != 0 )
+			printf("New circuit is produced considering all safety, liveness and fairness outputs.\nBiere's logic is created\n");
+	}
+	else 
+	{
+		Extra_UtilGetoptReset();
+		c = Extra_UtilGetopt( argc, argv, "1lsh" );
+		if( c == '1' )
+		{
+			if ( pNtk == NULL )
+			{
+				fprintf( pErr, "Empty network.\n" );
+				return 1;
+			}
+			if( !Abc_NtkIsStrash( pNtk ) )
+			{
+				printf("The input network was not strashed, strashing....\n");
+				pNtkTemp = Abc_NtkStrash( pNtk, 0, 0, 0 );
+				pNtkOld = pNtkTemp;
+				pAig = Abc_NtkToDar( pNtkTemp, 0, 1 );
+				vLive = populateLivenessVector( pNtk, pAig );
+				vFair = populateFairnessVector( pNtk, pAig );
+				vAssertSafety = populateSafetyAssertionVector( pNtk, pAig );
+				vAssumeSafety = populateSafetyAssumptionVector( pNtk, pAig );
+			}
+			else
+			{
+				pAig = Abc_NtkToDar( pNtk, 0, 1 );
+				pNtkOld = pNtk;
+				vLive = populateLivenessVector( pNtk, pAig );
+				vFair = populateFairnessVector( pNtk, pAig );
+				vAssertSafety = populateSafetyAssertionVector( pNtk, pAig );
+				vAssumeSafety = populateSafetyAssumptionVector( pNtk, pAig );
+			}
+			pAigNew = LivenessToSafetyTransformationOneStepLoop( pNtk, pAig, vLive, vFair, vAssertSafety, vAssumeSafety );
+		}
+		else if( c == 'l' )
+		{
+			if ( pNtk == NULL )
+			{
+				fprintf( pErr, "Empty network.\n" );
+				return 1;
+			}
+			if( !Abc_NtkIsStrash( pNtk ) )
+			{
+				printf("The input network was not strashed, strashing....\n");
+				pNtkTemp = Abc_NtkStrash( pNtk, 0, 0, 0 );
+				pNtkOld = pNtkTemp;
+				pAig = Abc_NtkToDar( pNtkTemp, 0, 1 );
+				vLive = populateLivenessVector( pNtk, pAig );
+				vFair = populateFairnessVector( pNtk, pAig );
+				vAssertSafety = populateSafetyAssertionVector( pNtk, pAig );
+				vAssumeSafety = populateSafetyAssumptionVector( pNtk, pAig );
+			}
+			else
+			{
+				pAig = Abc_NtkToDar( pNtk, 0, 1 );
+				pNtkOld = pNtk;
+				vLive = populateLivenessVector( pNtk, pAig );
+				vFair = populateFairnessVector( pNtk, pAig );
+				vAssertSafety = populateSafetyAssertionVector( pNtk, pAig );
+				vAssumeSafety = populateSafetyAssumptionVector( pNtk, pAig );
+			}
+			pAigNew = LivenessToSafetyTransformation( IGNORE_LIVENESS_KEEP_SAFETY_MODE, pNtk, pAig, vLive, vFair, vAssertSafety, vAssumeSafety );
+			if( Aig_ManRegNum(pAigNew) != 0 )
+				printf("New circuit is produced ignoring liveness outputs!\nOnly safety outputs are kept.\nBiere's logic is not created\n");
+		}
+		else if( c == 's' )
+		{
+			if ( pNtk == NULL )
+			{
+				fprintf( pErr, "Empty network.\n" );
+				return 1;
+			}
+			
+			if( !Abc_NtkIsStrash( pNtk ) )
+			{
+				printf("The input network was not strashed, strashing....\n");
+				pNtkTemp = Abc_NtkStrash( pNtk, 0, 0, 0 );
+				pNtkOld = pNtkTemp;
+				pAig = Abc_NtkToDar( pNtkTemp, 0, 1 );
+				vLive = populateLivenessVector( pNtk, pAig );
+				vFair = populateFairnessVector( pNtk, pAig );
+				vAssertSafety = populateSafetyAssertionVector( pNtk, pAig );
+				vAssumeSafety = populateSafetyAssumptionVector( pNtk, pAig );
+			}
+			else
+			{
+				pAig = Abc_NtkToDar( pNtk, 0, 1 );
+				pNtkOld = pNtk;
+				vLive = populateLivenessVector( pNtk, pAig );
+				vFair = populateFairnessVector( pNtk, pAig );
+				vAssertSafety = populateSafetyAssertionVector( pNtk, pAig );
+				vAssumeSafety = populateSafetyAssumptionVector( pNtk, pAig );
+			}
+			pAigNew = LivenessToSafetyTransformation( IGNORE_SAFETY_KEEP_LIVENESS_MODE, pNtk, pAig, vLive, vFair, vAssertSafety, vAssumeSafety );
+			if( Aig_ManRegNum(pAigNew) != 0 )
+				printf("New circuit is produced ignoring safety outputs!\nOnly liveness and fairness outputs are considered.\nBiere's logic is created\n");
+		}
+		else if( c == 'h' )
+			goto usage;
+		else
+			goto usage;
+	}
+#endif
+	
+#if 0
+	Aig_ManPrintStats( pAigNew );
+	printf("\nDetail statistics*************************************\n");
+	printf("Number of true primary inputs = %d\n", Saig_ManPiNum( pAigNew ));
+	printf("Number of true primary outputs = %d\n", Saig_ManPoNum( pAigNew ));
+	printf("Number of true latch outputs = %d\n", Saig_ManCiNum( pAigNew ) - Saig_ManPiNum( pAigNew ));
+	printf("Number of true latch inputs = %d\n", Saig_ManCoNum( pAigNew ) - Saig_ManPoNum( pAigNew ));
+	printf("Numer of registers = %d\n", Saig_ManRegNum( pAigNew ) );
+	printf("\n*******************************************************\n");
+#endif
+
+	pNtkNew = Abc_NtkFromAigPhase( pAigNew );
+	pNtkNew->pName = Aig_UtilStrsav( pAigNew->pName );
+	
+	if ( !Abc_NtkCheck( pNtkNew ) )
+        fprintf( stdout, "Abc_NtkCreateCone(): Network check has failed.\n" );
+	
+	//updateNewNetworkNameManager( pNtkNew, pAigNew, vecPiNames, vecLoNames );
+	Abc_FrameSetCurrentNetwork( pAbc, pNtkNew );
+
+#if 0
+#ifndef DUPLICATE_CKT_DEBUG
+	Saig_ManForEachPi( pAigNew, pObj, i )
+		assert( strcmp( (char *)Vec_PtrEntry(vecPiNames, i), retrieveTruePiName( pNtk, pAig, pAigNew, pObj ) ) == 0 );
+		//printf("Name of %d-th Pi = %s, %s\n", i, retrieveTruePiName( pNtk, pAig, pAigNew, pObj ), (char *)Vec_PtrEntry(vecPiNames, i) );
+
+	Saig_ManForEachLo( pAigNew, pObj, i )
+		assert( strcmp( (char *)Vec_PtrEntry(vecLoNames, i), retrieveLOName( pNtk, pAig, pAigNew, pObj, vLive, vFair ) ) == 0 );
+#endif	
+#endif
+		
+	return 0;
+
+usage:
+    fprintf( stdout, "usage: l2s [-1lsh]\n" );
+    fprintf( stdout, "\t         performs Armin Biere's live-to-safe transformation\n" );
+	fprintf( stdout, "\t-1 : no shadow logic, presume all loops are self loops\n");
+	fprintf( stdout, "\t-l : ignore liveness and fairness outputs\n");
+    fprintf( stdout, "\t-s : ignore safety assertions and assumptions\n");
+	fprintf( stdout, "\t-h : print command usage\n");
+    return 1;
+}
+
+
+ABC_NAMESPACE_IMPL_END

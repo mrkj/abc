@@ -20,6 +20,9 @@
 
 #include "gia.h"
 
+ABC_NAMESPACE_IMPL_START
+
+
 //#define gia_assert(exp)     ((void)0)
 //#define gia_assert(exp)     (assert(exp))
 
@@ -824,7 +827,7 @@ static inline void Tas_ManDeriveReason( Tas_Man_t * p, int Level )
         printf( "Tas_ManDeriveReason(): Failed to derive the clause!!!\n" );
     pQue->iTail = k;
     // clear the marks
-    Vec_PtrForEachEntry( p->vTemp, pObj, i )
+    Vec_PtrForEachEntry( Gia_Obj_t *, p->vTemp, pObj, i )
         pObj->fPhase = 0;
 }
 
@@ -1425,14 +1428,14 @@ int Tas_ManSolveArray( Tas_Man_t * p, Vec_Ptr_t * vObjs )
     s_Counter3 = 0;
     s_Counter4 = 0;
     Vec_IntClear( p->vModel );
-    Vec_PtrForEachEntry( vObjs, pObj, i )
+    Vec_PtrForEachEntry( Gia_Obj_t *, vObjs, pObj, i )
         if ( pObj == Gia_ManConst0(p->pAig) )
             return 1;
     assert( !p->pProp.iHead && !p->pProp.iTail );
     assert( !p->pJust.iHead && !p->pJust.iTail );
     assert( p->pClauses.iHead == 1 && p->pClauses.iTail == 1 );
     p->Pars.nBTThis = p->Pars.nJustThis = p->Pars.nBTThisNc = 0;
-    Vec_PtrForEachEntry( vObjs, pObj, i )
+    Vec_PtrForEachEntry( Gia_Obj_t *, vObjs, pObj, i )
         if ( pObj != Gia_ManConst1(p->pAig) && !Tas_VarIsAssigned(Gia_Regular(pObj)) )
             Tas_ManAssign( p, pObj, 0, NULL, NULL );
     if ( !Tas_ManSolve_rec(p, 0) && !Tas_ManCheckLimits(p) )
@@ -1641,16 +1644,16 @@ int Tas_StorePatternTry( Vec_Ptr_t * vInfo, Vec_Ptr_t * vPres, int iBit, int * p
     int i;
     for ( i = 0; i < nLits; i++ )
     {
-        pInfo = Vec_PtrEntry(vInfo, Gia_Lit2Var(pLits[i]));
-        pPres = Vec_PtrEntry(vPres, Gia_Lit2Var(pLits[i]));
+        pInfo = (unsigned *)Vec_PtrEntry(vInfo, Gia_Lit2Var(pLits[i]));
+        pPres = (unsigned *)Vec_PtrEntry(vPres, Gia_Lit2Var(pLits[i]));
         if ( Gia_InfoHasBit( pPres, iBit ) && 
              Gia_InfoHasBit( pInfo, iBit ) == Gia_LitIsCompl(pLits[i]) )
              return 0;
     }
     for ( i = 0; i < nLits; i++ )
     {
-        pInfo = Vec_PtrEntry(vInfo, Gia_Lit2Var(pLits[i]));
-        pPres = Vec_PtrEntry(vPres, Gia_Lit2Var(pLits[i]));
+        pInfo = (unsigned *)Vec_PtrEntry(vInfo, Gia_Lit2Var(pLits[i]));
+        pPres = (unsigned *)Vec_PtrEntry(vPres, Gia_Lit2Var(pLits[i]));
         Gia_InfoSetBit( pPres, iBit );
         if ( Gia_InfoHasBit( pInfo, iBit ) == Gia_LitIsCompl(pLits[i]) )
             Gia_InfoXorBit( pInfo, iBit );
@@ -1747,7 +1750,7 @@ void Tas_ManSolveMiterNc2( Gia_Man_t * pAig, int nConfs, Gia_Man_t * pAigOld, Ve
             p->nConfUnsat += p->Pars.nBTThis;
             p->timeSatUnsat += clock() - clk;
             // record proved
-            pOldRoot = Vec_PtrEntry( vOldRoots, i );
+            pOldRoot = (Gia_Obj_t *)Vec_PtrEntry( vOldRoots, i );
             assert( !Gia_ObjProved( pAigOld, Gia_ObjId(pAigOld, pOldRoot) ) );
             Gia_ObjSetProved( pAigOld, Gia_ObjId(pAigOld, pOldRoot) );
 
@@ -1780,4 +1783,6 @@ void Tas_ManSolveMiterNc2( Gia_Man_t * pAig, int nConfs, Gia_Man_t * pAigOld, Ve
 ///                       END OF FILE                                ///
 ////////////////////////////////////////////////////////////////////////
 
+
+ABC_NAMESPACE_IMPL_END
 

@@ -27,6 +27,9 @@
 #include "bzlib.h"
 #include "zlib.h"
 
+ABC_NAMESPACE_IMPL_START
+
+
 #ifdef _WIN32
 #define vsnprintf _vsnprintf
 #endif
@@ -689,4 +692,6 @@ void Ntl_ManWriteBlif( Ntl_Man_t * p, char * pFileName )
 ///                       END OF FILE                                ///
 ////////////////////////////////////////////////////////////////////////
 
+
+ABC_NAMESPACE_IMPL_END
 

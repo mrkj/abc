@@ -21,6 +21,9 @@
 #include "gia.h"
 #include "if.h"
 
+ABC_NAMESPACE_IMPL_START
+
+
 ////////////////////////////////////////////////////////////////////////
 ///                        DECLARATIONS                              ///
 ////////////////////////////////////////////////////////////////////////
@@ -106,7 +109,7 @@ int Gia_LutWhereIsPin( Gia_Man_t * p, int iFanout, int iFanin, int * pPinPerm )
 ***********************************************************************/
 float Gia_ObjComputeArrival( Gia_Man_t * p, int iObj, int fUseSorting )
 {
-    If_Lib_t * pLutLib = p->pLutLib;
+    If_Lib_t * pLutLib = (If_Lib_t *)p->pLutLib;
     Gia_Obj_t * pObj = Gia_ManObj( p, iObj );
     int k, iFanin, pPinPerm[32];
     float pPinDelays[32];
@@ -166,7 +169,7 @@ float Gia_ObjComputeArrival( Gia_Man_t * p, int iObj, int fUseSorting )
 ***********************************************************************/
 float Gia_ObjPropagateRequired( Gia_Man_t * p, int iObj, int fUseSorting )
 {
-    If_Lib_t * pLutLib = p->pLutLib;
+    If_Lib_t * pLutLib = (If_Lib_t *)p->pLutLib;
     int k, iFanin, pPinPerm[32];
     float pPinDelays[32];
     float tRequired = 0.0; // Suppress "might be used uninitialized"
@@ -227,7 +230,7 @@ float Gia_ObjPropagateRequired( Gia_Man_t * p, int iObj, int fUseSorting )
 float Gia_ManDelayTraceLut( Gia_Man_t * p )
 {
     int fUseSorting = 1;
-    If_Lib_t * pLutLib = p->pLutLib;
+    If_Lib_t * pLutLib = (If_Lib_t *)p->pLutLib;
     Vec_Int_t * vObjs;
     Gia_Obj_t * pObj;
     float tArrival, tArrivalCur, tRequired, tSlack;
@@ -246,7 +249,7 @@ float Gia_ManDelayTraceLut( Gia_Man_t * p )
 
     // propagate arrival times
     if ( p->pManTime )
-        Tim_ManIncrementTravId( p->pManTime );
+        Tim_ManIncrementTravId( (Tim_Man_t *)p->pManTime );
     Gia_ManForEachObj( p, pObj, i )
     {
         if ( !Gia_ObjIsCi(pObj) && !Gia_ObjIsCo(pObj) && !Gia_ObjIsLut(p, i) )
@@ -254,11 +257,11 @@ float Gia_ManDelayTraceLut( Gia_Man_t * p )
         tArrival = Gia_ObjComputeArrival( p, i, fUseSorting );
         if ( Gia_ObjIsCi(pObj) && p->pManTime )
         {
-            tArrival = Tim_ManGetCiArrival( p->pManTime, Gia_ObjCioId(pObj) );
+            tArrival = Tim_ManGetCiArrival( (Tim_Man_t *)p->pManTime, Gia_ObjCioId(pObj) );
 //printf( "%.3f  ", tArrival );
         }
         if ( Gia_ObjIsCo(pObj) && p->pManTime )
-            Tim_ManSetCoArrival( p->pManTime, Gia_ObjCioId(pObj), tArrival );
+            Tim_ManSetCoArrival( (Tim_Man_t *)p->pManTime, Gia_ObjCioId(pObj), tArrival );
         Gia_ObjSetTimeArrival( p, i, tArrival );
     }
 
@@ -275,8 +278,8 @@ float Gia_ManDelayTraceLut( Gia_Man_t * p )
     // initialize the required times
     if ( p->pManTime )
     {
-        Tim_ManIncrementTravId( p->pManTime );
-        Tim_ManSetCoRequiredAll( p->pManTime, tArrival );
+        Tim_ManIncrementTravId( (Tim_Man_t *)p->pManTime );
+        Tim_ManSetCoRequiredAll( (Tim_Man_t *)p->pManTime, tArrival );
     }
     else
     {
@@ -301,13 +304,13 @@ float Gia_ManDelayTraceLut( Gia_Man_t * p )
         else if ( Gia_ObjIsCi(pObj) )
         {
             if ( p->pManTime )
-                Tim_ManSetCiRequired( p->pManTime, Gia_ObjCioId(pObj), Gia_ObjTimeRequired(p, iObj) );
+                Tim_ManSetCiRequired( (Tim_Man_t *)p->pManTime, Gia_ObjCioId(pObj), Gia_ObjTimeRequired(p, iObj) );
         }
         else if ( Gia_ObjIsCo(pObj) )
         {
             if ( p->pManTime )
             {
-                tRequired = Tim_ManGetCoRequired( p->pManTime, Gia_ObjCioId(pObj) );
+                tRequired = Tim_ManGetCoRequired( (Tim_Man_t *)p->pManTime, Gia_ObjCioId(pObj) );
                 Gia_ObjSetTimeRequired( p, iObj, tRequired );
             }
             if ( Gia_ObjTimeRequired(p, Gia_ObjFaninId0p(p, pObj)) > Gia_ObjTimeRequired(p, iObj) )
@@ -444,7 +447,7 @@ int Gia_LutVerifyTiming(  Gia_Man_t * p )
 ***********************************************************************/
 float Gia_ManDelayTraceLutPrint( Gia_Man_t * p, int fVerbose )
 {
-    If_Lib_t * pLutLib = p->pLutLib;
+    If_Lib_t * pLutLib = (If_Lib_t *)p->pLutLib;
     int i, Nodes, * pCounters;
     float tArrival, tDelta, nSteps, Num;
     // get the library
@@ -502,7 +505,7 @@ float Gia_ManDelayTraceLutPrint( Gia_Man_t * p, int fVerbose )
 ***********************************************************************/
 unsigned Gia_LutDelayTraceTCEdges( Gia_Man_t * p, int iObj, float tDelta )
 {
-    If_Lib_t * pLutLib = p->pLutLib;
+    If_Lib_t * pLutLib = (If_Lib_t *)p->pLutLib;
     int pPinPerm[32];
     float pPinDelays[32];
     float tRequired, * pDelays;
@@ -641,7 +644,7 @@ Gia_Man_t * Gia_ManSpeedup( Gia_Man_t * p, int Percentage, int Degree, int fVerb
     if ( !fUseLutLib && p->pManTime )
     {
         pTempTim = p->pManTime;
-        p->pManTime = Tim_ManDup( pTempTim, 1 );
+        p->pManTime = Tim_ManDup( (Tim_Man_t *)pTempTim, 1 );
     }
     // perform delay trace
     tArrival = Gia_ManDelayTraceLut( p );
@@ -783,7 +786,7 @@ Gia_Man_t * Gia_ManSpeedup( Gia_Man_t * p, int Percentage, int Degree, int fVerb
         Gia_ManLutNum(p), Counter, CounterRes, Counter? 1.0*CounterRes/Counter : 0.0 ); 
     if ( pTempTim )
     {
-        Tim_ManStop( p->pManTime );
+        Tim_ManStop( (Tim_Man_t *)p->pManTime );
         p->pManTime = pTempTim;
     }
     // derive AIG with choices
@@ -802,4 +805,6 @@ Gia_Man_t * Gia_ManSpeedup( Gia_Man_t * p, int Percentage, int Degree, int fVerb
 ///                       END OF FILE                                ///
 ////////////////////////////////////////////////////////////////////////
 
+
+ABC_NAMESPACE_IMPL_END
 

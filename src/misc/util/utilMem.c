@@ -23,18 +23,14 @@
 #include <stdlib.h>
 #include <assert.h>
 
+#include "abc_global.h"
+
+ABC_NAMESPACE_IMPL_START
+
 ////////////////////////////////////////////////////////////////////////
 ///                        DECLARATIONS                              ///
 ////////////////////////////////////////////////////////////////////////
  
-#ifdef _WIN32
-#define inline __inline // compatible with MS VS 6.0
-#pragma warning(disable : 4152) // warning C4152: nonstandard extension, function/data pointer conversion in expression
-#pragma warning(disable : 4244) // warning C4244: '+=' : conversion from 'int ' to 'unsigned short ', possible loss of data
-#pragma warning(disable : 4514) // warning C4514: 'Vec_StrPop' : unreferenced inline function has been removed
-#pragma warning(disable : 4710) // warning C4710: function 'Vec_PtrGrow' not inlined
-//#pragma warning( disable : 4273 )
-#endif
 
 typedef struct Vec_Mem_t_       Vec_Mem_t;
 struct Vec_Mem_t_ 
@@ -176,7 +172,7 @@ static void Vec_MemSort( Vec_Mem_t * p, int (*Vec_MemSortCompare)() )
 void * Util_MemRecAlloc( void * pMem )
 {
     if ( s_vAllocs )
-        Vec_MemPush( s_vAllocs, pMem );
+        Vec_MemPush( (Vec_Mem_t *)s_vAllocs, pMem );
     return pMem;
 }
 
@@ -194,7 +190,7 @@ void * Util_MemRecAlloc( void * pMem )
 void * Util_MemRecFree( void * pMem )
 {
     if ( s_vFrees )
-        Vec_MemPush( s_vFrees, pMem );
+        Vec_MemPush( (Vec_Mem_t *)s_vFrees, pMem );
     return pMem;
 }
 
@@ -278,9 +274,9 @@ void Util_MemRecRecycle()
     Vec_Mem_t * vMerge;
     assert( s_vAllocs == NULL );
     assert( s_vFrees == NULL );
-    Vec_MemSort( s_vAllocs, Util_ComparePointers );
-    Vec_MemSort( s_vFrees, Util_ComparePointers );
-    vMerge = Vec_MemTwoMerge( s_vAllocs, s_vFrees );
+    Vec_MemSort( (Vec_Mem_t *)s_vAllocs, (int (*)())Util_ComparePointers );
+    Vec_MemSort( (Vec_Mem_t *)s_vFrees, (int (*)())Util_ComparePointers );
+    vMerge = (Vec_Mem_t *)Vec_MemTwoMerge( (Vec_Mem_t *)s_vAllocs, (Vec_Mem_t *)s_vFrees );
     Vec_MemFree( vMerge );
 }
 
@@ -316,8 +312,8 @@ void Util_MemRecStart()
 void Util_MemRecQuit()
 {
     assert( s_vAllocs != NULL && s_vFrees != NULL );
-    Vec_MemFree( s_vAllocs );
-    Vec_MemFree( s_vFrees );
+    Vec_MemFree( (Vec_Mem_t *)s_vAllocs );
+    Vec_MemFree( (Vec_Mem_t *)s_vFrees );
 }
 
 /**Function*************************************************************
@@ -340,4 +336,6 @@ int Util_MemRecIsSet()
 ///                       END OF FILE                                ///
 ////////////////////////////////////////////////////////////////////////
 
+
+ABC_NAMESPACE_IMPL_END
 

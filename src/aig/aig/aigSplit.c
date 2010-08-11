@@ -23,6 +23,9 @@
 #include "cuddInt.h"
 #include "extra.h"
 
+ABC_NAMESPACE_IMPL_START
+
+
 ////////////////////////////////////////////////////////////////////////
 ///                        DECLARATIONS                              ///
 ////////////////////////////////////////////////////////////////////////
@@ -92,7 +95,7 @@ Aig_Man_t * Aig_ManConvertBddsToAigs( Aig_Man_t * p, DdManager * dd, Vec_Ptr_t *
     Aig_ManForEachPi( p, pObj, i )
         st_insert( tBdd2Node, (char *)Cudd_bddIthVar(dd, i), (char *)pObj->pData );
     // build primary outputs for the cofactors
-    Vec_PtrForEachEntry( vCofs, bFunc, i )
+    Vec_PtrForEachEntry( DdNode *, vCofs, bFunc, i )
     {
         if ( bFunc == Cudd_ReadLogicZero(dd) )
             continue;
@@ -134,14 +137,14 @@ DdNode * Aig_ManBuildPoBdd_rec( Aig_Man_t * p, Aig_Obj_t * pObj, DdManager * dd 
 {
     DdNode * bBdd0, * bBdd1;
     if ( pObj->pData != NULL )
-        return pObj->pData;
+        return (DdNode *)pObj->pData;
     assert( Aig_ObjIsNode(pObj) );
     bBdd0 = Aig_ManBuildPoBdd_rec( p, Aig_ObjFanin0(pObj), dd ); 
     bBdd1 = Aig_ManBuildPoBdd_rec( p, Aig_ObjFanin1(pObj), dd ); 
     bBdd0 = Cudd_NotCond( bBdd0, Aig_ObjFaninC0(pObj) );
     bBdd1 = Cudd_NotCond( bBdd1, Aig_ObjFaninC1(pObj) );
-    pObj->pData = Cudd_bddAnd( dd, bBdd0, bBdd1 );  Cudd_Ref( pObj->pData );
-    return pObj->pData;
+    pObj->pData = Cudd_bddAnd( dd, bBdd0, bBdd1 );  Cudd_Ref( (DdNode *)pObj->pData );
+    return (DdNode *)pObj->pData;
 }
 
 /**Function*************************************************************
@@ -195,10 +198,10 @@ DdManager * Aig_ManBuildPoBdd( Aig_Man_t * p, DdNode ** pbFunc )
     dd = Cudd_Init( Aig_ManPiNum(p), 0, CUDD_UNIQUE_SLOTS, CUDD_CACHE_SLOTS, 0 );
     Cudd_AutodynEnable( dd,  CUDD_REORDER_SYMM_SIFT );
     pObj = Aig_ManConst1(p);
-    pObj->pData = Cudd_ReadOne(dd);  Cudd_Ref( pObj->pData );
+    pObj->pData = Cudd_ReadOne(dd);  Cudd_Ref( (DdNode *)pObj->pData );
     Aig_ManForEachPi( p, pObj, i )
     {
-        pObj->pData = Cudd_bddIthVar(dd, i);  Cudd_Ref( pObj->pData );
+        pObj->pData = Cudd_bddIthVar(dd, i);  Cudd_Ref( (DdNode *)pObj->pData );
     }
     pObj = Aig_ManPo( p, 0 );
     *pbFunc = Aig_ManBuildPoBdd_rec( p, Aig_ObjFanin0(pObj), dd );  Cudd_Ref( *pbFunc );
@@ -206,7 +209,7 @@ DdManager * Aig_ManBuildPoBdd( Aig_Man_t * p, DdNode ** pbFunc )
     Aig_ManForEachObj( p, pObj, i )
     {
         if ( pObj->pData )
-            Cudd_RecursiveDeref( dd, pObj->pData );
+            Cudd_RecursiveDeref( dd, (DdNode *)pObj->pData );
     }
     Cudd_ReduceHeap( dd,  CUDD_REORDER_SYMM_SIFT, 1 );
     return dd;
@@ -284,7 +287,7 @@ Aig_Man_t * Aig_ManSplit( Aig_Man_t * p, int nVars, int fVerbose )
         printf( "Support =%5d.  BDD size =%6d.  ", Vec_PtrSize(vSupp), Cudd_DagSize(bFunc) );
     vSubs = Aig_ManVecRandSubset( vSupp, nVars );
     // replace nodes by their BDD variables
-    Vec_PtrForEachEntry( vSubs, pNode, i )
+    Vec_PtrForEachEntry( Aig_Obj_t *, vSubs, pNode, i )
         Vec_PtrWriteEntry( vSubs, i, pNode->pData );
     // derive cofactors and functions
     vCofs = Aig_ManCofactorBdds( p, vSubs, dd, bFunc );
@@ -297,7 +300,7 @@ Aig_Man_t * Aig_ManSplit( Aig_Man_t * p, int nVars, int fVerbose )
         Abc_PrintTime( 1, "Time", clock() - clk );
     // dereference
     Cudd_RecursiveDeref( dd, bFunc );
-    Vec_PtrForEachEntry( vCofs, bFunc, i )
+    Vec_PtrForEachEntry( DdNode *, vCofs, bFunc, i )
         Cudd_RecursiveDeref( dd, bFunc );
     Vec_PtrFree( vCofs );
     Extra_StopManager( dd );
@@ -308,4 +311,6 @@ Aig_Man_t * Aig_ManSplit( Aig_Man_t * p, int nVars, int fVerbose )
 ///                       END OF FILE                                ///
 ////////////////////////////////////////////////////////////////////////
 
+
+ABC_NAMESPACE_IMPL_END
 

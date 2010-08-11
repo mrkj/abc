@@ -53,6 +53,9 @@
 #include "util_hack.h"
 #include "cuddInt.h"
 
+ABC_NAMESPACE_IMPL_START
+
+
 /*---------------------------------------------------------------------------*/
 /* Constant declarations                                                     */
 /*---------------------------------------------------------------------------*/
@@ -493,7 +496,7 @@ hashResize(
 #endif
     int shift;
     int oldNumBuckets = queue->numBuckets;
-    extern void (*MMoutOfMemory)(long);
+//    extern void (*MMoutOfMemory)(long);
     void (*saveHandler)(long);
 
     /* Compute the new size of the subtable. */
@@ -531,3 +534,5 @@ hashResize(
     return(1);
 
 } /* end of hashResize */
+ABC_NAMESPACE_IMPL_END
+

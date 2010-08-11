@@ -21,6 +21,7 @@
 #ifndef __IF_H__
 #define __IF_H__
 
+
 ////////////////////////////////////////////////////////////////////////
 ///                          INCLUDES                                ///
 ////////////////////////////////////////////////////////////////////////
@@ -34,9 +35,10 @@
 #include "mem.h"
 #include "tim.h"
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+
+
+ABC_NAMESPACE_HEADER_START
+
 
 ////////////////////////////////////////////////////////////////////////
 ///                         PARAMETERS                               ///
@@ -51,8 +53,8 @@ extern "C" {
 // the largest possible user cut cost
 #define IF_COST_MAX          ((1<<14)-1)
 //#define IF_USE_BAT
-#define IF_USE_NAL 
-#define IF_USE_LXP 
+//#define IF_USE_NAL 
+//#define IF_USE_LXP 
 
 // object types
 typedef enum { 
@@ -331,27 +333,27 @@ static inline void       If_AndClear( If_And_t * pNode )                     { *
 
 // iterator over the primary inputs
 #define If_ManForEachCi( p, pObj, i )                                          \
-    Vec_PtrForEachEntry( p->vCis, pObj, i )
+    Vec_PtrForEachEntry( If_Obj_t *, p->vCis, pObj, i )
 // iterator over the primary outputs
 #define If_ManForEachCo( p, pObj, i )                                          \
-    Vec_PtrForEachEntry( p->vCos, pObj, i )
+    Vec_PtrForEachEntry( If_Obj_t *, p->vCos, pObj, i )
 // iterator over the primary inputs
 #define If_ManForEachPi( p, pObj, i )                                          \
-    Vec_PtrForEachEntryStop( p->vCis, pObj, i, If_ManCiNum(p) - p->pPars->nLatches )
+    Vec_PtrForEachEntryStop( If_Obj_t *, p->vCis, pObj, i, If_ManCiNum(p) - p->pPars->nLatches )
 // iterator over the primary outputs
 #define If_ManForEachPo( p, pObj, i )                                          \
-    Vec_PtrForEachEntryStop( p->vCos, pObj, i, If_ManCoNum(p) - p->pPars->nLatches )
+    Vec_PtrForEachEntryStop( If_Obj_t *, p->vCos, pObj, i, If_ManCoNum(p) - p->pPars->nLatches )
 // iterator over the latches 
 #define If_ManForEachLatchInput( p, pObj, i )                                  \
-    Vec_PtrForEachEntryStart( p->vCos, pObj, i, If_ManCoNum(p) - p->pPars->nLatches )
+    Vec_PtrForEachEntryStart( If_Obj_t *, p->vCos, pObj, i, If_ManCoNum(p) - p->pPars->nLatches )
 #define If_ManForEachLatchOutput( p, pObj, i )                                 \
-    Vec_PtrForEachEntryStart( p->vCis, pObj, i, If_ManCiNum(p) - p->pPars->nLatches )
+    Vec_PtrForEachEntryStart( If_Obj_t *, p->vCis, pObj, i, If_ManCiNum(p) - p->pPars->nLatches )
 // iterator over all objects in topological order
 #define If_ManForEachObj( p, pObj, i )                                         \
-    Vec_PtrForEachEntry( p->vObjs, pObj, i )
+    Vec_PtrForEachEntry( If_Obj_t *, p->vObjs, pObj, i )
 // iterator over all objects in reverse topological order
 #define If_ManForEachObjReverse( p, pObj, i )                                  \
-    Vec_PtrForEachEntry( p->vObjsRev, pObj, i )
+    Vec_PtrForEachEntry( If_Obj_t *, p->vObjsRev, pObj, i )
 // iterator over logic nodes 
 #define If_ManForEachNode( p, pObj, i )                                        \
     If_ManForEachObj( p, pObj, i ) if ( pObj->Type != IF_AND ) {} else
@@ -462,14 +464,12 @@ extern void            If_ManMarkMapping( If_Man_t * p );
 extern Vec_Ptr_t *     If_ManCollectMappingDirect( If_Man_t * p );
 extern Vec_Int_t *     If_ManCollectMappingInt( If_Man_t * p );
 
-
 extern int             If_ManCountSpecialPos( If_Man_t * p );
 
+// othe packages
+extern int Bat_ManCellFuncLookup( unsigned * pTruth, int nVars, int nLeaves );
 
-
-#ifdef __cplusplus
-}
-#endif
+ABC_NAMESPACE_HEADER_END
 
 #endif
 

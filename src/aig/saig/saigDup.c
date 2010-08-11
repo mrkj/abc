@@ -20,6 +20,9 @@
 
 #include "saig.h"
 
+ABC_NAMESPACE_IMPL_START
+
+
 ////////////////////////////////////////////////////////////////////////
 ///                        DECLARATIONS                              ///
 ////////////////////////////////////////////////////////////////////////
@@ -88,10 +91,10 @@ Aig_Man_t * Said_ManDupOrpos( Aig_Man_t * pAig )
 Aig_Obj_t * Saig_ManAbstractionDfs_rec( Aig_Man_t * pNew, Aig_Obj_t * pObj )
 {
     if ( pObj->pData )
-        return pObj->pData;
+        return (Aig_Obj_t *)pObj->pData;
     Saig_ManAbstractionDfs_rec( pNew, Aig_ObjFanin0(pObj) );
     Saig_ManAbstractionDfs_rec( pNew, Aig_ObjFanin1(pObj) );
-    return pObj->pData = Aig_And( pNew, Aig_ObjChild0Copy(pObj), Aig_ObjChild1Copy(pObj) );
+    return (Aig_Obj_t *)(pObj->pData = Aig_And( pNew, Aig_ObjChild0Copy(pObj), Aig_ObjChild1Copy(pObj) ));
 }
 
 /**Function*************************************************************
@@ -216,4 +219,6 @@ Aig_Man_t * Saig_ManDeriveAbstraction( Aig_Man_t * p, Vec_Int_t * vFlops )
 ///                       END OF FILE                                ///
 ////////////////////////////////////////////////////////////////////////
 
+
+ABC_NAMESPACE_IMPL_END
 
